@@ -12,6 +12,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Murmur" />
   <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%20%22Murmur%22%2C%20%22short_name%22%3A%20%22Murmur%22%2C%20%22display%22%3A%20%22standalone%22%2C%20%22background_color%22%3A%20%22%23eef3f8%22%2C%20%22theme_color%22%3A%20%22%2314c8a0%22%7D" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%2314c8a0'/%3E%3Cpath d='M14 44V20h7v4c2-3 5-5 9-5 5 0 8 2 10 6 2-4 6-6 11-6v25h-7V29c0-3-2-5-5-5s-5 2-5 5v15h-7V29c0-3-2-5-5-5s-5 2-5 5v15z' fill='white'/%3E%3C/svg%3E" />
+  <link rel="canonical" href="https://murmurrr.vercel.app/" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -89,8 +91,8 @@
         <div id="announceBox"></div>
         <div id="storiesRow" class="stories"></div>
         <div class="composer">
-          <div class="avatar" id="composerAvatar">MC</div>
-          <input id="postInput" type="text" maxlength="200" placeholder="What’s on your mind?" readonly />
+          <div class="avatar" id="composerAvatar" aria-label="Your profile" role="img">MC</div>
+          <input id="postInput" type="text" maxlength="200" placeholder="What’s on your mind?" aria-label="Create a post" readonly />
           <button class="btn primary" id="postBtn" type="button" hidden>Post</button>
         </div>
         <button class="btn ghost small" id="savedPostsOpen" type="button">★ Saved posts</button><div class="posts" id="posts"></div>
@@ -118,7 +120,7 @@
           <div class="fr-block" id="findBlock" hidden>
             <h2 class="fr-title">Find people</h2>
             <div class="fr-search">
-              <input id="friendSearch" type="text" placeholder="Search by username, e.g. @jian123" maxlength="30" />
+              <input id="friendSearch" type="text" placeholder="Search by username, e.g. @jian123" aria-label="Search people by username" maxlength="30" />
               <button class="fr-btn blue" id="friendSearchBtn" type="button">Search</button>
             </div>
           </div>
@@ -144,7 +146,7 @@
         <div class="chat-layout">
           <aside class="sidebar">
             <div class="sidebar-header">Chats</div>
-            <div class="search"><input id="chatSearch" type="text" placeholder="Search people" /></div>
+            <div class="search"><input id="chatSearch" type="text" placeholder="Search people" aria-label="Search chats" /></div>
             <div id="noteRow" class="note-row"></div>
             <div id="activeRow" class="active-row" hidden></div>
             <div id="chatList" class="chat-list"></div>
@@ -164,7 +166,7 @@
             </div>
             <div class="messages" id="messages"></div>
             <div class="composer-chat">
-              <input id="messageInput" type="text" placeholder="Type a message…" maxlength="300" autocomplete="off" enterkeyhint="send" />
+              <input id="messageInput" type="text" placeholder="Type a message…" aria-label="Write a message" maxlength="300" autocomplete="off" enterkeyhint="send" />
               <button class="btn ghost" id="voiceBtn" type="button" aria-label="Record voice message" title="Record voice message"><svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg></button><button class="btn primary" id="sendBtn" type="button" aria-label="Send message"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 20.4l17.4-8.1a.5.5 0 0 0 0-.9L3.4 3.3a.5.5 0 0 0-.7.6L4.9 11l9 1-9 1-2.2 7.1a.5.5 0 0 0 .7.6z"/></svg></button>
             </div>
           </div>
