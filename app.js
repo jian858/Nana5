@@ -2030,7 +2030,8 @@ function pauseReels() { document.querySelectorAll('#reelsFeed video').forEach(v 
 function reelHtml(r) {
   const me = meUid(), likes = r.likes || {}, own = r.authorUid === me;
   const follow = !own && !friendDocs.some(d => d.uid === r.authorUid) ? `<button type="button" class="reel-follow" data-rfollow>Add friend</button>` : '';
-  const cap = r.caption ? `<p class="reel-cap" data-rcap>${esc(r.caption)}</p>${r.caption.length > 60 ? '<button type="button" class="reel-more" data-rmore>more</button>' : ''}` : '';
+  const capText = [r.caption || '', r.hashtags || ''].filter(Boolean).join(' ');
+  const cap = (r.title || capText) ? `<div class="reel-caption-block">${r.title ? `<strong class="reel-title">${esc(r.title)}</strong>` : ''}${capText ? `<p class="reel-cap" data-rcap>${esc(capText)}</p>${capText.length > 60 ? '<button type="button" class="reel-more" data-rmore>more</button>' : ''}` : ''}</div>` : '';
   return `<article class="reel paused" data-rid="${esc(r.id)}">
     <video src="${esc(r.url)}" playsinline loop ${reelMuted ? 'muted' : ''} preload="metadata"></video>
     <button type="button" class="reel-tap" data-rtap aria-label="Play or pause"><span class="reel-play">${ic('play')}</span></button>
@@ -2094,7 +2095,7 @@ async function deleteReel(r) {
 }
 document.getElementById('reelsFeed').addEventListener('click', e => {
   const t = e.target, el = t.closest('.reel'), r = el && reels.find(x => x.id === el.dataset.rid), me = meUid();
-  if (t.closest('[data-rcreate]')) return openReelCreate();
+  if (t.closest('[data-rcreate]')) return openReelCreate(null, true);
   if (!el || !r) return;
   const v = el.querySelector('video');
   if (t.closest('[data-rtap]')) { if (v.paused) v.play().catch(() => {}); else v.pause(); }
@@ -2118,7 +2119,7 @@ document.getElementById('reelsFeed').addEventListener('click', e => {
     else { reelDelArm = ''; deleteReel(r); }
   }
 });
-document.getElementById('reelCreateBtn').addEventListener('click', () => openReelCreate());
+document.getElementById('reelCreateBtn').addEventListener('click', () => openReelCreate(null, true));
 
 async function openReelComments(r) {
   if (document.querySelector('.reel-sheet')) return;
@@ -2147,7 +2148,7 @@ async function openReelComments(r) {
   };
 }
 
-function openReelCreate(initialFile) {
+function openReelCreate(initialFile, openGallery = false) {
   if (!meUid() || document.querySelector('.reel-create')) return;
   const el = document.createElement('div');
   el.className = 'screen-legal np-screen reel-create';
@@ -2155,12 +2156,14 @@ function openReelCreate(initialFile) {
     <div class="np-body">
       <label class="reel-pick"><input type="file" accept="video/*" hidden />${ic('video', 'var(--acc-strong)')}<span data-rpick>Choose a video</span></label>
       <video class="reel-preview" controls playsinline hidden></video>
-      <input class="reel-link" type="url" placeholder="…or paste a video link (https://…mp4)" aria-label="Video link" />
-      <textarea class="np-text" maxlength="150" placeholder="Write a caption…" aria-label="Caption" style="min-height:96px"></textarea>
+      <input class="reel-title-input" type="text" maxlength="80" placeholder="Add a title (optional)" aria-label="Reel title" />
+      <textarea class="np-text" maxlength="500" placeholder="Write your caption…" aria-label="Caption" style="min-height:96px"></textarea>
+      <input class="reel-hashtags" type="text" maxlength="200" placeholder="Add hashtags (example: #Murmur #Friends)" aria-label="Hashtags" />
+      <input class="reel-link" type="url" placeholder="Or paste a video link (https://…mp4)" aria-label="Video link" />
       <div class="reel-prog" hidden><i></i></div><p class="reel-msg" role="alert"></p>
       <button class="btn primary np-submit" type="button" data-rpost disabled>SHARE REEL</button></div>`;
   document.body.appendChild(el);
-  const fileIn = el.querySelector('input[type=file]'), prev = el.querySelector('.reel-preview'), link = el.querySelector('.reel-link'), cap = el.querySelector('textarea');
+  const fileIn = el.querySelector('input[type=file]'), prev = el.querySelector('.reel-preview'), link = el.querySelector('.reel-link'), cap = el.querySelector('textarea'), titleIn = el.querySelector('.reel-title-input'), tagsIn = el.querySelector('.reel-hashtags');
   const prog = el.querySelector('.reel-prog'), msg = el.querySelector('.reel-msg'), btns = [...el.querySelectorAll('[data-rpost]')], close = () => el.remove();
   let file = null, dur = 0;
   const sync = () => btns.forEach(b => { b.disabled = !(file || /^https:\/\/\S+$/i.test(link.value.trim())); });
@@ -2186,7 +2189,8 @@ function openReelCreate(initialFile) {
         await new Promise((ok, bad) => task.on('state_changed', s => { prog.hidden = false; prog.firstElementChild.style.width = (s.bytesTransferred / s.totalBytes * 100) + '%'; }, bad, ok));
         url = await getDownloadURL(task.snapshot.ref);
       } else url = link.value.trim();
-      await push(ref(db, 'reels'), { authorUid: meUid(), authorName: state.currentUser?.name || 'Someone', username: state.currentUser?.username || '', url, path, caption: cleanText(cap.value, 150), duration: dur, createdAt: serverTimestamp() });
+      const hashtags = cleanText(tagsIn.value, 200).split(/\\s+/).filter(Boolean).map(tag => tag.startsWith('#') ? tag : '#' + tag.replace(/^#+/, '')).join(' ');
+      await push(ref(db, 'reels'), { authorUid: meUid(), authorName: state.currentUser?.name || 'Someone', username: state.currentUser?.username || '', url, path, title: cleanText(titleIn.value, 80), caption: cleanText(cap.value, 500), hashtags, duration: dur, createdAt: serverTimestamp() });
       showToast('Reel shared.'); close(); setView('reels');
     } catch (err) {
       msg.textContent = /storage|unauthor|bucket|object-not-found|retry-limit/i.test((err.code || '') + ' ' + (err.message || '')) ? 'Uploading is not turned on yet (Firebase Storage). Paste a video link instead.' : friendlyError(err, 'Could not share your reel.');
@@ -2194,7 +2198,8 @@ function openReelCreate(initialFile) {
     }
   }; });
   if (initialFile) chooseFile(initialFile);
-  setTimeout(() => el.querySelector('.reel-pick').focus({ preventScroll: true }), 60);
+  else if (openGallery) setTimeout(() => fileIn.click(), 120);
+  setTimeout(() => { if (!openGallery) el.querySelector('.reel-pick').focus({ preventScroll: true }); }, 60);
 }
 
 /* ---------- Dark mode ---------- */
