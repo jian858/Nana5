@@ -2360,11 +2360,23 @@ const menuSearchables = Array.from(document.querySelectorAll(
 function filterMenuItems(value) {
   const query = String(value || '').trim().toLocaleLowerCase();
   menuSearchables.forEach(item => {
+    if (item.classList.contains('menu-accordion-content')) return;
     const match = !query || item.textContent.toLocaleLowerCase().includes(query);
     item.hidden = !match;
-    if (item.classList.contains('menu-accordion-toggle') && query && match) {
-      const content = item.nextElementSibling;
-      if (content?.classList.contains('menu-accordion-content')) content.hidden = false;
+  });
+  document.querySelectorAll('.menu-accordion-content').forEach(content => {
+    const rows = Array.from(content.querySelectorAll('.menu-row'));
+    const hasMatchingRow = query && rows.some(row => !row.hidden);
+    const heading = content.previousElementSibling;
+    if (query && hasMatchingRow) {
+      content.hidden = false;
+      if (heading) heading.hidden = false;
+    } else if (query) {
+      content.hidden = true;
+    } else {
+      const expanded = heading?.getAttribute('aria-expanded') === 'true';
+      content.hidden = !expanded;
+      if (heading) heading.hidden = false;
     }
   });
   document.querySelector('.murmur-menu-grid')?.classList.toggle('menu-searching', Boolean(query));
