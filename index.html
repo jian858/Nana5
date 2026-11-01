@@ -4490,6 +4490,10 @@ function renderSuspended() {
   document.getElementById('suspendedScreen')?.remove();
   if (!suspendedInfo) return;
   const del = !!suspendedInfo.deleted;
+  const timing = suspendedInfo.scheduledDelete && suspendedInfo.deleteAt
+    ? 'Deletion date: ' + new Date(Number(suspendedInfo.deleteAt)).toLocaleString()
+    : suspendedInfo.expiresAt ? 'Suspension ends: ' + new Date(Number(suspendedInfo.expiresAt)).toLocaleString()
+    : (del ? 'This account is no longer available.' : 'This restriction has no automatic end time.');
   const ap = myAppeal && (myAppeal.createdAt || 0) >= (suspendedInfo.createdAt || 0) ? myAppeal : null;
   const el = document.createElement('div');
   el.id = 'suspendedScreen'; el.className = 'modal-back'; el.style.zIndex = '900';
@@ -4497,7 +4501,7 @@ function renderSuspended() {
     ? '<p class="appeal-note">Your appeal was sent. We will reply here.</p>'
     : (ap && ap.status === 'declined' ? `<p class="appeal-note">Your appeal was declined${ap.reply ? ': ' + esc(ap.reply) : '.'} You can send one more.</p>` : '')
       + '<textarea class="appeal-text" maxlength="300" placeholder="Why should we restore your account? Tell us what happened."></textarea><button class="btn primary" type="button" data-appeal>Send appeal</button>';
-  el.innerHTML = `<div class="modal-card"><h3>${del ? 'Your account was deleted' : 'Your account is suspended'}</h3><p><strong>Reason:</strong> ${esc(suspendedInfo.reason || 'You broke the Murmur rules.')}</p>${tail}<p class="tiny">Or email ${esc(PRIVACY_CONTACT)}.</p><button class="btn ghost" type="button" data-logout>Log out</button></div>`;
+  el.innerHTML = `<div class="modal-card"><h3>${del ? 'Your account was deleted' : 'Your account is suspended'}</h3><p><strong>Reason:</strong> ${esc(suspendedInfo.reason || 'You broke the Murmur rules.')}</p><p><strong>Time:</strong> ${esc(timing)}</p>${tail}<p class="tiny">Or email ${esc(PRIVACY_CONTACT)}.</p><button class="btn ghost" type="button" data-logout>Log out</button></div>`;
   el.querySelector('[data-logout]').onclick = () => document.getElementById('logoutBtn').click();
   const send = el.querySelector('[data-appeal]');
   if (send) send.onclick = async () => {
