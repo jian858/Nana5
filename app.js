@@ -2351,8 +2351,44 @@ menuSortButton?.addEventListener('click', () => {
   ];
   applyMenuSort(nextMode, true);
 });
+const menuSearchPanel = document.getElementById('menuSearchPanel');
+const menuSearchInput = document.getElementById('menuSearchInput');
+const menuSearchClose = document.getElementById('menuSearchClose');
+const menuSearchables = Array.from(document.querySelectorAll(
+  '.murmur-menu-grid .murmur-menu-item, .menu-accordion-toggle, .menu-accordion-content .menu-row, .menu-add-account, .menu-logout'
+));
+function filterMenuItems(value) {
+  const query = String(value || '').trim().toLocaleLowerCase();
+  menuSearchables.forEach(item => {
+    const match = !query || item.textContent.toLocaleLowerCase().includes(query);
+    item.hidden = !match;
+    if (item.classList.contains('menu-accordion-toggle') && query && match) {
+      const content = item.nextElementSibling;
+      if (content?.classList.contains('menu-accordion-content')) content.hidden = false;
+    }
+  });
+  document.querySelector('.murmur-menu-grid')?.classList.toggle('menu-searching', Boolean(query));
+  document.querySelector('.menu-accordion')?.classList.toggle('menu-searching', Boolean(query));
+}
+function closeMenuSearch() {
+  if (!menuSearchPanel) return;
+  menuSearchPanel.hidden = true;
+  if (menuSearchInput) menuSearchInput.value = '';
+  filterMenuItems('');
+  document.getElementById('menuSearchBtn')?.focus();
+}
 document.getElementById('menuSearchBtn')?.addEventListener('click', () => {
-  setView('friends'); setFrSearch(true);
+  if (!menuSearchPanel) return;
+  menuSearchPanel.hidden = false;
+  menuSearchInput?.focus();
+});
+menuSearchInput?.addEventListener('input', () => filterMenuItems(menuSearchInput.value));
+menuSearchClose?.addEventListener('click', closeMenuSearch);
+menuSearchInput?.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeMenuSearch();
+});
+document.getElementById('menuProfileBtn')?.addEventListener('click', () => {
+  if (meUid()) openProfile(meUid());
 });
 try { if (localStorage.getItem('murmur-lite') === '1') document.documentElement.classList.add('murmur-lite'); } catch {}
 
