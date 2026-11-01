@@ -2076,10 +2076,11 @@ function renderReels() {
   if (!feed) return;
   if (head) document.querySelector('.reels-pane').style.setProperty('--reels-top', Math.round(head.getBoundingClientRect().bottom) + 'px');
   if (!reelsLoaded) { if (feed.dataset.sig !== 'skel') { feed.innerHTML = skelReel(); feed.dataset.sig = 'skel'; } return; }
-  if (!reels.length) { feed.innerHTML = '<div class="reel-empty"><strong>No reels yet</strong><span>Be the first to share a short video.</span><button class="btn primary" type="button" data-rcreate>Create reel</button></div>'; feed.dataset.sig = 'empty'; return; }
-  const sig = reels.map(r => r.id).join();
-  if (feed.dataset.sig !== sig) { feed.innerHTML = reels.map(reelHtml).join(''); feed.dataset.sig = sig; watchReels(); }
-  else reels.forEach(updateReel);
+  const visibleReels = reels.filter(r => { const me=meUid(); if(r.authorUid===me||!r.audience||r.audience==='public')return true; if(r.audience==='private')return false; if(r.audience==='friends')return friendsOf().some(d=>d.uid===r.authorUid); return true; });
+  if (!visibleReels.length) { feed.innerHTML = '<div class="reel-empty"><strong>No reels yet</strong><span>Be the first to share a short video.</span><button class="btn primary" type="button" data-rcreate>Create reel</button></div>'; feed.dataset.sig = 'empty'; return; }
+  const sig = visibleReels.map(r => r.id).join();
+  if (feed.dataset.sig !== sig) { feed.innerHTML = visibleReels.map(reelHtml).join(''); feed.dataset.sig = sig; watchReels(); }
+  else visibleReels.forEach(updateReel);
 }
 
 async function shareReel(r) {
@@ -2150,58 +2151,32 @@ async function openReelComments(r) {
 
 function openReelCreate(initialFile, openGallery = false) {
   if (!meUid() || document.querySelector('.reel-create')) return;
-  const el = document.createElement('div');
-  el.className = 'screen-legal np-screen reel-create';
-  el.innerHTML = `<div class="np-top"><button class="chat-back" type="button" data-rclose aria-label="Back" style="display:grid;place-items:center">←</button><strong>Create reel</strong><button class="np-link" type="button" data-rpost disabled>SHARE</button></div>
-    <div class="np-body">
-      <label class="reel-pick"><input type="file" accept="video/*" hidden />${ic('video', 'var(--acc-strong)')}<span data-rpick>Choose a video</span></label>
-      <video class="reel-preview" controls playsinline hidden></video>
-      <input class="reel-title-input" type="text" maxlength="80" placeholder="Add a title (optional)" aria-label="Reel title" />
-      <textarea class="np-text" maxlength="500" placeholder="Write your caption…" aria-label="Caption" style="min-height:96px"></textarea>
-      <input class="reel-hashtags" type="text" maxlength="200" placeholder="Add hashtags (example: #Murmur #Friends)" aria-label="Hashtags" />
-      <input class="reel-link" type="url" placeholder="Or paste a video link (https://…mp4)" aria-label="Video link" />
-      <div class="reel-prog" hidden><i></i></div><p class="reel-msg" role="alert"></p>
-      <button class="btn primary np-submit" type="button" data-rpost disabled>SHARE REEL</button></div>`;
+  const el = document.createElement('div'); el.className = 'screen-legal np-screen reel-create';
+  el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true'); el.setAttribute('aria-label','New reel');
+  el.innerHTML = '<header class="reel-compose-head"><button type="button" data-rclose aria-label="Back">←</button><strong>New reel</strong><span></span></header><main class="reel-compose-body"><section class="reel-compose-media"><label class="reel-media-thumb" for="reelVideoFile"><input id="reelVideoFile" type="file" accept="video/*" hidden /><span data-rpick>Choose video</span></label><video class="reel-preview" controls playsinline hidden></video><div class="reel-compose-caption"><textarea class="np-text" maxlength="500" placeholder="Write a description…" aria-label="Write a description"></textarea><input class="reel-title-input" maxlength="80" placeholder="Add a title (optional)" aria-label="Reel title" /><input class="reel-hashtags" maxlength="200" placeholder="Add hashtags" aria-label="Hashtags" /><input class="reel-link" type="url" placeholder="Or paste a video link (https://…mp4)" aria-label="Video link" /></div></section><button type="button" class="reel-audience-row" data-raudience><span class="reel-audience-icon">●</span><span><b>Who can see this reel?</b><small data-audience-label>Friends</small></span><span class="reel-chevron">›</span></button><p class="reel-audience-note">Reels can appear on Home, Reels and other places across Murmur.</p><label class="reel-ai-row"><span class="reel-ai-icon">✧</span><span><b>Add AI label</b><small>Label realistic content that’s made with AI.</small></span><input type="checkbox" data-ailabel aria-label="Add AI label" /></label><div class="reel-prog" hidden><i></i></div><p class="reel-msg" role="alert"></p></main><footer class="reel-compose-footer"><button class="btn primary" type="button" data-rpost disabled>Share Reel</button></footer>';
   document.body.appendChild(el);
-  const fileIn = el.querySelector('input[type=file]'), prev = el.querySelector('.reel-preview'), link = el.querySelector('.reel-link'), cap = el.querySelector('textarea'), titleIn = el.querySelector('.reel-title-input'), tagsIn = el.querySelector('.reel-hashtags');
-  const prog = el.querySelector('.reel-prog'), msg = el.querySelector('.reel-msg'), btns = [...el.querySelectorAll('[data-rpost]')], close = () => el.remove();
-  let file = null, dur = 0;
-  const sync = () => btns.forEach(b => { b.disabled = !(file || /^https:\/\/\S+$/i.test(link.value.trim())); });
-  const chooseFile = f => {
-    msg.textContent = ''; file = null; prev.hidden = true;
-    if (!f) return sync();
-    if (!/^video\//.test(f.type)) { msg.textContent = 'Please choose a video file.'; return sync(); }
-    if (f.size > 25 * 1024 * 1024) { msg.textContent = 'That video is too big. Keep it under 25 MB.'; return sync(); }
-    file = f; prev.src = URL.createObjectURL(f); prev.hidden = false; el.querySelector('[data-rpick]').textContent = f.name; sync();
+  const fileIn=el.querySelector('#reelVideoFile'), prev=el.querySelector('.reel-preview'), thumb=el.querySelector('.reel-media-thumb'), link=el.querySelector('.reel-link'), cap=el.querySelector('textarea'), titleIn=el.querySelector('.reel-title-input'), tagsIn=el.querySelector('.reel-hashtags'), prog=el.querySelector('.reel-prog'), msg=el.querySelector('.reel-msg'), btn=el.querySelector('[data-rpost');
+  let file=null,dur=0,audience='friends',busy=false,objectUrl='';
+  const close=()=>{if(objectUrl)URL.revokeObjectURL(objectUrl);el.remove();};
+  const sync=()=>{btn.disabled=busy||!(file||/^https:\/\/\S+$/i.test(link.value.trim()));};
+  const chooseFile=f=>{msg.textContent='';file=null;prev.hidden=true;thumb.hidden=false;dur=0;if(!f)return sync();if(!/^video\//.test(f.type)){msg.textContent='Please choose a video file.';return sync();}if(f.size>25*1024*1024){msg.textContent='That video is too big. Keep it under 25 MB.';return sync();}file=f;objectUrl=URL.createObjectURL(f);prev.src=objectUrl;prev.hidden=false;thumb.hidden=true;sync();};
+  fileIn.addEventListener('change',()=>chooseFile(fileIn.files[0])); thumb.addEventListener('click',()=>fileIn.click());
+  prev.addEventListener('loadedmetadata',()=>{dur=Math.round(prev.duration||0);if(dur>90){msg.textContent='Reels can be up to 90 seconds.';file=null;prev.hidden=true;thumb.hidden=false;sync();}});
+  link.addEventListener('input',sync); el.querySelector('[data-rclose]').onclick=close; el.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+  el.querySelector('[data-raudience]').onclick=()=>{
+    const sheet=document.createElement('div');sheet.className='reel-audience-sheet';
+    sheet.innerHTML='<div class="reel-audience-card"><div class="reel-audience-sheet-head"><b>Who can see this reel?</b><button type="button" data-audclose>×</button></div><button type="button" data-aud="public"><span><b>Public</b><small>Anyone on Murmur</small></span><i></i></button><button type="button" data-aud="friends"><span><b>Friends</b><small>Only your friends</small></span><i></i></button><button type="button" data-aud="private"><span><b>Only me</b><small>Only you can see this reel</small></span><i></i></button></div>';
+    document.body.appendChild(sheet);sheet.querySelectorAll('[data-aud]').forEach(b=>{b.classList.toggle('selected',b.dataset.aud===audience);b.querySelector('i').textContent=b.dataset.aud===audience?'✓':'';});
+    sheet.addEventListener('click',e=>{if(e.target===sheet||e.target.closest('[data-audclose]')){sheet.remove();return;}const choice=e.target.closest('[data-aud]');if(!choice)return;audience=choice.dataset.aud;el.querySelector('[data-audience-label]').textContent=({public:'Public',friends:'Friends',private:'Only me'})[audience];el.querySelector('.reel-audience-icon').textContent=audience==='public'?'◎':audience==='friends'?'●':'▣';sheet.remove();});
   };
-  fileIn.addEventListener('change', () => chooseFile(fileIn.files[0]));
-  prev.addEventListener('loadedmetadata', () => { dur = Math.round(prev.duration || 0); if (dur > 90) { msg.textContent = 'Reels can be up to 90 seconds.'; file = null; prev.hidden = true; sync(); } });
-  link.addEventListener('input', sync);
-  el.querySelector('[data-rclose]').onclick = close;
-  el.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-  btns.forEach(b => { b.onclick = async () => {
-    btns.forEach(x => { x.disabled = true; }); msg.textContent = '';
-    let url = '', path = '';
-    try {
-      if (file) {
-        path = `reels/${meUid()}/${Date.now()}.${(file.name.split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'mp4'}`;
-        const task = uploadBytesResumable(storageRef(getStorage(app), path), file, { contentType: file.type });
-        await new Promise((ok, bad) => task.on('state_changed', s => { prog.hidden = false; prog.firstElementChild.style.width = (s.bytesTransferred / s.totalBytes * 100) + '%'; }, bad, ok));
-        url = await getDownloadURL(task.snapshot.ref);
-      } else url = link.value.trim();
-      const hashtags = cleanText(tagsIn.value, 200).split(/\s+/).filter(Boolean).map(tag => tag.startsWith('#') ? tag : '#' + tag.replace(/^#+/, '')).join(' ');
-      await push(ref(db, 'reels'), { authorUid: meUid(), authorName: state.currentUser?.name || 'Someone', username: state.currentUser?.username || '', url, path, title: cleanText(titleIn.value, 80), caption: cleanText(cap.value, 500), hashtags, duration: dur, createdAt: serverTimestamp() });
-      showToast('Reel shared.'); close(); setView('reels');
-    } catch (err) {
-      msg.textContent = /storage|unauthor|bucket|object-not-found|retry-limit/i.test((err.code || '') + ' ' + (err.message || '')) ? 'Uploading is not turned on yet (Firebase Storage). Paste a video link instead.' : friendlyError(err, 'Could not share your reel.');
-      prog.hidden = true; sync();
-    }
-  }; });
-  if (initialFile) chooseFile(initialFile);
-  else if (openGallery) setTimeout(() => fileIn.click(), 120);
-  setTimeout(() => { if (!openGallery) el.querySelector('.reel-pick').focus({ preventScroll: true }); }, 60);
+  btn.onclick=async()=>{if(busy)return;busy=true;sync();msg.textContent='';let url='',path='';try{
+    if(file){const ext=(file.name.split('.').pop()||'mp4').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'mp4';path='reels/'+meUid()+'/'+Date.now()+'.'+ext;const task=uploadBytesResumable(storageRef(getStorage(app),path),file,{contentType:file.type});await new Promise((ok,bad)=>task.on('state_changed',s=>{prog.hidden=false;prog.firstElementChild.style.width=(s.bytesTransferred/s.totalBytes*100)+'%';},bad,ok));url=await getDownloadURL(task.snapshot.ref);}else url=link.value.trim();
+    const hashtags=cleanText(tagsIn.value,200).split(/\s+/).filter(Boolean).map(tag=>tag.startsWith('#')?tag:'#'+tag.replace(/^#+/,'')).join(' ');
+    await push(ref(db,'reels'),{authorUid:meUid(),authorName:state.currentUser?.name||'Someone',username:state.currentUser?.username||'',url,path,title:cleanText(titleIn.value,80),caption:cleanText(cap.value,500),hashtags,audience,aiLabel:!!el.querySelector('[data-ailabel]').checked,duration:dur,createdAt:serverTimestamp()});
+    showToast('Reel shared.');close();setView('reels');
+  }catch(err){msg.textContent=/storage|unauthor|bucket|object-not-found|retry-limit/i.test((err.code||'')+' '+(err.message||''))?'Uploading is not turned on yet (Firebase Storage). Paste a video link instead.':friendlyError(err,'Could not share your reel.');prog.hidden=true;busy=false;sync();}};
+  if(initialFile)chooseFile(initialFile);else if(openGallery)setTimeout(()=>fileIn.click(),180);
 }
-
 /* ---------- Dark mode ---------- */
 function applyTheme(t) {
   const root = document.documentElement;
