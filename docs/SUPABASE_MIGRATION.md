@@ -75,12 +75,12 @@ Therefore, simply swapping the browser login SDK would break social-table author
 
 Current database snapshot after the user-approved cleanup: 1 profile row, 1 Supabase Auth user, 0 unmatched profiles, 0 legacy Firebase identity links, 0 post rows, and 0 message rows. The five profile rows without matching Auth users and their three Firebase identity-link rows were deleted at the user's explicit instruction after checking that they had no linked social records. The one profile matching the active Supabase Auth account was preserved.
 
-Before changing identity/RLS:
-1. Inventory `auth.users` and the legacy `private.firebase_user_links` rows without exposing credentials.
-2. Define how existing profile UUIDs map to Supabase Auth UUIDs; do not silently recreate users or orphan profiles.
-3. Update every policy/helper consistently to native `auth.uid()`, including suspension checks.
-4. Test each policy using real authenticated Supabase sessions for two ordinary users and the admin account.
-5. Only then migrate the browser's auth/session lifecycle and remove Firebase-token Edge Functions.
+Identity inventory is now complete: one active Supabase Auth user maps to the one remaining profile, with no unmatched profiles and no legacy Firebase identity links. The next cutover tasks are:
+1. Review every dependent RLS policy and helper, including block checks, suspension checks, reports, stories, conversations, and refresh cooldowns.
+2. Replace the Firebase-token identity helper with a native `auth.uid()` implementation only after the app's Supabase Auth session lifecycle is ready to ship.
+3. Test each policy using real authenticated Supabase sessions for at least two ordinary users and the admin account.
+4. Migrate the browser's auth/session lifecycle and all remaining Firebase-backed feature paths together in tested stages.
+5. Remove Firebase-token Edge Functions only after no deployed client calls them.
 
 This is a required cutover dependency, not optional cleanup.
 
