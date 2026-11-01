@@ -1682,3 +1682,12 @@ html[data-theme="dark"] .as-head, html[data-theme="dark"] .as-nav, html[data-the
  @keyframes menuReveal{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
 }
 @media(prefers-reduced-motion:reduce){.murmur-menu-pane *{animation:none!important;transition:none!important}}
+
+
+/* Compact display mode used by the Murmur Lite menu switch */
+html.murmur-lite .main{max-width:620px}
+html.murmur-lite .murmur-menu-grid{gap:7px;padding-left:10px;padding-right:10px}
+html.murmur-lite .murmur-menu-item{min-height:78px;padding:10px 12px;font-size:1rem;border-radius:11px}
+html.murmur-lite .menu-profile-card{margin-left:10px;margin-right:10px;padding:9px 11px}
+html.murmur-lite .murmur-menu-heading{padding-top:12px;padding-bottom:10px}
+html.murmur-lite .murmur-menu-item .menu-tile-icon{width:23px;height:23px}
