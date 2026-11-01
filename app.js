@@ -874,12 +874,24 @@ function openRegisterWizard() {
               <h3>Build your profile</h3>
               <p>Everything on this tab is optional. You can change it later.</p>
             </div>
-            <div class="field">
-              <label>Profile photo</label>
-              <input id="reg-photo" name="photo" type="file" accept="image/*" hidden />
-              <button class="reg-photo-pick" type="button" data-pick-photo>Choose profile photo</button>
-              <div class="reg-photo-preview" data-photo-preview aria-live="polite">No photo selected</div>
-              <small class="reg-photo-help">Tap the button and choose a picture from your phone. Optional, JPG/PNG/WebP, up to 5 MB.</small>
+            <div class="field reg-photo-field">
+              <label>Profile photo <span class="reg-photo-optional">Optional</span></label>
+              <input id="reg-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
+              <div class="reg-photo-card">
+                <div class="reg-photo-avatar" data-photo-preview aria-live="polite">
+                  <span data-photo-placeholder>Choose a photo</span>
+                  <img data-photo-image alt="Profile photo preview" hidden />
+                </div>
+                <div class="reg-photo-copy">
+                  <strong data-photo-title>No photo selected</strong>
+                  <small data-photo-description>Your profile looks better with a photo. You can add one now or do it later.</small>
+                  <div class="reg-photo-actions">
+                    <button class="reg-photo-pick" type="button" data-pick-photo>Choose photo</button>
+                    <button class="reg-photo-remove" type="button" data-remove-photo hidden>Remove</button>
+                  </div>
+                </div>
+              </div>
+              <small class="reg-photo-help">Select a picture from your device. JPG, PNG, WebP or GIF · Maximum 5 MB.</small>
             </div>
             <div class="field">
               <label for="reg-bio">Short bio</label>
@@ -962,21 +974,46 @@ function openRegisterWizard() {
   const confirmInput = field('confirmPassword');
   const profilePhotoInput = field('photo');
   const photoPreview = $('[data-photo-preview]');
+  const photoPreviewImage = $('[data-photo-image]');
+  const photoPlaceholder = $('[data-photo-placeholder]');
+  const photoTitle = $('[data-photo-title]');
+  const photoDescription = $('[data-photo-description]');
+  const removePhotoButton = $('[data-remove-photo]');
+  let profilePhotoPreviewUrl = '';
+  const clearProfilePhotoPreview = () => {
+    if (profilePhotoPreviewUrl) URL.revokeObjectURL(profilePhotoPreviewUrl);
+    profilePhotoPreviewUrl = '';
+    photoPreviewImage.removeAttribute('src');
+    photoPreviewImage.hidden = true;
+    photoPlaceholder.hidden = false;
+    photoTitle.textContent = 'No photo selected';
+    photoDescription.textContent = 'Your profile looks better with a photo. You can add one now or do it later.';
+    removePhotoButton.hidden = true;
+  };
   $('[data-pick-photo]').addEventListener('click', () => profilePhotoInput.click());
+  removePhotoButton.addEventListener('click', () => {
+    profilePhotoInput.value = '';
+    clearProfilePhotoPreview();
+  });
   profilePhotoInput.addEventListener('change', () => {
     const file = profilePhotoInput.files && profilePhotoInput.files[0];
-    if (!file) { photoPreview.textContent = 'No photo selected'; photoPreview.style.backgroundImage = ''; return; }
-    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+    if (!file) return;
+    const allowedTypes = ['image/jpeg','image/png','image/webp','image/gif'];
+    if (!allowedTypes.includes(file.type) || file.size > 5 * 1024 * 1024) {
       profilePhotoInput.value = '';
-      photoPreview.textContent = 'Choose an image smaller than 5 MB.';
-      photoPreview.style.backgroundImage = '';
+      clearProfilePhotoPreview();
+      setError('Choose a JPG, PNG, WebP or GIF image smaller than 5 MB.');
       return;
     }
-    const previewUrl = URL.createObjectURL(file);
-    photoPreview.textContent = '';
-    photoPreview.style.backgroundImage = 'url("' + previewUrl + '")';
-    photoPreview.style.backgroundSize = 'cover';
-    photoPreview.style.backgroundPosition = 'center';
+    if (profilePhotoPreviewUrl) URL.revokeObjectURL(profilePhotoPreviewUrl);
+    profilePhotoPreviewUrl = URL.createObjectURL(file);
+    photoPreviewImage.src = profilePhotoPreviewUrl;
+    photoPreviewImage.hidden = false;
+    photoPlaceholder.hidden = true;
+    photoTitle.textContent = file.name;
+    photoDescription.textContent = 'Photo selected. You can change or remove it before creating your account.';
+    removePhotoButton.hidden = false;
+    setError('');
   });
 
   const selectedInterests = new Set();
