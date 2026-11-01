@@ -973,7 +973,6 @@ function openRegisterWizard() {
   const passwordInput = field('password');
   const confirmInput = field('confirmPassword');
   const profilePhotoInput = field('photo');
-  const photoPreview = $('[data-photo-preview]');
   const photoPreviewImage = $('[data-photo-image]');
   const photoPlaceholder = $('[data-photo-placeholder]');
   const photoTitle = $('[data-photo-title]');
