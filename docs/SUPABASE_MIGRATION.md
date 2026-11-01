@@ -117,3 +117,11 @@ Security advisor items observed after this change (pre-existing and not silently
 - Direct execution is granted only to the `authenticated` role; `anon` and `public` execution are revoked.
 - The legacy `private.current_supabase_user_id()` Firebase-token bridge remains unchanged because live app code still signs in through Firebase.
 - Existing RLS policies have **not** been switched to the new helper yet. That switch must ship with Supabase Auth in the browser and a tested replacement for Firebase Realtime Database, Storage, and messaging paths.
+
+
+### Account restriction and appeal service layer
+
+- Added native Supabase queries in `supabase-data.js` for the signed-in user's active suspension/scheduled-deletion record.
+- Added retrieval of the user's appeal history and validated appeal submission.
+- Queries rely on the existing owner-scoped RLS policies and `auth.uid()`; no service-role key is exposed.
+- These functions are not wired into the current Firebase UI yet. UI cutover remains blocked until Firebase-dependent session, database, storage, and realtime behavior is migrated together.
