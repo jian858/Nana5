@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Murmur",
+  "short_name": "Murmur",
+  "description": "Chat, share and watch together.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f1f2f6",
+  "theme_color": "#14c8a0",
+  "icons": [
+    {
+      "src": "/murmur-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
