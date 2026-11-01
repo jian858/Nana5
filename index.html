@@ -174,20 +174,40 @@
       <section class="pane" data-pane="alerts">
         <div class="alerts-list" id="alertsList"></div>
       </section>
-      <section class="pane" data-pane="menu">
-        <div class="menu-me"><div class="avatar" id="menuAvatar">?</div><div><strong id="menuName">Your name</strong><br /><small id="menuUser">@username</small></div></div>
-        <div class="menu-grid">
-          <button class="menu-item" data-view="friends" type="button"><svg class="ic" aria-hidden="true"><use href="#i-friends"/></svg>Friends</button>
-          <button class="menu-item" data-view="chats" type="button"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg>Messages</button>
-          <button class="menu-item" data-view="alerts" type="button"><svg class="ic" aria-hidden="true"><use href="#i-bell"/></svg>Alerts</button>
-          <a class="menu-item" href="#privacy"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Privacy Policy</a>
-          <a class="menu-item" href="#terms"><svg class="ic" aria-hidden="true"><use href="#i-doc"/></svg>Terms</a>
-          <a class="menu-item" href="#cookies"><svg class="ic" aria-hidden="true"><use href="#i-cookie"/></svg>Cookies</a>
+      <section class="pane murmur-menu-pane" data-pane="menu">
+        <div class="murmur-menu-heading"><button class="menu-back" type="button" data-view="home" aria-label="Back to home">‹</button><h1>Menu</h1><button class="menu-search" type="button" id="menuSearchBtn" aria-label="Search Murmur">⌕</button></div>
+        <div class="menu-me menu-profile-card"><div class="avatar" id="menuAvatar">?</div><div class="menu-profile-copy"><strong id="menuName">Your name</strong><small id="menuUser">@username</small></div><button class="menu-profile-open" type="button" data-view="friends">View profile</button></div>
+        <div class="murmur-menu-grid" aria-label="Murmur menu">
+          <button class="murmur-menu-item" type="button" data-menu-action="reels"><span class="menu-emoji">🎬</span><span>Reels</span></button>
+          <button class="murmur-menu-item" type="button" data-menu-action="meta-ai"><span class="menu-emoji">✳️</span><span>Meta AI</span></button>
+          <button class="murmur-menu-item" type="button" data-menu-action="pages"><span class="menu-emoji">📑</span><span>Pages</span></button>
+          <button class="murmur-menu-item" type="button" data-menu-action="saved"><span class="menu-emoji">🔖</span><span>Saved</span></button>
+          <button class="murmur-menu-item" type="button" data-menu-action="memories"><span class="menu-emoji">🕘</span><span>Memories</span></button>
+          <button class="murmur-menu-item" type="button" data-menu-action="birthdays"><span class="menu-emoji">🎁</span><span>Birthdays</span></button>
+          <button class="murmur-menu-item" type="button" data-menu-action="events"><span class="menu-emoji">🗓️</span><span>Events</span></button>
+          <button class="murmur-menu-item" type="button" data-menu-action="verified"><span class="menu-emoji">🔵</span><span>Murmur Verified</span></button>
+          <button class="murmur-menu-item" type="button" data-menu-action="mobile-centre"><span class="menu-emoji">📡</span><span>Mobile centre</span></button>
+          <button class="murmur-menu-item" type="button" data-menu-action="feeds"><span class="menu-emoji">📰</span><span>Feeds</span></button>
+          <button class="murmur-menu-item" type="button" data-menu-action="lite"><span class="menu-emoji">📱</span><span>Murmur Lite</span></button>
         </div>
-        <button class="menu-row" id="themeBtn" type="button"><svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg>Dark mode</button>
-        <button class="menu-row" id="blockedBtn" type="button"><svg class="ic" aria-hidden="true"><use href="#i-ban"/></svg>Blocked people</button>
-        <button class="menu-row" id="deleteAccountBtn" type="button"><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg>Delete account</button>
-        <button class="menu-row" id="logoutBtn" type="button">Log out<svg class="logout-door" viewBox="0 0 24 24" aria-hidden="true"><rect class="frame" x="3" y="3" width="10" height="18" rx="1.5"/><path class="leaf" d="M4 4h8v16H4z"/><circle class="walker" cx="18" cy="8" r="2"/><path class="walker" d="M18 11v5m0 0l-2 4m2-4l2 4m-2-3.5l3-1.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>
+        <div class="menu-accordion">
+          <button class="menu-accordion-toggle" type="button" id="settingsPrivacyToggle" aria-expanded="false"><span>⚙️</span>Settings &amp; privacy <span class="menu-chevron">⌄</span></button>
+          <div class="menu-accordion-content" id="settingsPrivacyContent" hidden>
+            <button class="menu-row" id="themeBtn" type="button">🌙 Dark mode</button>
+            <button class="menu-row" id="blockedBtn" type="button">🚫 Blocked people</button>
+            <button class="menu-row" type="button" data-menu-action="privacy">🔒 Privacy policy</button>
+            <button class="menu-row" type="button" data-menu-action="account-settings">👤 Account settings</button>
+            <button class="menu-row" id="deleteAccountBtn" type="button">🗑️ Delete account</button>
+          </div>
+          <button class="menu-accordion-toggle" type="button" id="helpSupportToggle" aria-expanded="false"><span>❔</span>Help &amp; support <span class="menu-chevron">⌄</span></button>
+          <div class="menu-accordion-content" id="helpSupportContent" hidden>
+            <button class="menu-row" type="button" data-menu-action="help">❓ Help centre</button>
+            <button class="menu-row" type="button" data-menu-action="report">⚑ Report a problem</button>
+            <a class="menu-row menu-link-row" href="#terms">📄 Terms of service</a>
+          </div>
+        </div>
+        <button class="menu-add-account" type="button" data-menu-action="add-account">👤＋ <span>Add account</span></button>
+        <button class="menu-row menu-logout" id="logoutBtn" type="button">Log out <span>↪</span></button>
       </section>
       <footer class="legal-links"><a href="#terms">Terms</a> · <a href="#privacy">Privacy Policy</a> · <a href="#cookies">Cookie Policy</a> · © Murmur</footer>
     </main>
