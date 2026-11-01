@@ -151,6 +151,40 @@ export const stories = {
   }
 };
 
+export const accountRestrictions = {
+  current: async () => {
+    const user = await requireUser();
+    const now = new Date().toISOString();
+    return throwIfError(await supabase.from("account_restrictions")
+      .select("id,user_id,status,reason_code,reason,starts_at,ends_at,scheduled_delete_at,created_at,lifted_at")
+      .eq("user_id", user.id)
+      .in("status", ["suspended", "scheduled_deletion"])
+      .lte("starts_at", now)
+      .or("ends_at.is.null,ends_at.gt." + now)
+      .order("starts_at", { ascending: false })
+      .limit(1)
+      .maybeSingle());
+  },
+  appeals: async () => {
+    const user = await requireUser();
+    return throwIfError(await supabase.from("account_appeals")
+      .select("id,user_id,restriction_id,message,status,admin_response,created_at,reviewed_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false }));
+  },
+  submitAppeal: async ({ restrictionId = null, message }) => {
+    const user = await requireUser();
+    const cleanMessage = String(message || "").trim();
+    if (!cleanMessage) throw new Error("Write a message before submitting your appeal.");
+    if (cleanMessage.length > 5000) throw new Error("Appeals must be 5,000 characters or fewer.");
+    return throwIfError(await supabase.from("account_appeals").insert({
+      user_id: user.id,
+      restriction_id: restrictionId,
+      message: cleanMessage
+    }).select("id,user_id,restriction_id,message,status,created_at").single());
+  }
+};
+
 export const reports = {
   create: async ({ reportedUserId = null, postId = null, reason, details = "" }) => {
     const user = await requireUser();
