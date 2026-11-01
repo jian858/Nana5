@@ -2260,10 +2260,7 @@ function handleMenuAction(action) {
     case 'report':
       openMenuNotice('Report a problem', 'Please describe the issue and include the screen name. A support submission service is not connected yet.', 'OK');
       break;
-    case 'meta-ai':
-      openMenuNotice('Meta AI', 'AI assistant integration is not connected to Murmur yet.', 'OK');
-      break;
-    case 'pages':
+case 'pages':
       openMenuNotice('Pages', 'Murmur Pages is not connected yet. Page creation and page management are not available in this version.', 'OK');
       break;
     case 'birthdays':
