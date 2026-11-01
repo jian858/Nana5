@@ -3637,6 +3637,31 @@ window.addEventListener('unhandledrejection', ev => {
 });
 
 
+// ---------- controlled automatic error-log test ----------
+// Open the app with ?murmur-error-test=1 while signed in.
+// This emits one clearly labelled synthetic error through the real global error handler.
+if (new URLSearchParams(location.search).get('murmur-error-test') === '1') {
+  let stopTestAuthWatch = null;
+  stopTestAuthWatch = auth.onAuthStateChanged(user => {
+    if (!user) return;
+    if (stopTestAuthWatch) stopTestAuthWatch();
+    const cleanUrl = new URL(location.href);
+    cleanUrl.searchParams.delete('murmur-error-test');
+    history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+    setTimeout(() => {
+      const testError = new Error('MURMUR_AUTOMATIC_ERROR_TEST: diagnostic test event');
+      window.dispatchEvent(new ErrorEvent('error', {
+        message: testError.message,
+        error: testError,
+        filename: 'murmur://diagnostics/automatic-error-test',
+        lineno: 1,
+        colno: 1
+      }));
+    }, 1000);
+  });
+}
+
+
 // ---- while a chat is open: lock the page behind it so nothing moves ----
 (function () {
   const layout = document.querySelector('.chat-layout');
