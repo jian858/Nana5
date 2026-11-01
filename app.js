@@ -2292,21 +2292,65 @@ function bindMenuAccordion(buttonId, contentId) {
 }
 bindMenuAccordion('settingsPrivacyToggle','settingsPrivacyContent');
 bindMenuAccordion('helpSupportToggle','helpSupportContent');
-let menuAlphabetical = false;
-document.getElementById('menuSortBtn')?.addEventListener('click', () => {
-  const grid = document.querySelector('.murmur-menu-grid');
-  if (!grid) return;
-  menuAlphabetical = !menuAlphabetical;
-  const tiles = Array.from(grid.querySelectorAll('.murmur-menu-item'));
-  tiles.sort((a,b) => menuAlphabetical
-    ? a.textContent.trim().localeCompare(b.textContent.trim())
-    : Number(a.dataset.menuOrder) - Number(b.dataset.menuOrder));
-  tiles.forEach((tile,index) => { if (!tile.dataset.menuOrder) tile.dataset.menuOrder = String(index); grid.appendChild(tile); });
-  const sortButton = document.getElementById('menuSortBtn');
-  sortButton?.setAttribute('aria-pressed', String(menuAlphabetical));
-  showToast(menuAlphabetical ? 'Menu sorted A to Z.' : 'Original menu order restored.');
+const menuSortButton = document.getElementById('menuSortBtn');
+const menuSortGrid = document.querySelector('.murmur-menu-grid');
+const menuSortTiles = menuSortGrid ? Array.from(menuSortGrid.querySelectorAll('.murmur-menu-item')) : [];
+const menuSortModes = ['original', 'az', 'za'];
+let menuSortMode = 'original';
+menuSortTiles.forEach((tile, index) => {
+  tile.dataset.menuOriginalOrder = String(index);
 });
-document.querySelectorAll('.murmur-menu-item').forEach((tile,index) => { tile.dataset.menuOrder = String(index); });
+try {
+  const savedMode = localStorage.getItem('murmur-menu-sort');
+  if (menuSortModes.includes(savedMode)) menuSortMode = savedMode;
+} catch {}
+function applyMenuSort(mode, announce = false) {
+  if (!menuSortGrid || !menuSortTiles.length) return;
+  if (!menuSortModes.includes(mode)) mode = 'original';
+  menuSortMode = mode;
+  const sortedTiles = [...menuSortTiles];
+  if (mode === 'az' || mode === 'za') {
+    sortedTiles.sort((a, b) => {
+      const comparison = a.querySelector('span')?.textContent.trim().localeCompare(
+        b.querySelector('span')?.textContent.trim(), undefined,
+        { sensitivity: 'base', numeric: true }
+      ) || 0;
+      return mode === 'az' ? comparison : -comparison;
+    });
+  } else {
+    sortedTiles.sort((a, b) =>
+      Number(a.dataset.menuOriginalOrder) - Number(b.dataset.menuOriginalOrder)
+    );
+  }
+  sortedTiles.forEach(tile => menuSortGrid.appendChild(tile));
+  if (menuSortButton) {
+    const labels = {
+      original: 'Original order',
+      az: 'A to Z',
+      za: 'Z to A'
+    };
+    menuSortButton.setAttribute('aria-pressed', String(mode !== 'original'));
+    menuSortButton.setAttribute('aria-label', 'Menu sort: ' + labels[mode] + '. Tap to change sort order');
+    menuSortButton.title = 'Menu sort: ' + labels[mode] + ' (tap to change)';
+    menuSortButton.dataset.sortMode = mode;
+  }
+  try { localStorage.setItem('murmur-menu-sort', mode); } catch {}
+  if (announce && typeof showToast === 'function') {
+    const messages = {
+      original: 'Original menu order restored.',
+      az: 'Menu sorted A to Z.',
+      za: 'Menu sorted Z to A.'
+    };
+    showToast(messages[mode]);
+  }
+}
+applyMenuSort(menuSortMode);
+menuSortButton?.addEventListener('click', () => {
+  const nextMode = menuSortModes[
+    (menuSortModes.indexOf(menuSortMode) + 1) % menuSortModes.length
+  ];
+  applyMenuSort(nextMode, true);
+});
 document.getElementById('menuSearchBtn')?.addEventListener('click', () => {
   setView('friends'); setFrSearch(true);
 });
