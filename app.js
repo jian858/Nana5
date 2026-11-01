@@ -3366,7 +3366,9 @@ function openDeleteAccount() {
 document.getElementById('deleteAccountBtn').addEventListener('click', openDeleteAccount);
 
 onAuthStateChanged(auth, async (user) => {
-  syncMurmurSupabaseIdentity(user);
+  // Finish the Firebase-to-Supabase identity handshake before starting data listeners.
+  // The helper handles failures internally, so Firebase sign-in remains available during migration.
+  await syncMurmurSupabaseIdentity(user);
   if (!user) { endSession(); suspendedInfo = null; document.getElementById('suspendedScreen')?.remove(); }
   renderMenuHeader();
   if (user) {
