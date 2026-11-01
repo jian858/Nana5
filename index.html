@@ -3064,9 +3064,9 @@ async function login(email, password) {
     state.loggedIn = true;
     state.currentUser = {
       uid: userCredential.user.uid,
-      name: profile.name || userCredential.user.displayName || 'Maya Chen',
+      name: profile.name || userCredential.user.displayName || 'Me',
       email: userCredential.user.email || normalized,
-      username: profile.username || '@maya'
+      username: profile.username || '@user'
     };
     state.users.me = { ...state.currentUser };
     saveState();
