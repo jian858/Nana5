@@ -2292,6 +2292,21 @@ function bindMenuAccordion(buttonId, contentId) {
 }
 bindMenuAccordion('settingsPrivacyToggle','settingsPrivacyContent');
 bindMenuAccordion('helpSupportToggle','helpSupportContent');
+let menuAlphabetical = false;
+document.getElementById('menuSortBtn')?.addEventListener('click', () => {
+  const grid = document.querySelector('.murmur-menu-grid');
+  if (!grid) return;
+  menuAlphabetical = !menuAlphabetical;
+  const tiles = Array.from(grid.querySelectorAll('.murmur-menu-item'));
+  tiles.sort((a,b) => menuAlphabetical
+    ? a.textContent.trim().localeCompare(b.textContent.trim())
+    : Number(a.dataset.menuOrder) - Number(b.dataset.menuOrder));
+  tiles.forEach((tile,index) => { if (!tile.dataset.menuOrder) tile.dataset.menuOrder = String(index); grid.appendChild(tile); });
+  const sortButton = document.getElementById('menuSortBtn');
+  sortButton?.setAttribute('aria-pressed', String(menuAlphabetical));
+  showToast(menuAlphabetical ? 'Menu sorted A to Z.' : 'Original menu order restored.');
+});
+document.querySelectorAll('.murmur-menu-item').forEach((tile,index) => { tile.dataset.menuOrder = String(index); });
 document.getElementById('menuSearchBtn')?.addEventListener('click', () => {
   setView('friends'); setFrSearch(true);
 });
