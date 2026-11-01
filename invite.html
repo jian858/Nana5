@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#14c8a0">
+  <title>Accept your Murmur invitation</title>
+  <link rel="stylesheet" href="./invite.css">
+</head>
+<body>
+  <main class="card">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Murmur</div>
+    <section id="loading">
+      <h1>Checking your invitation</h1>
+      <p>Please wait while we securely verify your invitation.</p>
+    </section>
+    <section id="setup" hidden>
+      <h1>Set your password</h1>
+      <p>Your invitation is verified. Create a password to finish setting up your Murmur account.</p>
+      <form id="passwordForm">
+        <label for="password">New password</label>
+        <input id="password" type="password" autocomplete="new-password" minlength="8" required>
+        <label for="confirmPassword">Confirm password</label>
+        <input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required>
+        <button id="submitButton" type="submit">Set password</button>
+      </form>
+    </section>
+    <section id="done" hidden>
+      <h1>Invitation accepted</h1>
+      <p id="doneMessage">Your Supabase account password has been set.</p>
+      <a class="home-link" href="/">Continue to Murmur</a>
+    </section>
+    <section id="failure" hidden>
+      <h1>Invitation link unavailable</h1>
+      <p id="failureMessage">This invitation link is invalid or has expired.</p>
+      <a class="home-link" href="/">Go to Murmur</a>
+    </section>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+  </main>
+  <script src="./invite.js"></script>
+</body>
+</html>
