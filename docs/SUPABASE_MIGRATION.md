@@ -134,3 +134,44 @@ Security advisor items observed after this change (pre-existing and not silently
 - Confirmed the existing RLS policies on reels and user_notes use auth.uid(), so these two service areas can be developed without the Firebase identity bridge.
 - Did not add realtime listeners: neither table is currently included in the supabase_realtime publication. Realtime must be deliberately enabled and tested before any subscription is exposed.
 - These services are data-layer groundwork only. The current app UI still calls Firebase for reels and notes, so the live UI has not switched over.
+
+## Accepted target architecture: Supabase accounts with Firebase supporting services
+
+The user confirmed that Murmur must keep Firebase Realtime Database and Firebase Storage connected as supporting services, while **Supabase Auth is the only account and authentication system**.
+
+### Non-negotiable identity rules
+
+- Supabase Auth owns signup, login, password reset, sessions, account UUIDs, and account deletion.
+- Every Murmur user-facing record must ultimately use the Supabase Auth UUID as its canonical owner ID.
+- Firebase Auth must not create accounts, hold passwords, or be required for a Murmur user to sign in.
+- Firebase project \`murmur-fc430\` and its Realtime Database/Storage data are to be preserved; do not delete the Firebase project or data as part of this migration.
+- Never expose a Firebase service-account private key, Supabase service-role key, or other server credential in browser files.
+
+### Required security design
+
+The current browser Firebase SDK cannot simply continue using Realtime Database and Storage after Firebase Auth is removed: the existing app relies on Firebase Auth UID/token for SDK access and its paths. A Supabase UUID is not automatically a Firebase-authenticated identity, and Firebase Security Rules do not validate Supabase JWTs by default.
+
+The supported migration design is therefore:
+
+1. Supabase Auth authenticates the browser.
+2. A Supabase Edge Function verifies the Supabase bearer token using the Supabase Auth server (\`auth.getUser()\`), and obtains the canonical Supabase UUID.
+3. A trusted server-side Firebase bridge uses a Firebase service account held only in Edge Function secrets to access specifically allowed Realtime Database and Storage operations.
+4. The bridge enforces per-operation authorization and ownership using the verified Supabase UUID. It must not accept an arbitrary Firebase path, UID, or unrestricted REST operation from the browser.
+5. Realtime subscriptions must be deliberately redesigned. Do not assume Firebase client \`onValue()\` subscriptions will continue to work without Firebase Auth. Use Supabase Realtime for app subscriptions/event fanout, or a separately reviewed server-mediated realtime design.
+6. Keep file paths and database owner fields mapped to Supabase UUIDs. Migrate existing Firebase UID-keyed records only after a verified identity mapping and backup.
+
+### Cutover blockers
+
+- The Firebase service-account JSON must be configured as the Edge Function secret \`FIREBASE_SERVICE_ACCOUNT_JSON\`. This credential must be created and supplied through the secure Supabase project secret settings, never pasted into chat or committed to GitHub.
+- The Firebase Realtime Database security rules and Storage rules must be reviewed before enabling a privileged server bridge.
+- The current app has 67 Firebase Realtime Database reference call sites and Firebase Auth-dependent UI/session logic. These need feature-by-feature conversion and tests; replacing only the login call is unsafe.
+- Existing Firebase data needs an inventory/export and an explicit mapping plan before any UID/path rewrite. Preserve all existing content.
+- The current \`murmur-identity\` function is a legacy Firebase-token-to-Supabase-ID linker; it does not create or authenticate a Supabase Auth session. Retire it only after all clients have stopped calling it.
+
+### Implementation status for this accepted architecture
+
+- Decision confirmed: keep Firebase Realtime Database and Firebase Storage as supporting services; Supabase Auth is the sole account provider.
+- No Firebase project, database, storage object, or existing user content has been deleted.
+- No browser auth cutover or privileged Firebase bridge has been enabled yet. This is intentional until the service-account secret, Firebase rules, data mapping, and per-feature authorization are reviewed.
+- Next safe implementation stage: build and test a narrow, authenticated bridge with explicit operations (not arbitrary path proxying), then migrate the app's data features and realtime listeners in small verified batches.
+
