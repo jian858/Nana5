@@ -1720,3 +1720,26 @@ html.murmur-lite .murmur-menu-item .menu-tile-icon{width:23px;height:23px}
 .menu-profile-details span{color:var(--muted);font-size:.9rem}
 #voiceBtn .ic{width:21px;height:21px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
 @media(max-width:380px){.menu-profile-card{margin-left:12px;margin-right:12px}}
+
+
+/* Menu polish: app-like search, profile row, touch targets and responsive spacing */
+.menu-profile-card{width:calc(100% - 32px);min-height:76px;text-align:left;font:inherit;cursor:pointer;box-shadow:0 1px 2px #00000008}
+.menu-profile-card:focus-visible,.menu-search-close:focus-visible,.menu-search-field:focus-within{outline:2px solid var(--acc);outline-offset:2px}
+.menu-profile-details{flex:1}
+.menu-profile-chevron{width:20px;height:20px;flex:0 0 20px;transform:rotate(-90deg);color:var(--muted)}
+.menu-search-panel{display:flex;align-items:center;gap:10px;padding:0 16px 14px;animation:menuReveal .2s ease both}
+.menu-search-panel[hidden]{display:none!important}
+.menu-search-field{display:flex;align-items:center;gap:10px;flex:1;min-width:0;min-height:46px;padding:0 13px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--muted)}
+.menu-search-field .ic{width:20px;height:20px;flex:0 0 20px}
+.menu-search-field input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--ink);font:inherit}
+.menu-search-close{border:0;background:transparent;color:var(--acc-strong);font:inherit;font-weight:700;padding:10px 2px}
+.murmur-menu-item[hidden],.menu-accordion-toggle[hidden],.menu-row[hidden],.menu-add-account[hidden],.menu-logout[hidden]{display:none!important}
+.murmur-menu-item:focus-visible,.menu-row:focus-visible,.menu-accordion-toggle:focus-visible,.menu-add-account:focus-visible,.menu-logout:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+@media(max-width:480px){
+ .murmur-menu-heading{padding:14px 14px 12px;min-height:68px;gap:10px}
+ .murmur-menu-heading h1{font-size:1.75rem}
+ .murmur-menu-grid{padding-left:12px;padding-right:12px;gap:9px}
+ .murmur-menu-item{min-height:104px;padding:13px;border-radius:13px;font-size:1rem}
+ .menu-accordion{padding-left:12px;padding-right:12px}
+ .menu-profile-card{width:calc(100% - 24px);margin-left:12px;margin-right:12px}
+}
