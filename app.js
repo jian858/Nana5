@@ -2189,7 +2189,7 @@ function openReelCreate(initialFile, openGallery = false) {
         await new Promise((ok, bad) => task.on('state_changed', s => { prog.hidden = false; prog.firstElementChild.style.width = (s.bytesTransferred / s.totalBytes * 100) + '%'; }, bad, ok));
         url = await getDownloadURL(task.snapshot.ref);
       } else url = link.value.trim();
-      const hashtags = cleanText(tagsIn.value, 200).split(/\\s+/).filter(Boolean).map(tag => tag.startsWith('#') ? tag : '#' + tag.replace(/^#+/, '')).join(' ');
+      const hashtags = cleanText(tagsIn.value, 200).split(/\s+/).filter(Boolean).map(tag => tag.startsWith('#') ? tag : '#' + tag.replace(/^#+/, '')).join(' ');
       await push(ref(db, 'reels'), { authorUid: meUid(), authorName: state.currentUser?.name || 'Someone', username: state.currentUser?.username || '', url, path, title: cleanText(titleIn.value, 80), caption: cleanText(cap.value, 500), hashtags, duration: dur, createdAt: serverTimestamp() });
       showToast('Reel shared.'); close(); setView('reels');
     } catch (err) {
