@@ -83,3 +83,12 @@ Before changing identity/RLS:
 5. Only then migrate the browser's auth/session lifecycle and remove Firebase-token Edge Functions.
 
 This is a required cutover dependency, not optional cleanup.
+
+### Auth inventory result (latest audit)
+
+- Supabase Auth currently has 1 user.
+- There are 6 profiles; only 1 profile ID currently matches a Supabase Auth user.
+- 5 profiles do not currently have a matching Supabase Auth user.
+- 3 legacy Firebase-to-Supabase identity-link rows remain.
+
+Do not delete or reassign these five unmatched profiles automatically. The cutover needs an explicit account-recovery/re-registration strategy for those users, or a verified ownership mapping. Credentials cannot be inferred from profile rows.
