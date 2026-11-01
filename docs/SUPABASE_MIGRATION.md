@@ -100,8 +100,11 @@ No additional profile cleanup is authorized or needed.
 - Hardened the existing `on_auth_user_created` trigger.
 - Moved its trigger function from exposed `public` into the non-exposed `private` schema.
 - Renamed it to `private.handle_new_murmur_user()` and revoked direct execution from `anon`, `authenticated`, and `public`.
-- The trigger now normalizes and validates optional username metadata, caps display names at 80 characters, and falls back to creating a profile without a username if the submitted username is invalid or already taken. This avoids a duplicate username blocking account creation.
+- The trigger normalizes and validates optional username metadata against the actual `profiles_username_format` constraint, caps display names at 80 characters, and falls back to creating a profile without a username if the submitted username is invalid or already taken.
+- Added `profiles_auth_user_fkey` from `public.profiles.id` to `auth.users.id` with `ON DELETE CASCADE`, preventing orphan profile rows when an Auth user is deleted.
+- Ran a database-level signup-trigger test with two temporary Auth users: one valid username and one duplicate username. Both profile paths passed, and deleting the test Auth users cascaded their profiles. The temporary test rows were cleaned up; the live inventory remains 1 Auth user, 1 matching profile, and 0 unmatched profiles.
 - Verified the trigger still points to the private function and that neither `anon` nor `authenticated` can execute it directly.
-- This is a safe Supabase Auth foundation change; it does **not** switch the live main app away from Firebase or change the mixed RLS identity helper.
+- Expanded `supabase-data.js` auth helpers with verified user/session retrieval and an unsubscribe-safe auth-state listener.
+- These are Supabase Auth foundation changes; they do **not** switch the live main app away from Firebase or change the mixed RLS identity helper.
 
 Security advisor items observed after this change (pre-existing and not silently altered): six RLS-enabled internal tables have no client policies; the five-minute refresh RPC is a SECURITY DEFINER function intentionally callable by authenticated users and must be reviewed against its internal `auth.uid()` checks; leaked-password protection is disabled in project Auth settings.
