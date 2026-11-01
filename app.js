@@ -2403,6 +2403,7 @@ function openCustomerSupport(mode = 'question') {
         createdAt: serverTimestamp(),
         status: 'open'
       });
+      if (mode === 'report') sendMurmurError('bug', 'User submitted a bug report in category ' + category + '. See the Customer Support queue for details.');
       status.textContent = 'Your request was sent. Thank you.';
       showToast('Your support request was sent.');
       setTimeout(() => back.remove(), 900);
