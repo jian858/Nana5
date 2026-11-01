@@ -177,9 +177,41 @@ export const friendships = {
     return throwIfError(await supabase.from("friendships").select("requester_id,addressee_id,status,created_at,updated_at")
       .or("requester_id.eq." + user.id + ",addressee_id.eq." + user.id).order("updated_at", { ascending: false }));
   },
+  people: async (status = "accepted") => {
+    const user = await requireUser();
+    const relations = throwIfError(await supabase.from("friendships")
+      .select("requester_id,addressee_id,status,created_at,updated_at")
+      .or("requester_id.eq." + user.id + ",addressee_id.eq." + user.id)
+      .eq("status", status)
+      .order("updated_at", { ascending: false }));
+    const ids = [...new Set(relations.map(row => row.requester_id === user.id ? row.addressee_id : row.requester_id))];
+    if (!ids.length) return [];
+    const people = throwIfError(await supabase.from("profiles")
+      .select("id,username,display_name,avatar_url,bio")
+      .in("id", ids));
+    const byId = new Map(people.map(person => [person.id, person]));
+    return relations.map(relation => ({
+      ...relation,
+      person: byId.get(relation.requester_id === user.id ? relation.addressee_id : relation.requester_id) || null
+    }));
+  },
+  incoming: async () => {
+    const user = await requireUser();
+    return throwIfError(await supabase.from("friendships")
+      .select("requester_id,addressee_id,status,created_at")
+      .eq("addressee_id", user.id).eq("status", "pending")
+      .order("created_at", { ascending: false }));
+  },
+  outgoing: async () => {
+    const user = await requireUser();
+    return throwIfError(await supabase.from("friendships")
+      .select("requester_id,addressee_id,status,created_at")
+      .eq("requester_id", user.id).eq("status", "pending")
+      .order("created_at", { ascending: false }));
+  },
   request: async (targetUserId) => {
     const user = await requireUser();
-    if (targetUserId === user.id) throw new Error("You cannot send a friend request to yourself.");
+    if (!targetUserId || targetUserId === user.id) throw new Error("Choose another user to send a friend request.");
     return throwIfError(await supabase.from("friendships").insert({ requester_id: user.id, addressee_id: targetUserId, status: "pending" }).select().single());
   },
   setStatus: async (requesterId, status) => {
@@ -201,10 +233,17 @@ export const stories = {
     .gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false }).limit(100)),
   create: async ({ content = "", mediaUrl = null, background = null, expiresAt }) => {
     const user = await requireUser();
+    const cleanContent = String(content || "").trim();
+    if (!cleanContent && !mediaUrl) throw new Error("Add text or media before publishing your story.");
+    if (cleanContent.length > 2000) throw new Error("Stories must be 2,000 characters or fewer.");
     return throwIfError(await supabase.from("stories").insert({
-      author_id: user.id, content, media_url: mediaUrl, background,
+      author_id: user.id, content: cleanContent, media_url: mediaUrl, background,
       expires_at: expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
     }).select().single());
+  },
+  remove: async (storyId) => {
+    await requireUser();
+    return throwIfError(await supabase.from("stories").delete().eq("id", storyId).select("id").single());
   }
 };
 
