@@ -92,7 +92,8 @@ function loadState() {
     if (!old) return fresh();
     const st = fresh();
     st.loggedIn = !!old.loggedIn;
-    st.activeView = old.activeView || 'home';
+    // Always start authenticated sessions on Home; do not restore the last tab after reopening.
+    st.activeView = 'home';
     if (old.currentUser && old.currentUser.uid) { st.currentUser = old.currentUser; st.users.me = { ...old.currentUser }; }
     if (old.v === 2) st.posts = old.posts || [];
     return st;
@@ -3100,6 +3101,7 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
     startSession(user);
+    state.activeView = 'home';
     state.loggedIn = true;
     state.currentUser = {
       uid: user.uid,
