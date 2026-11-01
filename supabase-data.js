@@ -104,6 +104,40 @@ export const comments = {
   }
 };
 
+export const conversations = {
+  list: async () => {
+    const user = await requireUser();
+    const memberships = throwIfError(await supabase.from("conversation_members")
+      .select("conversation_id,joined_at,last_read_at")
+      .eq("user_id", user.id)
+      .order("joined_at", { ascending: false }));
+    if (!memberships.length) return [];
+    const ids = memberships.map(row => row.conversation_id);
+    const rows = throwIfError(await supabase.from("conversations")
+      .select("id,created_by,created_at")
+      .in("id", ids)
+      .order("created_at", { ascending: false }));
+    const membershipById = new Map(memberships.map(row => [row.conversation_id, row]));
+    return rows.map(row => ({ ...row, membership: membershipById.get(row.id) }));
+  },
+  members: async (conversationId) => {
+    await requireUser();
+    return throwIfError(await supabase.from("conversation_members")
+      .select("conversation_id,user_id,joined_at,last_read_at")
+      .eq("conversation_id", conversationId)
+      .order("joined_at", { ascending: true }));
+  },
+  markRead: async (conversationId) => {
+    const user = await requireUser();
+    return throwIfError(await supabase.from("conversation_members")
+      .update({ last_read_at: new Date().toISOString() })
+      .eq("conversation_id", conversationId)
+      .eq("user_id", user.id)
+      .select("conversation_id,last_read_at")
+      .single());
+  }
+};
+
 export const messages = {
   list: async (conversationId, page = 0) => {
     const [from, to] = pageRange(page);
@@ -113,10 +147,27 @@ export const messages = {
   },
   send: async ({ conversationId, content, mediaUrl = null, mediaType = null }) => {
     const user = await requireUser();
+    const cleanContent = String(content || "").trim();
+    if (!cleanContent && !mediaUrl) throw new Error("Add a message or attachment before sending.");
+    if (cleanContent.length > 5000) throw new Error("Messages must be 5,000 characters or fewer.");
     return throwIfError(await supabase.from("messages").insert({
-      conversation_id: conversationId, sender_id: user.id, content: content || "",
+      conversation_id: conversationId, sender_id: user.id, content: cleanContent,
       media_url: mediaUrl, media_type: mediaType
     }).select().single());
+  },
+  edit: async (messageId, content) => {
+    await requireUser();
+    const cleanContent = String(content || "").trim();
+    if (!cleanContent) throw new Error("A message cannot be empty.");
+    if (cleanContent.length > 5000) throw new Error("Messages must be 5,000 characters or fewer.");
+    return throwIfError(await supabase.from("messages")
+      .update({ content: cleanContent, edited_at: new Date().toISOString() })
+      .eq("id", messageId).select().single());
+  },
+  remove: async (messageId) => {
+    await requireUser();
+    return throwIfError(await supabase.from("messages")
+      .delete().eq("id", messageId).select("id").single());
   }
 };
 
