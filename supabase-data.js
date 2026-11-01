@@ -253,12 +253,6 @@ export const reels = {
   remove: async (reelId) => {
     await requireUser();
     return throwIfError(await supabase.from("reels").delete().eq("id", reelId).select("id").single());
-  },
-  subscribe: (callback) => {
-    const channel = supabase.channel("murmur-reels-feed")
-      .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, callback)
-      .subscribe();
-    return () => supabase.removeChannel(channel);
   }
 };
 
@@ -286,18 +280,6 @@ export const userNotes = {
   remove: async (noteId) => {
     await requireUser();
     return throwIfError(await supabase.from("user_notes").delete().eq("id", noteId).select("id").single());
-  },
-  subscribeMine: async (callback) => {
-    const user = await requireUser();
-    const channel = supabase.channel("murmur-notes-" + user.id)
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "user_notes",
-        filter: "user_id=eq." + user.id
-      }, callback)
-      .subscribe();
-    return () => supabase.removeChannel(channel);
   }
 };
 
