@@ -6,7 +6,42 @@
    SECURITY + SAFETY, SENDING
    Numbers and wording live in SETTINGS above.
    ===================================================================== */
-const { initializeApp, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider, deleteUser, signOut, onAuthStateChanged, getDatabase, ref, set, get, push, update, remove, onValue, query, orderByChild, equalTo, limitToLast, serverTimestamp, getStorage, storageRef, uploadBytesResumable, getDownloadURL, deleteObject } = window.__fb;
+const monitoredFirebaseMethods = new Set([
+  'createUserWithEmailAndPassword','signInWithEmailAndPassword','sendPasswordResetEmail',
+  'reauthenticateWithCredential','deleteUser','signOut','set','get','push','update','remove',
+  'uploadBytesResumable','getDownloadURL','deleteObject'
+]);
+const monitoredFirebase = new Proxy(window.__fb, {
+  get(target, property, receiver) {
+    const original = Reflect.get(target, property, receiver);
+    if (typeof original !== 'function') return original;
+    if (property === 'onValue') {
+      return function (queryRef, callback, cancelCallback, ...rest) {
+        const reportCancel = typeof cancelCallback === 'function' ? cancelCallback : function (error) {
+          sendMurmurError('firebase', error, { source: 'firebase.onValue listener' });
+        };
+        return Reflect.apply(original, target, [queryRef, callback, reportCancel, ...rest]);
+      };
+    }
+    if (!monitoredFirebaseMethods.has(property)) return original;
+    return function (...args) {
+      let result;
+      try { result = Reflect.apply(original, target, args); }
+      catch (error) {
+        sendMurmurError(property === 'uploadBytesResumable' || property === 'getDownloadURL' || property === 'deleteObject' ? 'storage' : 'firebase', error, { source: 'firebase.' + String(property) });
+        throw error;
+      }
+      if (result && typeof result.then === 'function') {
+        return result.catch(error => {
+          sendMurmurError(property === 'uploadBytesResumable' || property === 'getDownloadURL' || property === 'deleteObject' ? 'storage' : 'firebase', error, { source: 'firebase.' + String(property) });
+          throw error;
+        });
+      }
+      return result;
+    };
+  }
+});
+const { initializeApp, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider, deleteUser, signOut, onAuthStateChanged, getDatabase, ref, set, get, push, update, remove, onValue, query, orderByChild, equalTo, limitToLast, serverTimestamp, getStorage, storageRef, uploadBytesResumable, getDownloadURL, deleteObject } = monitoredFirebase;
 
 const firebaseConfig = window.MURMUR_FIREBASE;   // edit in SETTINGS
 
@@ -3504,6 +3539,26 @@ window.addEventListener('hashchange', guardRoute);
 // ---------- automatic app error reporting ----------
 const MURMUR_ERROR_LOG_URL = MURMUR_SUPABASE_URL + '/functions/v1/murmur-error-log';
 const murmurErrorSeen = new Map();
+const murmurOriginalFetch = window.fetch.bind(window);
+window.fetch = async function (...args) {
+  const requestUrl = String(args[0] && args[0].url || args[0] || '');
+  if (requestUrl.includes('/functions/v1/murmur-error-log')) return murmurOriginalFetch(...args);
+  try {
+    const response = await murmurOriginalFetch(...args);
+    if (!response.ok) sendMurmurError('api', new Error('HTTP ' + response.status + ' ' + response.statusText), { source: requestUrl });
+    return response;
+  } catch (error) {
+    sendMurmurError('network', error, { source: requestUrl });
+    throw error;
+  }
+};
+const murmurOriginalConsoleError = console.error.bind(console);
+console.error = function (...args) {
+  murmurOriginalConsoleError(...args);
+  const detail = args.map(value => value && (value.message || value.code) || value).join(' ');
+  sendMurmurError('handled', detail, { source: 'console.error' });
+};
+
 function sendMurmurError(kind, error, meta = {}) {
   const user = auth.currentUser;
   if (!user) return;
