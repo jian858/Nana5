@@ -1672,6 +1672,8 @@ html[data-theme="dark"] .np-in { background: #2a3442; }
 html[data-theme="dark"] .skel { background: linear-gradient(90deg, #2a3442 25%, #344052 37%, #2a3442 63%); background-size: 400% 100%; }
 html[data-theme="dark"] .app-skel { background: #121820; }
 html[data-theme="dark"] .as-head, html[data-theme="dark"] .as-nav, html[data-theme="dark"] .as-composer, html[data-theme="dark"] .as-post { background: #1c2430; border-color: rgba(255,255,255,0.12); }
+/* New social interactions */
+.message-reactions{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}.message-reactions button{border:0;border-radius:99px;background:rgba(20,33,61,.08);padding:3px 6px;font-size:14px}.message-reaction-summary{display:block;margin-top:4px;opacity:.8}.saved-post-list{max-height:55vh;overflow:auto}.saved-post-list article{padding:10px 0;border-bottom:1px solid var(--line)}.saved-post-list p{margin:5px 0;overflow-wrap:anywhere}.story-top [data-story-viewers]{border:0;background:rgba(255,255,255,.18);color:inherit;border-radius:20px;padding:5px 8px}.composer-chat{grid-template-columns:minmax(0,1fr) auto auto}.composer-chat #voiceBtn{min-width:42px;padding:8px}
 </style>
 </head>
 <body>
@@ -1753,7 +1755,7 @@ html[data-theme="dark"] .as-head, html[data-theme="dark"] .as-nav, html[data-the
           <input id="postInput" type="text" maxlength="200" placeholder="What’s on your mind?" readonly />
           <button class="btn primary" id="postBtn" type="button" hidden>Post</button>
         </div>
-        <div class="posts" id="posts"></div>
+        <button class="btn ghost small" id="savedPostsOpen" type="button">★ Saved posts</button><div class="posts" id="posts"></div>
       </section>
 
       <section class="pane reels-pane" data-pane="reels">
@@ -1825,7 +1827,7 @@ html[data-theme="dark"] .as-head, html[data-theme="dark"] .as-nav, html[data-the
             <div class="messages" id="messages"></div>
             <div class="composer-chat">
               <input id="messageInput" type="text" placeholder="Type a message…" maxlength="300" autocomplete="off" enterkeyhint="send" />
-              <button class="btn primary" id="sendBtn" type="button" aria-label="Send message"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 20.4l17.4-8.1a.5.5 0 0 0 0-.9L3.4 3.3a.5.5 0 0 0-.7.6L4.9 11l9 1-9 1-2.2 7.1a.5.5 0 0 0 .7.6z"/></svg></button>
+              <button class="btn ghost" id="voiceBtn" type="button" aria-label="Record voice message">🎙️</button><button class="btn primary" id="sendBtn" type="button" aria-label="Send message"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 20.4l17.4-8.1a.5.5 0 0 0 0-.9L3.4 3.3a.5.5 0 0 0-.7.6L4.9 11l9 1-9 1-2.2 7.1a.5.5 0 0 0 .7.6z"/></svg></button>
             </div>
           </div>
         </div>
@@ -2115,6 +2117,7 @@ function postMediaHtml(p) {
   if (okImg(p.photo)) h += `<img class="post-photo" src="${p.photo}" alt="Photo in post" loading="lazy" />`;
   return h;
 }
+let savedPostIds = {};
 function renderPosts() {
   const postsEl = document.getElementById('posts');
   postsEl.innerHTML = '';
@@ -2137,7 +2140,7 @@ function renderPosts() {
       ${p.raw ? postMediaHtml(p.raw) : ''}
       <div class="post-actions">
         <button class="${p.liked ? 'active' : ''}" data-like="${esc(p.id)}" type="button">${ic('heart')}Like${p.likes ? ' ' + p.likes : ''}</button>
-        ${p.remote ? `<button type="button" data-comment="${esc(p.id)}">${ic('comment')}Comment</button>` : ''}
+        ${p.remote ? `<button type="button" data-comment="${esc(p.id)}">${ic('comment')}Comment</button><button type="button" data-save-post="${esc(p.id)}">${savedPostIds[p.id] ? '★ Saved' : '☆ Save'}</button>` : ''}
         ${p.mine ? `<button type="button" data-del="${esc(p.id)}">Delete</button>` : (p.remote ? `<button type="button" data-report-post="${esc(p.id)}" data-name="${esc(p.name)}">Report</button>` : '')}
       </div>`;
     card.dataset.pid = p.id;
@@ -2301,7 +2304,7 @@ function startChatSession(uid) {
   const base = chatPath();
   unsubMsgs = onValue(query(ref(db, base + '/messages'), orderByChild('createdAt'), limitToLast(200)), snap => {
     if (token !== chatSessionToken || activeChatUid !== uid) return;
-    chatMsgs = Object.values(snap.val() || {}).filter(Boolean).sort((a, b) => (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0));
+    chatMsgs = Object.entries(snap.val() || {}).map(([id, message]) => ({ id, ...message })).filter(Boolean).sort((a, b) => (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0));
     renderConversation(); markSeen();
   }, err => {
     if (token !== chatSessionToken || activeChatUid !== uid) return;
@@ -2354,7 +2357,7 @@ function renderConversation() {
   const box = document.getElementById('messages');
   box.innerHTML = '';
   if (!activeChatUid) { convShownFor = null; convShownCount = 0; box.innerHTML = '<div class="empty">Select a friend to start chatting.</div>'; return; }
-  const list = chatMsgs.filter(m => m && typeof m.text === 'string' && m.text.trim() && !(m.from && m.from !== meUid() && isBlocked(m.from)));
+  const list = chatMsgs.filter(m => m && ((typeof m.text === 'string' && m.text.trim()) || m.audioUrl) && !(m.from && m.from !== meUid() && isBlocked(m.from)));
   if (!list.length) box.innerHTML = '<div class="empty">No messages yet. Say hi!</div>';
   // first time we show this chat: pop the last few in one after another; afterwards: only brand new ones
   const firstShow = convShownFor !== activeChatUid;
@@ -2363,7 +2366,9 @@ function renderConversation() {
     const b = document.createElement('div');
     b.className = 'bubble ' + (m.from === meUid() ? 'me' : '') + (i >= from ? ' pop' : '');
     if (i >= from && firstShow) b.style.animationDelay = ((i - from) * 45 + 120) + 'ms';
-    b.textContent = m.text;
+    if (m.audioUrl) { const audio = document.createElement('audio'); audio.controls = true; audio.preload = 'none'; audio.src = m.audioUrl; audio.setAttribute('aria-label', 'Voice message'); b.appendChild(audio); }
+    if (m.text) { const body = document.createElement('div'); body.textContent = m.text; b.appendChild(body); }
+    if (m.id) { b.dataset.messageId = m.id; const reacts = document.createElement('div'); reacts.className = 'message-reactions'; reacts.innerHTML = ['❤️','😂','😮','👍','🔥'].map(emoji => `<button type="button" data-msg-react="${esc(m.id)}" data-emoji="${emoji}" aria-label="React ${emoji}">${emoji}</button>`).join(''); b.appendChild(reacts); const chosen = Object.entries(m.reactions || {}).map(([who, emoji]) => `${emoji}`).join(' '); if (chosen) { const summary = document.createElement('small'); summary.className = 'message-reaction-summary'; summary.textContent = chosen; b.appendChild(summary); } }
     box.appendChild(b);
   });
   const lastMsg = list[list.length - 1];
@@ -3493,8 +3498,26 @@ function viewStory(uid) {
     clearTimeout(storyTimer);
     if (i >= list.length) return close();
     const st = list[i], mine = uid === meUid(), name = mine ? 'Your story' : (friendsOf().find(d => d.uid === uid) || {}).name || '';
-    el.innerHTML = `<div class="story-bars">${list.map((_, k) => `<i class="${k <= i ? 'on' : ''}"></i>`).join('')}</div><div class="story-top"><strong>${esc(name)}</strong><span>${timeAgo(st.createdAt)}${mine ? ' · ' + Math.max(1, Math.ceil((st.createdAt + STORY_MS - Date.now()) / 36e5)) + 'h left' : ''}</span>${mine ? '<button type="button" data-sdel>Delete</button>' : ''}<button type="button" data-sclose aria-label="Close">×</button></div>${st.photo ? `<img alt="" src="${okImg(st.photo) ? st.photo : ''}" />` : `<div class="story-text" style="background:${STORY_BGS[st.bg] || STORY_BGS[0]}"><p>${esc(st.text || '')}</p></div>`}${!mine ? '<div class="story-reactions" aria-label="Send a story reaction"><button type="button" data-story-emoji="❤️" aria-label="Send heart">❤️</button><button type="button" data-story-emoji="😂" aria-label="Send laughing face">😂</button><button type="button" data-story-emoji="😮" aria-label="Send surprised face">😮</button><button type="button" data-story-emoji="🔥" aria-label="Send fire">🔥</button><button type="button" data-story-emoji="👏" aria-label="Send clapping hands">👏</button></div>' : ''}<button class="story-prev" type="button" aria-label="Previous"></button><button class="story-next" type="button" aria-label="Next"></button>`;
+    if (!mine && meUid()) set(ref(db, `stories/${uid}/${st.id}/views/${meUid()}`), serverTimestamp()).catch(() => {});
+    const viewerCount = Object.keys(st.views || {}).length;
+    el.innerHTML = `<div class="story-bars">${list.map((_, k) => `<i class="${k <= i ? 'on' : ''}"></i>`).join('')}</div><div class="story-top"><strong>${esc(name)}</strong><span>${timeAgo(st.createdAt)}${mine ? ' · ' + Math.max(1, Math.ceil((st.createdAt + STORY_MS - Date.now()) / 36e5)) + 'h left' : ''}</span>${mine ? `<button type="button" data-story-viewers>Viewed by ${viewerCount}</button><button type="button" data-sdel>Delete</button>` : ''}<button type="button" data-sclose aria-label="Close">×</button></div>${st.photo ? `<img alt="" src="${okImg(st.photo) ? st.photo : ''}" />` : `<div class="story-text" style="background:${STORY_BGS[st.bg] || STORY_BGS[0]}"><p>${esc(st.text || '')}</p></div>`}${!mine ? '<div class="story-reactions" aria-label="Send a story reaction"><button type="button" data-story-emoji="❤️" aria-label="Send heart">❤️</button><button type="button" data-story-emoji="😂" aria-label="Send laughing face">😂</button><button type="button" data-story-emoji="😮" aria-label="Send surprised face">😮</button><button type="button" data-story-emoji="🔥" aria-label="Send fire">🔥</button><button type="button" data-story-emoji="👏" aria-label="Send clapping hands">👏</button></div>' : ''}<button class="story-prev" type="button" aria-label="Previous"></button><button class="story-next" type="button" aria-label="Next"></button>`;
     el.querySelector('[data-sclose]').onclick = close;
+    const viewersBtn = el.querySelector('[data-story-viewers]');
+    if (viewersBtn) viewersBtn.onclick = async () => {
+      try {
+        const snap = await get(ref(db, `stories/${uid}/${st.id}/views`));
+        const viewers = Object.keys(snap.val() || {});
+        if (!viewers.length) { showToast('No views yet.'); return; }
+        const names = await Promise.all(viewers.map(async viewerUid => {
+          if (viewerUid === meUid()) return state.currentUser?.name || 'You';
+          const profile = await get(ref(db, 'profiles/' + viewerUid));
+          return profile.val()?.name || 'Murmur member';
+        }));
+        const panel = document.createElement('div'); panel.className = 'modal-back top';
+        panel.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true"><h3>Story viewers (${names.length})</h3><div class="saved-post-list">${names.map(n => `<p>${esc(n)}</p>`).join('')}</div><div class="cookie-actions"><button class="btn primary" type="button" data-close>Done</button></div></div>`;
+        document.body.appendChild(panel); panel.querySelector('[data-close]').onclick = () => panel.remove();
+      } catch (error) { showToast(friendlyError(error, 'Could not load viewers.')); }
+    };
     el.querySelectorAll('[data-story-emoji]').forEach(button => {
       button.onclick = async event => {
         event.preventDefault(); event.stopPropagation();
@@ -4416,6 +4439,7 @@ function startExtras(uid) {
   extraSubs = [
     onValue(query(ref(db, 'announcements'), orderByChild('createdAt'), limitToLast(20)), s => { annList = Object.entries(s.val() || {}).map(([id, a]) => ({ id, ...a })); renderAnnouncements(); }, off),
     onValue(ref(db, 'notifications/' + uid), s => { notes = Object.entries(s.val() || {}).map(([id, n]) => ({ id, ...n })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); renderAlerts(); }, off),
+    onValue(ref(db, 'savedPosts/' + uid), s => { savedPostIds = s.val() || {}; renderPosts(); }, off),
     onValue(ref(db, 'suspended/' + uid), s => { suspendedInfo = s.exists() ? s.val() : null; renderSuspended(); }, off),
     onValue(ref(db, 'appeals/' + uid), s => { myAppeal = s.exists() ? s.val() : null; renderSuspended(); }, off)
   ];
@@ -4426,7 +4450,7 @@ function startExtras(uid) {
 function stopExtras() {
   extraSubs.forEach(u => u()); extraSubs = [];
   clearInterval(presenceTimer); presenceTimer = null;
-  annList = []; notes = []; suspendedInfo = null; myAppeal = null;
+  annList = []; notes = []; savedPostIds = {}; suspendedInfo = null; myAppeal = null;
   renderAnnouncements(); renderSuspended();
 }
 /* Announcements from admin.html show in Alerts (not on Home), signed "Admin of Murmur". */
@@ -4487,6 +4511,36 @@ document.addEventListener('click', async e => {
 /* =====================================================================
    SENDING  -  messages and posts
    ===================================================================== */
+let voiceRecorder = null, voiceChunks = [], voiceStream = null, voiceRecording = false;
+async function toggleVoiceMessage() {
+  const button = document.getElementById('voiceBtn');
+  if (!activeChatUid || !meUid()) { showToast('Open a chat first.'); return; }
+  if (voiceRecording && voiceRecorder) { voiceRecorder.stop(); button.textContent = '🎙️'; button.disabled = true; return; }
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') { showToast('Voice recording is not supported by this browser.'); return; }
+  try {
+    voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    voiceChunks = []; voiceRecorder = new MediaRecorder(voiceStream);
+    voiceRecorder.ondataavailable = event => { if (event.data?.size) voiceChunks.push(event.data); };
+    voiceRecorder.onerror = () => showToast('Voice recording failed.');
+    voiceRecorder.onstop = async () => {
+      voiceRecording = false; voiceStream?.getTracks().forEach(track => track.stop()); voiceStream = null;
+      try {
+        const recipientUid = activeChatUid, senderUid = meUid();
+        const blob = new Blob(voiceChunks, { type: voiceRecorder.mimeType || 'audio/webm' });
+        if (!blob.size || blob.size > 8 * 1024 * 1024) throw new Error('Voice message must be under 8 MB.');
+        const filePath = `chat-audio/${senderUid}/${chatIdOf(senderUid, recipientUid)}/${Date.now()}.webm`;
+        const task = uploadBytesResumable(storageRef(getStorage(app), filePath), blob, { contentType: blob.type || 'audio/webm' });
+        await new Promise((resolve, reject) => { task.on('state_changed', null, reject, resolve); });
+        const audioUrl = await getDownloadURL(task.snapshot.ref);
+        await push(ref(db, `chats/${chatIdOf(senderUid, recipientUid)}/messages`), { from: senderUid, audioUrl, audioPath: filePath, createdAt: serverTimestamp() });
+        showToast('Voice message sent.');
+      } catch (error) { showToast(friendlyError(error, 'Could not send voice message.')); }
+      finally { button.disabled = false; button.textContent = '🎙️'; voiceRecorder = null; voiceChunks = []; }
+    };
+    voiceRecorder.start(); voiceRecording = true; button.textContent = '■'; showToast('Recording… tap ■ to send.');
+  } catch (error) { voiceStream?.getTracks().forEach(track => track.stop()); voiceStream = null; showToast(friendlyError(error, 'Microphone permission is needed.')); }
+}
+document.getElementById('voiceBtn').addEventListener('click', toggleVoiceMessage);
 async function sendMessage() {
   const input = document.getElementById('messageInput');
   const sendButton = document.getElementById('sendBtn');
@@ -4540,13 +4594,34 @@ async function createPost() {
   return true;
 }
 
+function openSavedPosts() {
+  const ids = Object.keys(savedPostIds || {}).filter(id => savedPostIds[id]);
+  const posts = (remotePosts || []).filter(p => ids.includes(p.id));
+  const back = document.createElement('div'); back.className = 'modal-back top';
+  back.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true"><h3>Saved posts</h3><div class="saved-post-list">${posts.length ? posts.map(p => `<article><strong>${esc(p.authorName || 'Someone')}</strong><p>${esc(p.text || (p.photo ? 'Photo post' : 'Post'))}</p><button class="btn small ghost" type="button" data-unsave="${esc(p.id)}">Remove saved post</button></article>`).join('') : '<p>No saved posts yet.</p>'}</div><div class="cookie-actions"><button class="btn primary" type="button" data-close>Done</button></div></div>`;
+  document.body.appendChild(back); back.querySelector('[data-close]').onclick = () => back.remove();
+  back.addEventListener('click', async e => { const b = e.target.closest('[data-unsave]'); if (!b) return; try { await remove(ref(db, `savedPosts/${meUid()}/${b.dataset.unsave}`)); b.closest('article').remove(); showToast('Removed from saved posts.'); } catch (error) { showToast(friendlyError(error, 'Could not remove saved post.')); } });
+}
 document.getElementById('loginBtn').addEventListener('click', () => {
   login(document.getElementById('email').value, document.getElementById('password').value);
 });
 document.getElementById('createBtn').addEventListener('click', openRegisterWizard);
 document.getElementById('resetBtn').addEventListener('click', openForgotPassword);
 document.getElementById('postBtn').addEventListener('click', createPost);
+document.getElementById('savedPostsOpen').addEventListener('click', openSavedPosts);
+document.addEventListener('click', async e => {
+  const save = e.target.closest('[data-save-post]'); if (!save || !meUid()) return;
+  const id = save.dataset.savePost;
+  try { await set(ref(db, `savedPosts/${meUid()}/${id}`), savedPostIds[id] ? null : true); showToast(savedPostIds[id] ? 'Post removed from saved.' : 'Post saved.'); }
+  catch (error) { showToast(friendlyError(error, 'Could not save post.')); }
+});
 document.getElementById('sendBtn').addEventListener('click', sendMessage);
+document.getElementById('messages').addEventListener('click', async e => {
+  const b = e.target.closest('[data-msg-react]'); if (!b || !activeChatUid || !meUid()) return;
+  const messageId = b.dataset.msgReact, emoji = b.dataset.emoji;
+  try { await set(ref(db, `${chatPath()}/messages/${messageId}/reactions/${meUid()}`), emoji); }
+  catch (error) { showToast(friendlyError(error, 'Could not react to message.')); }
+});
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   const btn = document.getElementById('logoutBtn');
   if (btn.classList.contains('logging-out')) return;
@@ -4657,7 +4732,7 @@ function openDeleteAccount() {
       const wipe = {};
       Object.keys(mine.val() || {}).forEach(id => { wipe['posts/' + id] = null; });
       friendDocs.forEach(d => { wipe[`friends/${user.uid}/${d.uid}`] = null; wipe[`friends/${d.uid}/${user.uid}`] = null; });
-      wipe['profiles/' + user.uid] = null; wipe['presence/' + user.uid] = null; wipe['notifications/' + user.uid] = null; wipe['users/' + user.uid] = null;
+      wipe['profiles/' + user.uid] = null; wipe['presence/' + user.uid] = null; wipe['notifications/' + user.uid] = null; wipe['savedPosts/' + user.uid] = null; wipe['users/' + user.uid] = null;
       await update(ref(db), wipe);
       await deleteUser(user);
       stopPostsListener();
