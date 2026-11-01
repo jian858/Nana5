@@ -1926,11 +1926,10 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-// Firebase remains the login provider. Its UID and the private Supabase UUID are distinct.
+// Firebase remains the login provider. Supabase independently creates and stores its own UUID.
 const MURMUR_SUPABASE_URL = 'https://pkadftvqslkykehcqedj.supabase.co';
 const MURMUR_SUPABASE_KEY = 'sb_publishable_etoHiUGbJ96MUPzJABL12A_UiTWVxok';
-let murmurSupabaseClient = null;
-let murmurSupabaseModule = null;
+const MURMUR_IDENTITY_URL = MURMUR_SUPABASE_URL + '/functions/v1/murmur-identity';
 window.MURMUR_IDS = window.MURMUR_IDS || { firebaseUid: null, supabaseId: null, status: 'not-signed-in' };
 async function syncMurmurSupabaseIdentity(user) {
   if (!user) {
@@ -1939,22 +1938,27 @@ async function syncMurmurSupabaseIdentity(user) {
   }
   window.MURMUR_IDS = { firebaseUid: user.uid, supabaseId: null, status: 'checking' };
   try {
-    // Refresh once so a server-assigned Firebase custom claim is included in the token.
-    const tokenInfo = await user.getIdTokenResult(true);
-    if (tokenInfo.claims.role !== 'authenticated') {
-      window.MURMUR_IDS.status = 'missing-firebase-role-claim';
-      console.warn('Supabase connection needs Firebase custom claim role=authenticated. Configure it securely with Firebase Admin SDK, then sign in again.');
-      return;
-    }
-    murmurSupabaseModule ||= await import('https://esm.sh/@supabase/supabase-js@2.57.4');
-    murmurSupabaseClient ||= murmurSupabaseModule.createClient(MURMUR_SUPABASE_URL, MURMUR_SUPABASE_KEY, {
-      // Resolve the current user each time; do not retain the first signed-in user's token.
-      accessToken: async () => auth.currentUser ? auth.currentUser.getIdToken() : null
+    // The Edge Function verifies the Firebase token itself; no Firebase custom role claim is needed to create IDs.
+    const firebaseToken = await user.getIdToken();
+    const response = await fetch(MURMUR_IDENTITY_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + firebaseToken,
+        'apikey': MURMUR_SUPABASE_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
     });
-    const { data, error } = await murmurSupabaseClient.rpc('ensure_murmur_user');
-    if (error) throw error;
-    if (!data) throw new Error('ensure_murmur_user returned no Supabase UUID');
-    window.MURMUR_IDS = { firebaseUid: user.uid, supabaseId: data, status: 'connected' };
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'Supabase identity request failed (' + response.status + ')');
+    if (result.firebaseUid !== user.uid || !result.supabaseId) {
+      throw new Error('Supabase returned an invalid account ID link');
+    }
+    window.MURMUR_IDS = {
+      firebaseUid: result.firebaseUid,
+      supabaseId: result.supabaseId,
+      status: 'connected'
+    };
     console.info('Murmur Firebase/Supabase identity linked', window.MURMUR_IDS);
   } catch (error) {
     window.MURMUR_IDS.status = 'sync-error';
