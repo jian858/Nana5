@@ -3042,6 +3042,17 @@ function openRegisterWizard() {
 /* =====================================================================
    LOG IN  -  email + password, uses the limits in SETTINGS
    ===================================================================== */
+async function getAccountRestriction(uid) {
+  const snap = await get(ref(db, 'suspended/' + uid));
+  const info = snap.exists() ? snap.val() : null;
+  if (!info) return null;
+  const now = Date.now();
+  if (info.deleted) return info;
+  if (info.scheduledDelete) return Number(info.deleteAt) <= now ? { ...info, deleted: true, deletionDue: true } : null;
+  if (info.expiresAt && Number(info.expiresAt) <= now) return null;
+  return info;
+}
+
 async function login(email, password) {
   const normalized = String(email || '').trim().toLowerCase();
   if (!normalized || !String(password || '').trim()) {
@@ -3064,6 +3075,16 @@ async function login(email, password) {
   try {
     try { await setPersistence(auth, document.getElementById('rememberMe').checked ? browserLocalPersistence : browserSessionPersistence); } catch {}
     const userCredential = await signInWithEmailAndPassword(auth, normalized, password);
+    const restriction = await getAccountRestriction(userCredential.user.uid);
+    if (restriction) {
+      suspendedInfo = restriction;
+      myAppeal = (await get(ref(db, 'appeals/' + userCredential.user.uid)).catch(() => null))?.val?.() || null;
+      state.loggedIn = false;
+      appEl.hidden = true;
+      renderSuspended();
+      authError.textContent = 'This account is restricted. Review the notice on screen.';
+      return;
+    }
     const userDoc = await get(ref(db, 'users/' + userCredential.user.uid));
     const profile = userDoc.exists() ? userDoc.val() : {};
     state.loggedIn = true;
@@ -4746,11 +4767,24 @@ function openDeleteAccount() {
 }
 document.getElementById('deleteAccountBtn').addEventListener('click', openDeleteAccount);
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   syncMurmurSupabaseIdentity(user);
-  if (user) startSession(user); else endSession();
+  if (!user) { endSession(); suspendedInfo = null; document.getElementById('suspendedScreen')?.remove(); }
   renderMenuHeader();
   if (user) {
+    let restriction = null;
+    try { restriction = await getAccountRestriction(user.uid); } catch (e) { console.warn('Could not verify account restriction:', e); }
+    if (!auth.currentUser || auth.currentUser.uid !== user.uid) return;
+    if (restriction) {
+      endSession();
+      state.loggedIn = false;
+      suspendedInfo = restriction;
+      myAppeal = (await get(ref(db, 'appeals/' + user.uid)).catch(() => null))?.val?.() || null;
+      appEl.hidden = true;
+      renderSuspended();
+      return;
+    }
+    startSession(user);
     state.loggedIn = true;
     state.currentUser = {
       uid: user.uid,
