@@ -187,6 +187,12 @@ export const friendships = {
     if (!["accepted", "declined"].includes(status)) throw new Error("Friend requests can only be accepted or declined.");
     return throwIfError(await supabase.from("friendships").update({ status, updated_at: new Date().toISOString() })
       .eq("requester_id", requesterId).eq("addressee_id", user.id).select().single());
+  },
+  cancelRequest: async (addresseeId) => {
+    const user = await requireUser();
+    return throwIfError(await supabase.from("friendships").delete()
+      .eq("requester_id", user.id).eq("addressee_id", addresseeId)
+      .eq("status", "pending").select("requester_id,addressee_id").single());
   }
 };
 
