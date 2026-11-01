@@ -1829,3 +1829,10 @@ html.murmur-lite .murmur-menu-item .menu-tile-icon{width:23px;height:23px}
 .permission-item button,.permissions-refresh{min-width:76px;min-height:40px;padding:8px 12px;border:0;border-radius:9px;background:var(--acc,#14c8a0);color:#fff;font-weight:750}
 .permission-item button:disabled{opacity:.55}.permissions-footnote{margin:18px 0;font-size:.88rem}
 .permissions-refresh{width:100%;background:var(--soft,#e8edf1);color:var(--ink,#172033)}
+
+
+/* Create-account profile photo picker */
+.reg-photo-pick{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border:1px solid var(--line,#d8e0e5);border-radius:12px;background:var(--surface,#fff);color:var(--text,#17212b);font:inherit;font-weight:650;cursor:pointer}
+.reg-photo-pick:focus-visible{outline:3px solid var(--accent,#14c8a0);outline-offset:3px}
+.reg-photo-preview{width:104px;height:104px;margin-top:12px;border:1px dashed var(--line,#cbd5dc);border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;background-color:var(--surface-2,#f4f7f8);color:var(--muted,#687782);font-size:12px;text-align:center;padding:8px}
+.reg-photo-help{display:block;margin-top:8px;color:var(--muted,#687782);font-size:12px;line-height:1.45}
