@@ -195,6 +195,112 @@ export const reports = {
   }
 };
 
+export const reels = {
+  list: async (page = 0, pageSize = PAGE_SIZE) => {
+    const [from, to] = pageRange(page, pageSize);
+    return throwIfError(await supabase.from("reels")
+      .select("id,author_id,video_url,storage_path,title,caption,hashtags,audience,ai_label,duration_seconds,created_at,updated_at")
+      .order("created_at", { ascending: false })
+      .range(from, to));
+  },
+  create: async ({
+    videoUrl,
+    storagePath = null,
+    title = "",
+    caption = "",
+    hashtags = [],
+    audience = "public",
+    aiLabel = false,
+    durationSeconds = null
+  }) => {
+    const user = await requireUser();
+    if (!videoUrl) throw new Error("A video URL is required.");
+    if (!["public", "friends", "private"].includes(audience)) {
+      throw new Error("Choose a valid reel audience.");
+    }
+    const cleanHashtags = Array.isArray(hashtags)
+      ? [...new Set(hashtags.map(tag => String(tag).trim()).filter(Boolean))].slice(0, 30)
+      : [];
+    return throwIfError(await supabase.from("reels").insert({
+      author_id: user.id,
+      video_url: videoUrl,
+      storage_path: storagePath,
+      title: String(title).trim().slice(0, 120),
+      caption: String(caption).trim().slice(0, 2000),
+      hashtags: cleanHashtags,
+      audience,
+      ai_label: Boolean(aiLabel),
+      duration_seconds: durationSeconds == null ? null : Math.max(0, Math.floor(Number(durationSeconds) || 0))
+    }).select().single());
+  },
+  update: async (reelId, changes = {}) => {
+    await requireUser();
+    const allowed = ["title", "caption", "hashtags", "audience", "ai_label"];
+    const patch = Object.fromEntries(Object.entries(changes).filter(([key]) => allowed.includes(key)));
+    if (patch.audience && !["public", "friends", "private"].includes(patch.audience)) {
+      throw new Error("Choose a valid reel audience.");
+    }
+    if (patch.title != null) patch.title = String(patch.title).trim().slice(0, 120);
+    if (patch.caption != null) patch.caption = String(patch.caption).trim().slice(0, 2000);
+    if (patch.hashtags != null) {
+      patch.hashtags = Array.isArray(patch.hashtags)
+        ? [...new Set(patch.hashtags.map(tag => String(tag).trim()).filter(Boolean))].slice(0, 30)
+        : [];
+    }
+    patch.updated_at = new Date().toISOString();
+    return throwIfError(await supabase.from("reels").update(patch).eq("id", reelId).select().single());
+  },
+  remove: async (reelId) => {
+    await requireUser();
+    return throwIfError(await supabase.from("reels").delete().eq("id", reelId).select("id").single());
+  },
+  subscribe: (callback) => {
+    const channel = supabase.channel("murmur-reels-feed")
+      .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, callback)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }
+};
+
+export const userNotes = {
+  listMine: async () => {
+    const user = await requireUser();
+    return throwIfError(await supabase.from("user_notes")
+      .select("id,user_id,content,background,expires_at,created_at")
+      .eq("user_id", user.id)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false }));
+  },
+  create: async ({ content, background = null, expiresAt = null }) => {
+    const user = await requireUser();
+    const cleanContent = String(content || "").trim();
+    if (!cleanContent) throw new Error("Write something before saving your note.");
+    if (cleanContent.length > 500) throw new Error("Notes must be 500 characters or fewer.");
+    return throwIfError(await supabase.from("user_notes").insert({
+      user_id: user.id,
+      content: cleanContent,
+      background,
+      expires_at: expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    }).select().single());
+  },
+  remove: async (noteId) => {
+    await requireUser();
+    return throwIfError(await supabase.from("user_notes").delete().eq("id", noteId).select("id").single());
+  },
+  subscribeMine: async (callback) => {
+    const user = await requireUser();
+    const channel = supabase.channel("murmur-notes-" + user.id)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "user_notes",
+        filter: "user_id=eq." + user.id
+      }, callback)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }
+};
+
 export const storage = {
   upload: async (file, { bucket, folder = "uploads" }) => {
     const user = await requireUser();
