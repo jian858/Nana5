@@ -2277,33 +2277,51 @@ function renderChats() {
    Saved in chats/<chatId>/  messages/...,  typing/<uid> = a number that changes while that person types,
    seen/<uid> = when that person last read the chat (server time, so clocks never matter).
    ===================================================================== */
-let unsubTyping = null, unsubSeen = null, otherTyping = false, otherSeenAt = 0, typingHide = null, typingStop = null, lastTypingSent = 0, lastSeenWrite = 0;
+let unsubTyping = null, unsubSeen = null, otherTyping = false, otherSeenAt = 0, typingHide = null, typingStop = null, lastTypingSent = 0, lastSeenWrite = 0, chatSessionToken = 0, sendingMessage = false;
 const chatPath = () => `chats/${chatIdOf(meUid(), activeChatUid)}`;
 function stopTyping() {
   clearTimeout(typingStop); lastTypingSent = 0;
   if (activeChatUid && auth.currentUser) remove(ref(db, `${chatPath()}/typing/${meUid()}`)).catch(() => {});
 }
 function stopChatSession() {
+  // Invalidate queued callbacks before unsubscribing so an old chat cannot overwrite the new one.
+  chatSessionToken++;
   if (activeChatUid) stopTyping();
-  [unsubMsgs, unsubTyping, unsubSeen].forEach(u => u && u());
-  unsubMsgs = unsubTyping = unsubSeen = null; clearTimeout(typingHide);
+  [unsubMsgs, unsubTyping, unsubSeen].forEach(unsubscribe => { if (typeof unsubscribe === 'function') unsubscribe(); });
+  unsubMsgs = unsubTyping = unsubSeen = null;
+  clearTimeout(typingHide);
   activeChatUid = null; chatMsgs = []; otherTyping = false; otherSeenAt = 0; lastSeenWrite = 0;
+  convShownFor = null; convShownCount = 0;
 }
 function startChatSession(uid) {
+  if (!uid || uid === meUid()) return;
   stopChatSession();
   activeChatUid = uid;
+  const token = chatSessionToken;
   const base = chatPath();
   unsubMsgs = onValue(query(ref(db, base + '/messages'), orderByChild('createdAt'), limitToLast(200)), snap => {
-    chatMsgs = Object.values(snap.val() || {}).sort((a, b) => (a.createdAt || Date.now()) - (b.createdAt || Date.now()));
+    if (token !== chatSessionToken || activeChatUid !== uid) return;
+    chatMsgs = Object.values(snap.val() || {}).filter(Boolean).sort((a, b) => (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0));
     renderConversation(); markSeen();
-  }, err => { console.warn('Chat unavailable (check Realtime Database rules):', err); showToast(CONFIG.text.chatLoadFailed); });
-  unsubTyping = onValue(ref(db, `${base}/typing/${uid}`), s => {
+  }, err => {
+    if (token !== chatSessionToken || activeChatUid !== uid) return;
+    console.warn('Chat unavailable (check Realtime Database rules):', err);
+    showToast(friendlyError(err, CONFIG.text.chatLoadFailed));
+  });
+  unsubTyping = onValue(ref(db, `${base}/typing/${uid}`), snap => {
+    if (token !== chatSessionToken || activeChatUid !== uid) return;
     clearTimeout(typingHide);
-    otherTyping = s.exists();
-    if (otherTyping) typingHide = setTimeout(() => { otherTyping = false; renderTyping(); }, 4500);   // they stopped without clearing
+    otherTyping = snap.exists();
+    if (otherTyping) typingHide = setTimeout(() => {
+      if (token !== chatSessionToken || activeChatUid !== uid) return;
+      otherTyping = false; renderTyping();
+    }, 4500);
     renderTyping();
   }, () => {});
-  unsubSeen = onValue(ref(db, `${base}/seen/${uid}`), s => { otherSeenAt = s.val() || 0; renderConversation(); }, () => {});
+  unsubSeen = onValue(ref(db, `${base}/seen/${uid}`), snap => {
+    if (token !== chatSessionToken || activeChatUid !== uid) return;
+    otherSeenAt = Number(snap.val()) || 0; renderConversation();
+  }, () => {});
 }
 function markSeen() {
   if (!activeChatUid || document.hidden || !auth.currentUser) return;
@@ -2336,8 +2354,8 @@ function renderConversation() {
   const box = document.getElementById('messages');
   box.innerHTML = '';
   if (!activeChatUid) { convShownFor = null; convShownCount = 0; box.innerHTML = '<div class="empty">Select a friend to start chatting.</div>'; return; }
-  if (!chatMsgs.length) box.innerHTML = '<div class="empty">No messages yet. Say hi!</div>';
-  const list = chatMsgs.filter(m => m && typeof m.text === 'string' && m.text && !(m.from && m.from !== meUid() && isBlocked(m.from)));
+  const list = chatMsgs.filter(m => m && typeof m.text === 'string' && m.text.trim() && !(m.from && m.from !== meUid() && isBlocked(m.from)));
+  if (!list.length) box.innerHTML = '<div class="empty">No messages yet. Say hi!</div>';
   // first time we show this chat: pop the last few in one after another; afterwards: only brand new ones
   const firstShow = convShownFor !== activeChatUid;
   const from = firstShow ? Math.max(0, list.length - 6) : convShownCount;
@@ -4471,16 +4489,34 @@ document.addEventListener('click', async e => {
    ===================================================================== */
 async function sendMessage() {
   const input = document.getElementById('messageInput');
+  const sendButton = document.getElementById('sendBtn');
+  const recipientUid = activeChatUid;
+  const senderUid = meUid();
   const text = cleanText(input.value, CONFIG.maxLength.message);
-  if (!text || !activeChatUid) return;
-  if (isBlocked(activeChatUid)) { showToast('You blocked this person.'); return; }
+  if (!text || !recipientUid || sendingMessage) return;
+  if (!senderUid || !auth.currentUser) { showToast('Please log in again to send messages.'); return; }
+  if (recipientUid === senderUid) { showToast('Choose a friend to message.'); return; }
+  if (isBlocked(recipientUid)) { showToast('You blocked this person.'); return; }
+  if (!navigator.onLine) { showToast('You are offline. Message not sent.'); return; }
   if (messageLimiter.check()) { showToast(CONFIG.text.tooFastMessage); return; }
-  input.value = ''; stopTyping();
-  if (!auth.currentUser) { input.value = text; showToast('Please log in again to send messages.'); return; }
-  if (!navigator.onLine) { input.value = text; showToast('You are offline. Message not sent.'); return; }
-  try { await push(ref(db, `chats/${chatIdOf(meUid(), activeChatUid)}/messages`), { from: meUid(), text, createdAt: serverTimestamp() }); }
-  catch (e) { if (!input.value) input.value = text; showToast(friendlyError(e, 'Message failed. Try again.')); }
-  input.focus();
+
+  sendingMessage = true;
+  sendButton.disabled = true;
+  input.value = '';
+  stopTyping();
+  try {
+    await push(ref(db, `chats/${chatIdOf(senderUid, recipientUid)}/messages`), {
+      from: senderUid, text, createdAt: serverTimestamp()
+    });
+  } catch (error) {
+    // Restore the draft only if the user has not started typing a newer message.
+    if (!input.value) input.value = text;
+    showToast(friendlyError(error, 'Message failed. Check your connection and try again.'));
+  } finally {
+    sendingMessage = false;
+    sendButton.disabled = false;
+    if (activeChatUid === recipientUid && document.activeElement !== input) input.focus();
+  }
 }
 
 async function createPost() {
