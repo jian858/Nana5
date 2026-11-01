@@ -875,8 +875,11 @@ function openRegisterWizard() {
               <p>Everything on this tab is optional. You can change it later.</p>
             </div>
             <div class="field">
-              <label for="reg-photo">Profile photo</label>
-              <input id="reg-photo" name="photo" type="file" accept="image/*" />
+              <label>Profile photo</label>
+              <input id="reg-photo" name="photo" type="file" accept="image/*" hidden />
+              <button class="reg-photo-pick" type="button" data-pick-photo>Choose profile photo</button>
+              <div class="reg-photo-preview" data-photo-preview aria-live="polite">No photo selected</div>
+              <small class="reg-photo-help">Tap the button and choose a picture from your phone. Optional, JPG/PNG/WebP, up to 5 MB.</small>
             </div>
             <div class="field">
               <label for="reg-bio">Short bio</label>
@@ -957,6 +960,24 @@ function openRegisterWizard() {
   const usernameInput = field('username');
   const passwordInput = field('password');
   const confirmInput = field('confirmPassword');
+  const profilePhotoInput = field('photo');
+  const photoPreview = $('[data-photo-preview]');
+  $('[data-pick-photo]').addEventListener('click', () => profilePhotoInput.click());
+  profilePhotoInput.addEventListener('change', () => {
+    const file = profilePhotoInput.files && profilePhotoInput.files[0];
+    if (!file) { photoPreview.textContent = 'No photo selected'; photoPreview.style.backgroundImage = ''; return; }
+    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+      profilePhotoInput.value = '';
+      photoPreview.textContent = 'Choose an image smaller than 5 MB.';
+      photoPreview.style.backgroundImage = '';
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    photoPreview.textContent = '';
+    photoPreview.style.backgroundImage = 'url("' + previewUrl + '")';
+    photoPreview.style.backgroundSize = 'cover';
+    photoPreview.style.backgroundPosition = 'center';
+  });
 
   const selectedInterests = new Set();
   overlay.querySelectorAll('.interest-option').forEach(opt => {
@@ -1119,14 +1140,29 @@ function openRegisterWizard() {
       interests: [...selectedInterests],
       createdAt: new Date().toISOString(),
       coverPhoto: '',
-      profilePhoto: ''
+      profilePhoto: '',
+      photo: ''
     };
+
+    const selectedPhoto = profilePhotoInput.files && profilePhotoInput.files[0];
+    if (selectedPhoto && (!selectedPhoto.type.startsWith('image/') || selectedPhoto.size > 5 * 1024 * 1024)) {
+      goTo(4); setError('Choose an image smaller than 5 MB.'); return;
+    }
 
     nextButton.disabled = true;
     nextButton.textContent = 'Creating...';
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
+      if (selectedPhoto) {
+        const photoPath = 'profile-photos/' + uid + '/profile-' + Date.now();
+        const photoTask = uploadBytesResumable(storageRef(getStorage(app), photoPath), selectedPhoto, { contentType: selectedPhoto.type });
+        await new Promise((resolve, reject) => photoTask.on('state_changed', null, reject, resolve));
+        const photoUrl = await getDownloadURL(photoTask.snapshot.ref);
+        userProfile.profilePhoto = photoUrl;
+        userProfile.photo = photoUrl;
+        userProfile.photoPath = photoPath;
+      }
       // Create/link the independent Supabase UUID immediately after Firebase creates the account.
       // The Firebase account remains valid if Supabase is temporarily unavailable; the status is surfaced below.
       const identityLink = await syncMurmurSupabaseIdentity(userCredential.user);
@@ -1135,7 +1171,7 @@ function openRegisterWizard() {
         await ensureProfile(userCredential.user);
       } catch (profileErr) { console.warn('Profile save skipped:', profileErr); }
       state.loggedIn = true;
-      state.currentUser = { name: fullName, email, username: normalizedUser, uid };
+      state.currentUser = { name: fullName, email, username: normalizedUser, uid, ...(userProfile.photo ? { photo: userProfile.photo } : {}) };
       state.users.me = { ...state.currentUser };
       state.activeView = 'home';
       saveState();
