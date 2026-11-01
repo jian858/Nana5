@@ -2212,6 +2212,84 @@ document.getElementById('themeBtn').addEventListener('click', () => {
   try { localStorage.setItem('murmur-theme', t); } catch {}
   applyTheme(t);
 });
+
+
+/* Menu actions: connect available features and clearly label features not yet integrated. */
+function openMenuNotice(title, message, actionLabel) {
+  const back = document.createElement('div');
+  back.className = 'modal-back top';
+  back.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="menuNoticeTitle"><h3 id="menuNoticeTitle">${esc(title)}</h3><p>${esc(message)}</p><div class="cookie-actions"><button class="btn primary" type="button" data-close>${esc(actionLabel || 'Got it')}</button></div></div>`;
+  document.body.appendChild(back);
+  back.querySelector('[data-close]').onclick = () => back.remove();
+  back.addEventListener('click', e => { if (e.target === back) back.remove(); });
+}
+function openMenuMemories() {
+  const posts = (remotePosts || []).filter(p => p && (p.authorUid === meUid() || p.uid === meUid()));
+  const back = document.createElement('div'); back.className = 'modal-back top';
+  back.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true"><h3>Memories</h3><p>Your posts from this account.</p><div class="saved-post-list">${posts.length ? posts.map(p => `<article><strong>${esc(p.authorName || 'You')}</strong><p>${esc(p.text || 'Shared a photo or video')}</p></article>`).join('') : '<p>Your memories will appear here when you share posts.</p>'}</div><div class="cookie-actions"><button class="btn primary" type="button" data-close>Done</button></div></div>`;
+  document.body.appendChild(back); back.querySelector('[data-close]').onclick=()=>back.remove();
+}
+function handleMenuAction(action) {
+  switch(action) {
+    case 'reels': setView('reels'); break;
+    case 'feeds': setView('home'); break;
+    case 'saved': openSavedPosts(); break;
+    case 'memories': openMenuMemories(); break;
+    case 'privacy': openLegal('privacy'); break;
+    case 'lite':
+      document.documentElement.classList.toggle('murmur-lite');
+      try { localStorage.setItem('murmur-lite', document.documentElement.classList.contains('murmur-lite') ? '1' : '0'); } catch {}
+      showToast(document.documentElement.classList.contains('murmur-lite') ? 'Lite view enabled on this device.' : 'Standard view restored.');
+      break;
+    case 'add-account':
+      openMenuNotice('Add another account', 'To add a different account, log out and sign in with the other account. Your current account will remain saved only if you choose Remember me.', 'Continue');
+      break;
+    case 'account-settings':
+      openMenuNotice('Account settings', 'Use your profile controls to update your name, username and profile photo. Password and email security are managed by Firebase Authentication.', 'OK');
+      break;
+    case 'help':
+      openMenuNotice('Help centre', 'For help, use the Report a problem option and include what happened. Do not send your password or verification codes.', 'OK');
+      break;
+    case 'report':
+      openMenuNotice('Report a problem', 'Please describe the issue and include the screen name. A support submission service is not connected yet.', 'OK');
+      break;
+    case 'meta-ai':
+      openMenuNotice('Meta AI', 'AI assistant integration is not connected to Murmur yet.', 'OK');
+      break;
+    case 'pages':
+      openMenuNotice('Pages', 'Murmur Pages is not connected yet. Page creation and page management are not available in this version.', 'OK');
+      break;
+    case 'birthdays':
+      openMenuNotice('Birthdays', 'Birthday reminders will appear here when birthday information and reminders are supported.', 'OK');
+      break;
+    case 'events':
+      openMenuNotice('Events', 'Event creation, invitations and event calendars are not connected yet.', 'OK');
+      break;
+    case 'verified':
+      openMenuNotice('Murmur Verified', 'Verification is not available yet. Murmur does not currently sell verification badges or subscriptions.', 'OK');
+      break;
+    case 'mobile-centre':
+      openMenuNotice('Mobile centre', 'Mobile data and carrier services are managed by your mobile network, not Murmur.', 'OK');
+      break;
+    default: break;
+  }
+}
+document.querySelectorAll('[data-menu-action]').forEach(item => item.addEventListener('click', () => handleMenuAction(item.dataset.menuAction)));
+function bindMenuAccordion(buttonId, contentId) {
+  const button = document.getElementById(buttonId), content = document.getElementById(contentId);
+  if (!button || !content) return;
+  button.addEventListener('click', () => {
+    const open = button.getAttribute('aria-expanded') !== 'true';
+    button.setAttribute('aria-expanded', String(open)); content.hidden = !open;
+  });
+}
+bindMenuAccordion('settingsPrivacyToggle','settingsPrivacyContent');
+bindMenuAccordion('helpSupportToggle','helpSupportContent');
+document.getElementById('menuSearchBtn')?.addEventListener('click', () => {
+  setView('friends'); setFrSearch(true);
+});
+try { if (localStorage.getItem('murmur-lite') === '1') document.documentElement.classList.add('murmur-lite'); } catch {}
+
 const okImg = u => typeof u === 'string' && u.startsWith('data:image/') && !/["')\s]/.test(u);
 function fileToDataUrl(file, w, h) {
   return new Promise((res, rej) => {
