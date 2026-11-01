@@ -4452,7 +4452,7 @@ document.getElementById('chatProfileBtn').addEventListener('click', () => { if (
   node.addEventListener('click', () => { if (activeChatUid) openProfile(activeChatUid); });
 });
 
-let annList = [], notes = [], suspendedInfo = null, myAppeal = null, extraSubs = [], presenceTimer = null;
+let annList = [], notes = [], suspendedInfo = null, myAppeal = null, extraSubs = [], presenceTimer = null, suspendedCountdownTimer = null;
 
 function startExtras(uid) {
   stopExtras();
@@ -4488,7 +4488,9 @@ function renderAnnouncements() {
 }
 function renderSuspended() {
   document.getElementById('suspendedScreen')?.remove();
+  clearInterval(suspendedCountdownTimer); suspendedCountdownTimer = null;
   if (!suspendedInfo) return;
+  if (!suspendedInfo.deleted && !suspendedInfo.scheduledDelete && suspendedInfo.expiresAt && Number(suspendedInfo.expiresAt) <= Date.now()) { suspendedInfo = null; return; }
   const del = !!suspendedInfo.deleted;
   const timing = suspendedInfo.scheduledDelete && suspendedInfo.deleteAt
     ? 'Deletion date: ' + new Date(Number(suspendedInfo.deleteAt)).toLocaleString()
@@ -4501,7 +4503,7 @@ function renderSuspended() {
     ? '<p class="appeal-note">Your appeal was sent. We will reply here.</p>'
     : (ap && ap.status === 'declined' ? `<p class="appeal-note">Your appeal was declined${ap.reply ? ': ' + esc(ap.reply) : '.'} You can send one more.</p>` : '')
       + '<textarea class="appeal-text" maxlength="300" placeholder="Why should we restore your account? Tell us what happened."></textarea><button class="btn primary" type="button" data-appeal>Send appeal</button>';
-  el.innerHTML = `<div class="modal-card"><h3>${del ? 'Your account was deleted' : 'Your account is suspended'}</h3><p><strong>Reason:</strong> ${esc(suspendedInfo.reason || 'You broke the Murmur rules.')}</p><p><strong>Time:</strong> ${esc(timing)}</p>${tail}<p class="tiny">Or email ${esc(PRIVACY_CONTACT)}.</p><button class="btn ghost" type="button" data-logout>Log out</button></div>`;
+  el.innerHTML = `<div class="modal-card"><h3>${del ? 'Your account was deleted' : 'Your account is suspended'}</h3><p><strong>Reason:</strong> ${esc(suspendedInfo.reason || 'You broke the Murmur rules.')}</p><p><strong>Time:</strong> ${esc(timing)}</p>${!del && suspendedInfo.expiresAt ? '<p><strong>Time remaining before you can use your account again:</strong> <span data-susp-countdown>Calculating…</span></p>' : (!del && suspendedInfo.scheduledDelete ? '<p><strong>Account access is blocked now. Scheduled deletion:</strong> ' + esc(new Date(Number(suspendedInfo.deleteAt)).toLocaleString()) + '</p>' : '')}${tail}<p class="tiny">Or email ${esc(PRIVACY_CONTACT)}.</p><button class="btn ghost" type="button" data-logout>Log out</button></div>`;
   el.querySelector('[data-logout]').onclick = () => document.getElementById('logoutBtn').click();
   const send = el.querySelector('[data-appeal]');
   if (send) send.onclick = async () => {
@@ -4514,6 +4516,16 @@ function renderSuspended() {
     } catch (err) { showToast(friendlyError(err, 'Could not send your appeal.')); send.disabled = false; }
   };
   document.body.appendChild(el);
+  const countdown = el.querySelector('[data-susp-countdown]');
+  if (countdown) {
+    const updateCountdown = () => {
+      const left = Math.max(0, Number(suspendedInfo?.expiresAt || 0) - Date.now());
+      const days = Math.floor(left / 86400000), hours = Math.floor((left % 86400000) / 3600000), mins = Math.floor((left % 3600000) / 60000), secs = Math.floor((left % 60000) / 1000);
+      countdown.textContent = days ? `${days}d ${hours}h ${mins}m ${secs}s` : `${hours}h ${mins}m ${secs}s`;
+      if (left <= 0) { clearInterval(suspendedCountdownTimer); suspendedCountdownTimer = null; suspendedInfo = null; el.remove(); showToast('Your suspension has ended. You can use Murmur again.'); }
+    };
+    updateCountdown(); suspendedCountdownTimer = setInterval(updateCountdown, 1000);
+  }
 }
 function markNotesRead() {
   const u = meUid(); if (!u) return;
