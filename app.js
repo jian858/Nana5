@@ -2387,58 +2387,91 @@ function openAppPermissions() {
   el.innerHTML=`<header class="permissions-head"><button type="button" data-close aria-label="Back">←</button><strong>App permissions</strong><span></span></header>
   <main class="permissions-body"><p class="permissions-intro">Choose which device features Murmur can use. Access is requested only when you tap Allow or open the related feature.</p>
   <section class="permission-item" data-perm="photos"><div><b>Photos and videos</b><small>Select media for posts and Reels. Your browser only gives access to files you choose.</small><span class="permission-status">Selected files only</span></div><button data-action="photos" type="button">Choose</button></section>
-  <section class="permission-item" data-perm="camera"><div><b>Camera</b><small>Take photos or record video when you use a camera feature.</small><span class="permission-status">Not checked</span></div><button data-action="camera" type="button">Allow</button></section>
-  <section class="permission-item" data-perm="microphone"><div><b>Microphone</b><small>Record voice messages and video sound.</small><span class="permission-status">Not checked</span></div><button data-action="microphone" type="button">Allow</button></section>
-  <section class="permission-item" data-perm="notifications"><div><b>Notifications</b><small>Receive alerts about messages and activity. Optional.</small><span class="permission-status">Not checked</span></div><button data-action="notifications" type="button">Allow</button></section>
-  <section class="permission-item" data-perm="location"><div><b>Location</b><small>Add a location to a post when you choose. Optional.</small><span class="permission-status">Not checked</span></div><button data-action="location" type="button">Allow</button></section>
+  <section class="permission-item" data-perm="camera"><div><b>Camera</b><small>Take photos or record video when you use a camera feature.</small><span class="permission-status">Not requested</span></div><button data-action="camera" type="button">Allow</button></section>
+  <section class="permission-item" data-perm="microphone"><div><b>Microphone</b><small>Record voice messages and video sound.</small><span class="permission-status">Not requested</span></div><button data-action="microphone" type="button">Allow</button></section>
+  <section class="permission-item" data-perm="notifications"><div><b>Notifications</b><small>Receive alerts about messages and activity. Optional.</small><span class="permission-status">Not requested</span></div><button data-action="notifications" type="button">Allow</button></section>
+  <section class="permission-item" data-perm="location"><div><b>Location</b><small>Add a location to a post when you choose. Optional.</small><span class="permission-status">Not requested</span></div><button data-action="location" type="button">Allow</button></section>
   <section class="permission-item" data-perm="contacts"><div><b>Contacts</b><small>Open the browser contact picker where supported. Your selection is not saved or imported. Optional.</small><span class="permission-status">Checking support…</span></div><button data-action="contacts" type="button">Check</button></section>
-  <p class="permissions-footnote">You can revoke access in your phone or browser settings. Murmur does not access these features in the background.</p><button class="permissions-refresh" data-refresh type="button">Refresh permission status</button></main>`;
+  <p class="permissions-footnote">If you choose Don't allow, Murmur will show that choice. To allow it later, change the permission in your browser or phone settings. Murmur does not access these features in the background.</p><button class="permissions-refresh" data-refresh type="button">Refresh permission status</button></main>`;
   document.body.appendChild(el);
-  const status=(name,value)=>{const row=el.querySelector('[data-perm="'+name+'"] .permission-status');if(row)row.textContent=value;};
+  const labelFor=state=>({granted:'Allow',denied:"Don't allow",prompt:'Not requested'}[state]||'Status unavailable');
+  const status=(name,value)=>{
+    const row=el.querySelector('[data-perm="'+name+'"] .permission-status');
+    if(row) row.textContent=value;
+    const button=el.querySelector('[data-action="'+name+'"]');
+    if(button && ['Allowed',"Don't allow",'Not requested'].includes(value)) button.textContent=value==="Don't allow"?'Change in settings':value==='Allowed'?'Allowed':'Allow';
+  };
+  const permissionState=async(name,api)=>{
+    try {
+      const permission=await navigator.permissions.query({name:api});
+      status(name,labelFor(permission.state));
+      permission.onchange=()=>status(name,labelFor(permission.state));
+    } catch {
+      if(name==='notifications' && 'Notification' in window) {
+        status(name,Notification.permission==='granted'?'Allowed':Notification.permission==='denied'?"Don't allow":'Not requested');
+      } else status(name,'Status unavailable; use Allow to check');
+    }
+  };
   const refresh=async()=>{
-    const checks=[['camera','camera'],['microphone','microphone'],['location','geolocation'],['notifications','notifications']];
-    await Promise.all(checks.map(async([name,api])=>{
-      try{
-        if(!navigator.permissions?.query){status(name,'Tap Allow to check');return;}
-        const permission=await navigator.permissions.query({name:api});
-        const label={granted:'Allowed',denied:'Blocked in browser settings',prompt:'Not yet allowed'}[permission.state]||permission.state;
-        status(name,label);
-        permission.onchange=()=>status(name,({granted:'Allowed',denied:'Blocked in browser settings',prompt:'Not yet allowed'})[permission.state]||permission.state);
-      }catch{status(name,'Status unavailable; tap Allow to check');}
-    }));
+    await Promise.all([
+      permissionState('camera','camera'),
+      permissionState('microphone','microphone'),
+      permissionState('location','geolocation'),
+      permissionState('notifications','notifications')
+    ]);
     status('photos','Browser file picker; selected files only');
     status('contacts',navigator.contacts?.select?'Picker supported':'Not supported in this browser');
   };
   el.querySelector('[data-close]').onclick=()=>el.remove();
   el.addEventListener('click',e=>{if(e.target===el)el.remove();});
   el.querySelector('[data-refresh]').onclick=refresh;
+  const refreshWhenVisible=()=>{if(!document.hidden && document.querySelector('.permissions-screen')===el) refresh();};
+  window.addEventListener('focus',refreshWhenVisible);
+  document.addEventListener('visibilitychange',refreshWhenVisible);
+  const cleanup=()=>{window.removeEventListener('focus',refreshWhenVisible);document.removeEventListener('visibilitychange',refreshWhenVisible);};
+  el.querySelector('[data-close]').addEventListener('click',cleanup);
   el.querySelectorAll('[data-action]').forEach(btn=>btn.onclick=async()=>{
-    const kind=btn.dataset.action;btn.disabled=true;
+    const kind=btn.dataset.action;
+    const current=el.querySelector('[data-perm="'+kind+'"] .permission-status')?.textContent||'';
+    if(current==="Don't allow") {
+      showToast('Permission is denied. Open your browser or phone site settings for Murmur and change it to Allow, then return and refresh.');
+      return;
+    }
+    btn.disabled=true;
     try{
-      if(kind==='photos'){const input=document.createElement('input');input.type='file';input.accept='image/*,video/*';input.multiple=true;input.onchange=()=>status('photos',input.files.length?input.files.length+' file(s) selected for this action':'No files selected');input.click();}
+      if(kind==='photos'){
+        const input=document.createElement('input');input.type='file';input.accept='image/*,video/*';input.multiple=true;
+        input.onchange=()=>status('photos',input.files.length?input.files.length+' file(s) selected for this action':'No files selected');input.click();
+      }
       if(kind==='camera'||kind==='microphone'){
         if(!navigator.mediaDevices?.getUserMedia)throw Error('This feature requires a supported browser and HTTPS.');
-        const stream=await navigator.mediaDevices.getUserMedia(kind==='camera'?{video:true}:{audio:true});stream.getTracks().forEach(t=>t.stop());status(kind,'Allowed');showToast(kind+' permission granted.');
+        const stream=await navigator.mediaDevices.getUserMedia(kind==='camera'?{video:true}:{audio:true});
+        stream.getTracks().forEach(t=>t.stop());status(kind,'Allowed');showToast(kind+' permission allowed.');
       }
       if(kind==='notifications'){
         if(!('Notification'in window))throw Error('Notifications are not supported in this browser.');
-        const p=Notification.permission==='default'?await Notification.requestPermission():Notification.permission;status(kind,p==='granted'?'Allowed':p==='denied'?'Blocked in browser settings':'Not decided');
+        const p=Notification.permission==='default'?await Notification.requestPermission():Notification.permission;
+        status(kind,p==='granted'?'Allowed':p==='denied'?"Don't allow":'Not requested');
       }
       if(kind==='location'){
         if(!navigator.geolocation)throw Error('Location is not supported in this browser.');
-        await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(()=>resolve(),e=>reject(Error(e.code===1?'Location permission was denied.':'Could not access location.')),{timeout:10000,maximumAge:60000}));
-        status(kind,'Allowed; location not saved');showToast('Location permission granted. Your location was not saved.');
+        await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(()=>resolve(),e=>reject(Error(e.code===1?'PERMISSION_DENIED: Location permission was denied.':'Could not access location.')),{timeout:10000,maximumAge:60000}));
+        status(kind,'Allowed; location not saved');showToast('Location permission allowed. Your location was not saved.');
       }
       if(kind==='contacts'){
         if(!navigator.contacts?.select)throw Error('Contact picking is not supported here. You can still find friends by username.');
         const picked=await navigator.contacts.select(['name','email','tel'],{multiple:true});status(kind,picked.length?'Picker selection completed; contacts not saved':'No contacts selected');
       }
-    }catch(e){showToast(e.message||'Permission could not be requested.');await refresh();}
-    finally{btn.disabled=false;}
+    }catch(e){
+      const message=e.message||'Permission could not be requested.';
+      if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'||/PERMISSION_DENIED|permission denied|not allowed/i.test(message)) status(kind,"Don't allow");
+      showToast(message.replace('PERMISSION_DENIED: ',''));
+      await refresh();
+      if(kind==='location' && /PERMISSION_DENIED/i.test(message)) status(kind,"Don't allow");
+    } finally {btn.disabled=false;}
   });
   refresh();
 }
-
 function handleMenuAction(action) {
   switch(action) {
     case 'reels': setView('reels'); break;
