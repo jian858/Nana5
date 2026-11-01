@@ -123,7 +123,7 @@ export const friendships = {
   },
   setStatus: async (requesterId, status) => {
     const user = await requireUser();
-    if (!["accepted", "declined", "blocked"].includes(status)) throw new Error("Invalid friendship status.");
+    if (!["accepted", "declined"].includes(status)) throw new Error("Friend requests can only be accepted or declined.");
     return throwIfError(await supabase.from("friendships").update({ status, updated_at: new Date().toISOString() })
       .eq("requester_id", requesterId).eq("addressee_id", user.id).select().single());
   }
