@@ -29,6 +29,12 @@ export const auth = {
     if (error) throw error;
     return data;
   },
+  getSession: async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return data.session;
+  },
+  getUser: async () => requireUser(),
   signOut: async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -37,7 +43,11 @@ export const auth = {
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
   },
-  onChange: (callback) => supabase.auth.onAuthStateChange(callback)
+  onChange: (callback) => {
+    const { data, error } = supabase.auth.onAuthStateChange(callback);
+    if (error) throw error;
+    return () => data.subscription.unsubscribe();
+  }
 };
 
 export const profiles = {
