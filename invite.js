@@ -87,6 +87,14 @@
         headers: { Authorization: 'Bearer ' + token },
         body: JSON.stringify({ password })
       });
+      // End the one-time invitation session after the password has been set.
+      try {
+        await authRequest('/logout', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ scope: 'local' })
+        });
+      } catch (_) {}
       accessToken = '';
       refreshToken = '';
       $('password').value = '';
