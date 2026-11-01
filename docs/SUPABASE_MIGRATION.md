@@ -125,3 +125,12 @@ Security advisor items observed after this change (pre-existing and not silently
 - Added retrieval of the user's appeal history and validated appeal submission.
 - Queries rely on the existing owner-scoped RLS policies and `auth.uid()`; no service-role key is exposed.
 - These functions are not wired into the current Firebase UI yet. UI cutover remains blocked until Firebase-dependent session, database, storage, and realtime behavior is migrated together.
+
+### Native reels and profile-note data services
+
+- Added explicit Supabase Auth-backed service methods for listing, creating, updating, and deleting reels.
+- Reel writes use the signed-in Supabase user ID and validate audience values against the database constraint (public, friends, or private).
+- Added profile-note list, create, and delete methods scoped to the signed-in Supabase user.
+- Confirmed the existing RLS policies on reels and user_notes use auth.uid(), so these two service areas can be developed without the Firebase identity bridge.
+- Did not add realtime listeners: neither table is currently included in the supabase_realtime publication. Realtime must be deliberately enabled and tested before any subscription is exposed.
+- These services are data-layer groundwork only. The current app UI still calls Firebase for reels and notes, so the live UI has not switched over.
