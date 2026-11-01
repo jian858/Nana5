@@ -61,3 +61,25 @@ Some legacy RTDB concepts do not have a confirmed one-to-one destination yet, no
 - Sign-up, sign-in, recovery, feed, chat, stories, reels, media, reports, appeals, suspension, and admin actions are smoke-tested.
 - The 5-minute manual refresh cooldown is enforced server-side, not only by a browser timer.
 - Scheduled account deletion has a trusted server-side worker before it is described as automatic.
+
+## Critical identity and authorization dependency discovered
+
+The current RLS model is still mixed:
+
+- Most social-table policies call `private.current_supabase_user_id()`.
+- That helper currently maps a Firebase JWT subject through `private.firebase_user_links`, checks Firebase issuer/audience, and rejects suspended profiles.
+- Reels and user-notes policies use `auth.uid()` directly.
+- The five-minute refresh RPC also uses `auth.uid()`.
+
+Therefore, simply swapping the browser login SDK would break social-table authorization until the RLS identity helper and the app's identity model are migrated together. Do not replace the helper prematurely while the current Firebase app is live.
+
+Current database snapshot observed during this audit: 6 profile rows, 0 post rows, and 0 message rows. Preserve all six profiles; do not assume the six profile IDs are all active Auth users.
+
+Before changing identity/RLS:
+1. Inventory `auth.users` and the legacy `private.firebase_user_links` rows without exposing credentials.
+2. Define how existing profile UUIDs map to Supabase Auth UUIDs; do not silently recreate users or orphan profiles.
+3. Update every policy/helper consistently to native `auth.uid()`, including suspension checks.
+4. Test each policy using real authenticated Supabase sessions for two ordinary users and the admin account.
+5. Only then migrate the browser's auth/session lifecycle and remove Firebase-token Edge Functions.
+
+This is a required cutover dependency, not optional cleanup.
