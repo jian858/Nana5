@@ -3579,26 +3579,36 @@ console.error = function (...args) {
 
 function sendMurmurError(kind, error, meta = {}) {
   const user = auth.currentUser;
-  if (!user) return;
-  const message = String(error && (error.message || error.code) || error || 'Unknown app error').slice(0, 400);
+  const message = String(error && (error.message || error.code) || error || 'Unknown app error')
+    .replace(/Bearer\s+\S+/gi, '[redacted]')
+    .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
+    .slice(0, 400);
   const source = String(meta.source || '').split('?')[0].slice(0, 200);
   const fingerprint = [kind, message, source].join('|').toLowerCase().slice(0, 120);
   const now = Date.now();
   if (murmurErrorSeen.has(fingerprint) && now - murmurErrorSeen.get(fingerprint) < 60000) return;
   murmurErrorSeen.set(fingerprint, now);
-  user.getIdToken().then(token => fetch(MURMUR_ERROR_LOG_URL, {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + token, 'apikey': MURMUR_SUPABASE_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      kind, message, source,
-      code: String(error && error.code || '').slice(0, 80),
-      line: Number(meta.line) || null,
-      column: Number(meta.column) || null,
-      page: (location.pathname + location.hash).slice(0, 120),
-      fingerprint
-    }),
-    keepalive: true
-  })).catch(() => {});
+  const tokenRequest = user ? user.getIdToken().catch(() => null) : Promise.resolve(null);
+  tokenRequest.then(token => {
+    const headers = { 'apikey': MURMUR_SUPABASE_KEY, 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = 'Bearer ' + token;
+    return fetch(MURMUR_ERROR_LOG_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        kind, message, source,
+        code: String(error && error.code || '').slice(0, 80),
+        line: Number(meta.line) || null,
+        column: Number(meta.column) || null,
+        page: (location.pathname + location.hash).slice(0, 120),
+        userAgent: navigator.userAgent,
+        stack: error && typeof error.stack === 'string' ? error.stack.split(String.fromCharCode(10)).slice(0, 6).join(String.fromCharCode(10)).slice(0, 1200) : '',
+        fingerprint
+      }),
+      keepalive: true
+    });
+  }).catch(() => {});
 }
 
 // ---------- anything unhandled becomes a 500 page, details stay in the console ----------
