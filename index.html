@@ -1926,6 +1926,28 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+// Keep Firebase UID and Supabase UUID separate; Firebase remains the login provider.
+const MURMUR_SUPABASE_URL = 'https://pkadftvqslkykehcqedj.supabase.co';
+const MURMUR_SUPABASE_KEY = 'sb_publishable_etoHiUGbJ96MUPzJABL12A_UiTWVxok';
+let murmurSupabaseClient = null;
+let murmurSupabaseModule = null;
+window.MURMUR_IDS = window.MURMUR_IDS || { firebaseUid: null, supabaseId: null };
+async function syncMurmurSupabaseIdentity(user) {
+  if (!user) { window.MURMUR_IDS = { firebaseUid: null, supabaseId: null }; return; }
+  try {
+    murmurSupabaseModule ||= await import('https://esm.sh/@supabase/supabase-js@2');
+    murmurSupabaseClient ||= murmurSupabaseModule.createClient(MURMUR_SUPABASE_URL, MURMUR_SUPABASE_KEY, {
+      accessToken: async () => user.getIdToken()
+    });
+    const { data, error } = await murmurSupabaseClient.rpc('ensure_murmur_user');
+    if (error) throw error;
+    window.MURMUR_IDS = { firebaseUid: user.uid, supabaseId: data };
+    console.info('Murmur identity linked', window.MURMUR_IDS);
+  } catch (error) {
+    console.warn('Supabase identity sync is not ready:', error.message || error);
+  }
+}
+
 /* =====================================================================
    APP STATE  -  what we remember about the logged-in user
    ===================================================================== */
@@ -4565,6 +4587,7 @@ function openDeleteAccount() {
 document.getElementById('deleteAccountBtn').addEventListener('click', openDeleteAccount);
 
 onAuthStateChanged(auth, (user) => {
+  syncMurmurSupabaseIdentity(user);
   if (user) startSession(user); else endSession();
   renderMenuHeader();
   if (user) {
