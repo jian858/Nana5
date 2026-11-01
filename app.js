@@ -2229,6 +2229,13 @@ function openMenuMemories() {
   back.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true"><h3>Memories</h3><p>Your posts from this account.</p><div class="saved-post-list">${posts.length ? posts.map(p => `<article><strong>${esc(p.authorName || 'You')}</strong><p>${esc(p.text || 'Shared a photo or video')}</p></article>`).join('') : '<p>Your memories will appear here when you share posts.</p>'}</div><div class="cookie-actions"><button class="btn primary" type="button" data-close>Done</button></div></div>`;
   document.body.appendChild(back); back.querySelector('[data-close]').onclick=()=>back.remove();
 }
+function openMenuSwitchAccount() {
+  const back = document.createElement('div'); back.className = 'modal-back top';
+  back.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true"><h3>Add another account?</h3><p>You'll be signed out of this account and can then log in or create another Murmur account. Choose Remember me on the login screen if you want this device to remember the account.</p><div class="cookie-actions"><button class="btn ghost" type="button" data-cancel>Cancel</button><button class="btn primary" type="button" data-switch>Continue</button></div></div>`;
+  document.body.appendChild(back);
+  back.querySelector('[data-cancel]').onclick = () => back.remove();
+  back.querySelector('[data-switch]').onclick = () => { back.remove(); document.getElementById('logoutBtn')?.click(); };
+}
 function handleMenuAction(action) {
   switch(action) {
     case 'reels': setView('reels'); break;
@@ -2242,7 +2249,7 @@ function handleMenuAction(action) {
       showToast(document.documentElement.classList.contains('murmur-lite') ? 'Lite view enabled on this device.' : 'Standard view restored.');
       break;
     case 'add-account':
-      openMenuNotice('Add another account', 'To add a different account, log out and sign in with the other account. Your current account will remain saved only if you choose Remember me.', 'Continue');
+      openMenuSwitchAccount();
       break;
     case 'account-settings':
       openMenuNotice('Account settings', 'Use your profile controls to update your name, username and profile photo. Password and email security are managed by Firebase Authentication.', 'OK');
