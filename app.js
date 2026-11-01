@@ -125,7 +125,65 @@ function showToast(message) {
   setTimeout(() => toast.remove(), 2400);
 }
 
-function showAuth() {
+const MURMUR_CONSENT_VERSION = '2026-11-01-v1';
+const MURMUR_CONSENT_KEY = 'murmur-required-consent';
+function hasMurmurConsent() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(MURMUR_CONSENT_KEY) || 'null');
+    return !!saved && saved.version === MURMUR_CONSENT_VERSION && saved.terms === true && saved.privacy === true;
+  } catch { return false; }
+}
+function showConsentGate(onAccepted) {
+  if (document.querySelector('.murmur-consent-gate')) return;
+  authEl.hidden = true;
+  appEl.hidden = true;
+  if (!document.getElementById('murmur-consent-styles')) {
+    const style = document.createElement('style');
+    style.id = 'murmur-consent-styles';
+    style.textContent = `.murmur-consent-gate{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:20px;background:rgba(10,16,28,.72);font-family:inherit;color:#182235}.murmur-consent-card{width:min(100%,480px);max-height:min(88vh,760px);overflow:auto;box-sizing:border-box;padding:26px 22px;border-radius:18px;background:#fff;box-shadow:0 24px 80px #0005}.murmur-consent-card h1{margin:0 0 12px;font-size:1.55rem;line-height:1.2;font-weight:800}.murmur-consent-card p{font-size:.98rem;line-height:1.55;color:#596579}.murmur-consent-check{display:flex;align-items:flex-start;gap:11px;padding:13px 0;border-top:1px solid #e8ebf0;font-size:.96rem;line-height:1.45}.murmur-consent-check input{width:20px;height:20px;flex:0 0 20px;margin:1px 0 0;accent-color:#087f70}.murmur-consent-card [data-consent-accept]{width:100%;min-height:50px;margin-top:12px;border:0;border-radius:10px;background:#087f70;color:#fff;font:inherit;font-weight:800}.murmur-consent-card [data-consent-accept]:disabled{opacity:.45;cursor:not-allowed}.murmur-consent-card small{display:block;margin-top:12px;color:#737d8c;line-height:1.4;text-align:center}@media(prefers-reduced-motion:no-preference){.murmur-consent-card{animation:murmurConsentIn .22s ease-out}@keyframes murmurConsentIn{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}}`;
+    document.head.appendChild(style);
+  }
+  const gate = document.createElement('div');
+  gate.className = 'murmur-consent-gate';
+  gate.setAttribute('role', 'dialog');
+  gate.setAttribute('aria-modal', 'true');
+  gate.setAttribute('aria-labelledby', 'murmurConsentTitle');
+  gate.innerHTML = `<section class="murmur-consent-card">
+    <h1 id="murmurConsentTitle">Before you use Murmur</h1>
+    <p>To continue, confirm that you agree to Murmur's Terms of Service and acknowledge its Privacy Policy. You can review both documents from the app's Legal section after continuing.</p>
+    <p>Camera, microphone, photos, location, contacts and notifications are not required to enter Murmur. Each device permission is requested only when you choose to use its related feature.</p>
+    <label class="murmur-consent-check"><input type="checkbox" data-consent="terms"> <span>I agree to Murmur's Terms of Service.</span></label>
+    <label class="murmur-consent-check"><input type="checkbox" data-consent="privacy"> <span>I acknowledge the Privacy Policy.</span></label>
+    <button type="button" data-consent-accept disabled>Accept and continue</button>
+    <small>You must accept both statements to use Murmur on this device.</small>
+  </section>`;
+  document.body.appendChild(gate);
+  const terms = gate.querySelector('[data-consent="terms"]');
+  const privacy = gate.querySelector('[data-consent="privacy"]');
+  const accept = gate.querySelector('[data-consent-accept]');
+  const sync = () => { accept.disabled = !(terms.checked && privacy.checked); };
+  terms.addEventListener('change', sync);
+  privacy.addEventListener('change', sync);
+  accept.addEventListener('click', () => {
+    if (!terms.checked || !privacy.checked) return;
+    try {
+      localStorage.setItem(MURMUR_CONSENT_KEY, JSON.stringify({
+        version: MURMUR_CONSENT_VERSION, terms: true, privacy: true, acceptedAt: new Date().toISOString()
+      }));
+    } catch {
+      showToast('Please enable site storage to save your acceptance.');
+      return;
+    }
+    gate.remove();
+    onAccepted?.();
+  });
+  terms.focus();
+}
+function showAuth(skipConsent = false) {
+  if (!skipConsent && !hasMurmurConsent()) {
+    showConsentGate(() => showAuth(true));
+    return;
+  }
   authEl.hidden = false;
   appEl.hidden = true;
   document.getElementById('email').focus();
@@ -146,7 +204,11 @@ function hideAppSkeleton() {
   setTimeout(() => { el.classList.add('hide'); setTimeout(() => el.remove(), 400); }, Math.max(0, SKELETON_MIN_MS - (Date.now() - skeletonShownAt)));
 }
 
-function showApp() {
+function showApp(skipConsent = false) {
+  if (!skipConsent && !hasMurmurConsent()) {
+    showConsentGate(() => showApp(true));
+    return;
+  }
   authEl.hidden = true;
   appEl.hidden = false;
   renderAll();
