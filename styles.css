@@ -1647,3 +1647,31 @@ html[data-theme="dark"] .app-skel { background: #121820; }
 html[data-theme="dark"] .as-head, html[data-theme="dark"] .as-nav, html[data-theme="dark"] .as-composer, html[data-theme="dark"] .as-post { background: #1c2430; border-color: rgba(255,255,255,0.12); }
 /* New social interactions */
 .message-reactions{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}.message-reactions button{border:0;border-radius:99px;background:rgba(20,33,61,.08);padding:3px 6px;font-size:14px}.message-reaction-summary{display:block;margin-top:4px;opacity:.8}.saved-post-list{max-height:55vh;overflow:auto}.saved-post-list article{padding:10px 0;border-bottom:1px solid var(--line)}.saved-post-list p{margin:5px 0;overflow-wrap:anywhere}.story-top [data-story-viewers]{border:0;background:rgba(255,255,255,.18);color:inherit;border-radius:20px;padding:5px 8px}.composer-chat{grid-template-columns:minmax(0,1fr) auto auto}.composer-chat #voiceBtn{min-width:42px;padding:8px}
+
+
+/* Facebook-inspired menu layout */
+.murmur-menu-pane{padding:0 0 28px!important;background:var(--page,#f1f3f8)}
+.murmur-menu-heading{display:flex;align-items:center;gap:16px;padding:18px 20px 16px}
+.murmur-menu-heading h1{font-size:2rem;margin:0;flex:1;font-weight:800}
+.menu-back,.menu-search{border:0;background:transparent;color:var(--ink);font-size:2rem;line-height:1;padding:0 4px}
+.menu-search{font-size:2.2rem}
+.menu-profile-card{margin:0 16px 16px;padding:12px 14px;border-radius:14px;gap:12px;box-shadow:0 1px 2px #0000000d}
+.menu-profile-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
+.menu-profile-copy strong{font-size:1rem}
+.menu-profile-copy small{color:var(--muted)}
+.menu-profile-open{border:0;border-radius:9px;padding:8px 10px;background:var(--soft,#edf1f5);color:var(--ink);font-weight:700}
+.murmur-menu-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 16px 18px}
+.murmur-menu-item{display:flex;min-height:104px;flex-direction:column;align-items:flex-start;justify-content:center;gap:8px;padding:14px 16px;border:1px solid var(--line);border-radius:15px;background:var(--card,#fff);color:var(--ink);font-size:1.12rem;text-align:left;box-shadow:0 1px 1px #00000008}
+.murmur-menu-item:active{transform:scale(.985)}
+.menu-emoji{font-size:1.65rem;line-height:1.2}
+.menu-accordion{margin-top:4px;padding:0 16px}
+.menu-accordion-toggle{display:flex;align-items:center;gap:12px;width:100%;min-height:66px;padding:12px 6px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--ink);font-size:1.12rem;text-align:left}
+.menu-accordion-toggle>span:first-child{font-size:1.5rem}
+.menu-chevron{margin-left:auto;font-size:1.6rem}
+.menu-accordion-content{padding:0 0 10px 36px}
+.menu-accordion-content .menu-row{min-height:48px;background:transparent;border-top:1px solid var(--line);font-weight:500}
+.menu-link-row{display:block;padding:14px 0;text-decoration:none;color:var(--ink);border-top:1px solid var(--line)}
+.menu-add-account{display:flex;align-items:center;gap:12px;width:100%;padding:18px 22px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--ink);font-size:1.12rem;text-align:left}
+.menu-logout{display:flex;justify-content:space-between;padding:18px 22px;background:transparent}
+.murmur-menu-pane .menu-row{color:var(--ink)}
+@media(min-width:781px){.murmur-menu-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.murmur-menu-item{min-height:120px}}
