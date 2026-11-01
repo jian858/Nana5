@@ -161,8 +161,24 @@ export const storage = {
       cacheControl: "3600", upsert: false, contentType: file.type || "application/octet-stream"
     });
     if (error) throw error;
-    const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(data.path);
-    return { path: data.path, publicUrl: publicData.publicUrl };
+    if (bucket === "murmur-avatars") {
+      const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(data.path);
+      return { path: data.path, url: publicData.publicUrl, isPublic: true };
+    }
+    const { data: signedData, error: signedError } = await supabase.storage.from(bucket).createSignedUrl(data.path, 3600);
+    if (signedError) throw signedError;
+    return { path: data.path, url: signedData.signedUrl, isPublic: false, expiresIn: 3600 };
+  },
+  uploadAvatar: async (file) => storage.upload(file, { bucket: "murmur-avatars", folder: "profiles" }),
+  uploadMedia: async (file, folder = "posts") => storage.upload(file, { bucket: "murmur-media", folder }),
+  url: async (bucket, path, expiresIn = 3600) => {
+    if (bucket === "murmur-avatars") {
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+      return data.publicUrl;
+    }
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
+    if (error) throw error;
+    return data.signedUrl;
   },
   remove: async (bucket, paths) => {
     await requireUser();
