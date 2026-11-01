@@ -2236,9 +2236,76 @@ function openMenuSwitchAccount() {
   back.querySelector('[data-cancel]').onclick = () => back.remove();
   back.querySelector('[data-switch]').onclick = () => { back.remove(); document.getElementById('logoutBtn')?.click(); };
 }
+
+function openCustomerSupport(mode = 'question') {
+  if (!meUid()) { showToast('Please sign in to contact support.'); return; }
+  const back = document.createElement('div');
+  back.className = 'modal-back top';
+  back.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="supportTitle" style="max-height:90vh;overflow:auto">
+    <h3 id="supportTitle">${mode === 'report' ? 'Report a problem' : 'Customer support'}</h3>
+    <p>Tell the Murmur support team what happened. Never include your password or verification codes.</p>
+    <form id="murmurSupportForm">
+      <label class="field"><span>What do you need help with?</span>
+        <select name="category" required>
+          <option value="Account">Account and login</option>
+          <option value="Profile">Profile</option>
+          <option value="Posts">Posts, photos and videos</option>
+          <option value="Friends">Friends and messages</option>
+          <option value="Safety">Safety or abuse</option>
+          <option value="Bug">App problem or bug</option>
+          <option value="Other">Other</option>
+        </select>
+      </label>
+      <label class="field"><span>Describe the issue</span>
+        <textarea name="details" rows="5" minlength="10" maxlength="1500" required placeholder="Explain what happened and what you expected..."></textarea>
+      </label>
+      <div class="cookie-actions"><button class="btn ghost" type="button" data-cancel>Cancel</button><button class="btn primary" type="submit">Send to support</button></div>
+      <p class="support-status" role="status" aria-live="polite"></p>
+    </form>
+  </div>`;
+  document.body.appendChild(back);
+  back.querySelector('[data-cancel]').addEventListener('click', () => back.remove());
+  back.addEventListener('click', event => { if (event.target === back) back.remove(); });
+  back.querySelector('#murmurSupportForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submit = form.querySelector('[type="submit"]');
+    const status = form.querySelector('.support-status');
+    const details = cleanText(form.elements.details.value, 1500);
+    const category = cleanText(form.elements.category.value, 40);
+    if (details.length < 10) { status.textContent = 'Please provide at least 10 characters.'; return; }
+    submit.disabled = true;
+    submit.textContent = 'Sending...';
+    status.textContent = '';
+    try {
+      await push(ref(db, 'reports'), {
+        type: 'support',
+        category,
+        reason: mode === 'report' ? 'User reported a problem' : 'Customer support request',
+        details,
+        by: meUid(),
+        byName: state.currentUser?.name || 'Murmur user',
+        createdAt: serverTimestamp(),
+        status: 'open'
+      });
+      status.textContent = 'Your request was sent. Thank you.';
+      showToast('Your support request was sent.');
+      setTimeout(() => back.remove(), 900);
+    } catch (error) {
+      console.error('Support request failed:', error);
+      status.textContent = friendlyError(error, 'Could not send your request. Please try again.');
+      submit.disabled = false;
+      submit.textContent = 'Send to support';
+    }
+  });
+}
+
 function handleMenuAction(action) {
   switch(action) {
     case 'reels': setView('reels'); break;
+    case 'friends': setView('friends'); break;
+    case 'chats': setView('chats'); break;
+    case 'alerts': setView('alerts'); break;
     case 'feeds': setView('home'); break;
     case 'saved': openSavedPosts(); break;
     case 'memories': openMenuMemories(); break;
@@ -2248,33 +2315,10 @@ function handleMenuAction(action) {
       try { localStorage.setItem('murmur-lite', document.documentElement.classList.contains('murmur-lite') ? '1' : '0'); } catch {}
       showToast(document.documentElement.classList.contains('murmur-lite') ? 'Lite view enabled on this device.' : 'Standard view restored.');
       break;
-    case 'add-account':
-      openMenuSwitchAccount();
-      break;
-    case 'account-settings':
-      openMenuNotice('Account settings', 'Use your profile controls to update your name, username and profile photo. Password and email security are managed by Firebase Authentication.', 'OK');
-      break;
-    case 'help':
-      openMenuNotice('Help centre', 'For help, use the Report a problem option and include what happened. Do not send your password or verification codes.', 'OK');
-      break;
-    case 'report':
-      openMenuNotice('Report a problem', 'Please describe the issue and include the screen name. A support submission service is not connected yet.', 'OK');
-      break;
-case 'pages':
-      openMenuNotice('Pages', 'Murmur Pages is not connected yet. Page creation and page management are not available in this version.', 'OK');
-      break;
-    case 'birthdays':
-      openMenuNotice('Birthdays', 'Birthday reminders will appear here when birthday information and reminders are supported.', 'OK');
-      break;
-    case 'events':
-      openMenuNotice('Events', 'Event creation, invitations and event calendars are not connected yet.', 'OK');
-      break;
-    case 'verified':
-      openMenuNotice('Murmur Verified', 'Verification is not available yet. Murmur does not currently sell verification badges or subscriptions.', 'OK');
-      break;
-    case 'mobile-centre':
-      openMenuNotice('Mobile centre', 'Mobile data and carrier services are managed by your mobile network, not Murmur.', 'OK');
-      break;
+    case 'add-account': openMenuSwitchAccount(); break;
+    case 'account-settings': openEditProfile(); break;
+    case 'help': openCustomerSupport('question'); break;
+    case 'report': openCustomerSupport('report'); break;
     default: break;
   }
 }
