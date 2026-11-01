@@ -3506,10 +3506,7 @@ const murmurErrorSeen = new Map();
 function sendMurmurError(kind, error, meta = {}) {
   const user = auth.currentUser;
   if (!user) return;
-  const message = String(error && (error.message || error.code) || error || 'Unknown app error')
-    .replace(/Bearer\\s+\\S+/gi, '[redacted]')
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi, '[email]')
-    .slice(0, 400);
+  const message = String(error && (error.message || error.code) || error || 'Unknown app error').slice(0, 400);
   const source = String(meta.source || '').split('?')[0].slice(0, 200);
   const fingerprint = [kind, message, source].join('|').toLowerCase().slice(0, 120);
   const now = Date.now();
@@ -3551,7 +3548,8 @@ window.addEventListener('error', ev => {
 window.addEventListener('unhandledrejection', ev => {
   const code = ev.reason && ev.reason.code || '';
   if (/^(auth|permission|PERMISSION)/.test(code)) return; // handled elsewhere with friendly messages
-  sendMurmurError('crash', ev.reason);\n  crash(ev.reason);
+  sendMurmurError('crash', ev.reason);
+  crash(ev.reason);
 });
 
 
