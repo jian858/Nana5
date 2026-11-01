@@ -2064,7 +2064,7 @@ function showApp() {
 }
 
 function getCurrentUserName() {
-  return state.currentUser?.name || 'Maya Chen';
+  return state.currentUser?.name || 'Me';
 }
 
 function getUserById(id) {
@@ -2546,7 +2546,7 @@ function isAdult(dateString) {
   return age >= 13;
 }
 
-function saveProfileToFirestore(uid, profileData) {
+function saveProfileToRealtimeDatabase(uid, profileData) {
   return set(ref(db, 'users/' + uid), profileData);
 }
 
@@ -2977,7 +2977,7 @@ function openRegisterWizard() {
       // The Firebase account remains valid if Supabase is temporarily unavailable; the status is surfaced below.
       const identityLink = await syncMurmurSupabaseIdentity(userCredential.user);
       try {
-        await saveProfileToFirestore(uid, userProfile);
+        await saveProfileToRealtimeDatabase(uid, userProfile);
         await ensureProfile(userCredential.user);
       } catch (profileErr) { console.warn('Profile save skipped:', profileErr); }
       state.loggedIn = true;
@@ -3176,7 +3176,7 @@ function openForgotPassword() {
 /* ---------- Privacy Policy, Cookie Policy and cookie notice ---------- */
 // Replace with the address people should write to about their data.
 const PRIVACY_CONTACT = 'privacy@example.com';
-const POLICY_UPDATED = 'October 28, 2026';
+const POLICY_UPDATED = 'November 1, 2026';
 const COOKIE_NOTICE_KEY = 'murmur-cookie-notice';
 /* =====================================================================
    LEGAL PAGES  -  terms, privacy, cookies
@@ -3219,10 +3219,10 @@ const LEGAL_PAGES = {
     <ul>
       <li><strong>Account details:</strong> your first, middle and last name, username, email address and password. Your password is handled by Firebase Authentication. We never see it in readable form.</li>
       <li><strong>Birthday:</strong> used to check that you are at least 13 years old.</li>
-      <li><strong>Optional profile details:</strong> gender, location, school, phone number, bio, interests and, if you add one, a profile photo.</li>
+      <li><strong>Optional profile details:</strong> gender, location, school, phone number, bio, interests and profile or cover photos, if you add them.</li>
     </ul>
     <h3>Information created as you use Murmur</h3>
-    <p>Your posts, chats, likes and alerts. In this version of Murmur they are kept in your browser's local storage on your own device and are not sent to our servers.</p>
+    <p>Your posts, stories, comments, likes, friend connections, chats, reactions and notifications are stored in Firebase Realtime Database so they can sync between your devices and friends. Photos and videos you upload may be stored in Firebase Storage. Limited interface preferences and cached app state are kept in your browser storage.</p>
     <h3>Technical information</h3>
     <p>Our service providers record sign-in information such as your account ID and when you created your account and last signed in. They also process technical data such as your IP address and browser or device type so the service can run and stay secure.</p>
 
@@ -3238,7 +3238,7 @@ const LEGAL_PAGES = {
     <h2>3. Who we share it with</h2>
     <p>We do not sell your personal information. We share it only with:</p>
     <ul>
-      <li><strong>Service providers.</strong> Murmur uses Google Firebase (Authentication and Cloud Firestore) to sign you in and store your account profile. They process data on our behalf under their own terms and privacy policy.</li>
+      <li><strong>Service providers.</strong> Murmur uses Firebase Authentication for sign-in, Firebase Realtime Database for profiles and social features, and Firebase Storage for uploaded media. Murmur also uses Supabase to create and privately link a separate Supabase account ID to your Firebase account. These providers process information under their own terms and privacy policies.</li>
       <li><strong>Authorities or other parties</strong> when the law requires it, or to protect the rights and safety of you, others or Murmur.</li>
       <li><strong>A successor</strong> if Murmur is merged with, or sold to, another service. We would tell you first if your information would be handled under a different policy.</li>
     </ul>
@@ -3247,10 +3247,10 @@ const LEGAL_PAGES = {
     <p>Your name, username and the posts you share are visible to other Murmur users. Think before you post personal details, and only share what you are comfortable with others seeing.</p>
 
     <h2>5. Where your information is stored</h2>
-    <p>Account information is stored with Google Firebase, which may process it in data centers outside the country where you live. By using Murmur you understand that your information may be transferred to and handled in those locations.</p>
+    <p>Account and social information is stored with Firebase, and a separate account-ID link is stored privately with Supabase. These providers may process information in data centers outside the country where you live. Review their privacy policies for details about their processing and international transfers.</p>
 
     <h2>6. How long we keep it</h2>
-    <p>We keep your account information for as long as your account is open. When you ask us to delete your account we delete your profile information, except where we must keep something for legal reasons. Data stored in your browser stays there until you clear it or log out and clear site data.</p>
+    <p>Information is retained while needed to operate your account and the service. Deletion requests should cover your Firebase account, related Realtime Database records and uploaded files, and the private account-ID link held in Supabase; some records may remain where retention is required by law or needed for security. Browser-stored preferences and cached state remain until cleared from your device.</p>
 
     <h2>7. Your choices and rights</h2>
     <p>Depending on where you live, you may have the right to:</p>
@@ -3292,7 +3292,7 @@ const LEGAL_PAGES = {
       <table class="legal-table">
         <thead><tr><th>Name</th><th>Type</th><th>What it does</th><th>How long</th></tr></thead>
         <tbody>
-          <tr><td><code>murmur-state</code></td><td>Local storage</td><td>Remembers whether you are logged in, which tab you were on, and your posts, chats and alerts.</td><td>Until you clear your browser data</td></tr>
+          <tr><td><code>murmur-state</code></td><td>Local storage</td><td>Keeps limited interface state and cached app data on this device; Firebase remains the shared source for account and social data.</td><td>Until cleared from your browser</td></tr>
           <tr><td><code>firebaseLocalStorageDb</code></td><td>IndexedDB (Firebase Authentication)</td><td>Keeps you signed in and keeps your login secure.</td><td>Until you log out or clear your browser data</td></tr>
           <tr><td><code>murmur-cookie-notice</code></td><td>Local storage</td><td>Remembers that you have seen the cookie notice so we do not show it every time.</td><td>Until you clear your browser data</td></tr>
         </tbody>
@@ -4679,9 +4679,9 @@ onAuthStateChanged(auth, (user) => {
     state.loggedIn = true;
     state.currentUser = {
       uid: user.uid,
-      name: state.currentUser?.name || 'Maya Chen',
-      email: user.email || state.currentUser?.email || 'maya@example.com',
-      username: state.currentUser?.username || '@maya'
+      name: state.currentUser?.name || 'Me',
+      email: user.email || state.currentUser?.email || '',
+      username: state.currentUser?.username || '@user'
     };
     saveState();
     get(ref(db, 'users/' + user.uid)).then(snap => {
