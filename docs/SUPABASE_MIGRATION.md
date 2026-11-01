@@ -108,3 +108,12 @@ No additional profile cleanup is authorized or needed.
 - These are Supabase Auth foundation changes; they do **not** switch the live main app away from Firebase or change the mixed RLS identity helper.
 
 Security advisor items observed after this change (pre-existing and not silently altered): six RLS-enabled internal tables have no client policies; the five-minute refresh RPC is a SECURITY DEFINER function intentionally callable by authenticated users and must be reviewed against its internal `auth.uid()` checks; leaked-password protection is disabled in project Auth settings.
+
+
+### Native Supabase identity helper (prepared, not activated)
+
+- Added `private.current_murmur_user_id()` as a stable, invoker-rights SQL helper.
+- It resolves the signed-in user from `auth.uid()` only when the corresponding profile exists and `profiles.is_suspended = false`.
+- Direct execution is granted only to the `authenticated` role; `anon` and `public` execution are revoked.
+- The legacy `private.current_supabase_user_id()` Firebase-token bridge remains unchanged because live app code still signs in through Firebase.
+- Existing RLS policies have **not** been switched to the new helper yet. That switch must ship with Supabase Auth in the browser and a tested replacement for Firebase Realtime Database, Storage, and messaging paths.
