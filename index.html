@@ -1934,7 +1934,7 @@ window.MURMUR_IDS = window.MURMUR_IDS || { firebaseUid: null, supabaseId: null, 
 async function syncMurmurSupabaseIdentity(user) {
   if (!user) {
     window.MURMUR_IDS = { firebaseUid: null, supabaseId: null, status: 'not-signed-in' };
-    return;
+    return window.MURMUR_IDS;
   }
   window.MURMUR_IDS = { firebaseUid: user.uid, supabaseId: null, status: 'checking' };
   try {
@@ -1965,6 +1965,7 @@ async function syncMurmurSupabaseIdentity(user) {
     window.MURMUR_IDS.error = String(error && error.message || error);
     console.warn('Supabase identity sync is not ready:', window.MURMUR_IDS.error);
   }
+  return window.MURMUR_IDS;
 }
 
 /* =====================================================================
@@ -2950,6 +2951,9 @@ function openRegisterWizard() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
+      // Create/link the independent Supabase UUID immediately after Firebase creates the account.
+      // The Firebase account remains valid if Supabase is temporarily unavailable; the status is surfaced below.
+      const identityLink = await syncMurmurSupabaseIdentity(userCredential.user);
       try {
         await saveProfileToFirestore(uid, userProfile);
         await ensureProfile(userCredential.user);
@@ -2965,7 +2969,9 @@ function openRegisterWizard() {
       history.replaceState(null, '', location.pathname + location.search);
       showApp();
       window.scrollTo(0, 0);
-      showToast('Welcome to Murmur! Your account is ready.');
+      showToast(identityLink && identityLink.status === 'connected'
+        ? 'Welcome to Murmur! Your Firebase and Supabase IDs are linked.'
+        : 'Account created. Supabase ID linking is pending; sign in again later to retry.');
     } catch (error) {
       console.error('Create account failed:', error && error.code);
       setError(friendlyError(error, 'Unable to create account.'));
