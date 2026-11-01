@@ -3500,20 +3500,58 @@ function guardRoute() {
 }
 window.addEventListener('hashchange', guardRoute);
 
+// ---------- automatic app error reporting ----------
+const MURMUR_ERROR_LOG_URL = MURMUR_SUPABASE_URL + '/functions/v1/murmur-error-log';
+const murmurErrorSeen = new Map();
+function sendMurmurError(kind, error, meta = {}) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const message = String(error && (error.message || error.code) || error || 'Unknown app error')
+    .replace(/Bearer\\s+\\S+/gi, '[redacted]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi, '[email]')
+    .slice(0, 400);
+  const source = String(meta.source || '').split('?')[0].slice(0, 200);
+  const fingerprint = [kind, message, source].join('|').toLowerCase().slice(0, 120);
+  const now = Date.now();
+  if (murmurErrorSeen.has(fingerprint) && now - murmurErrorSeen.get(fingerprint) < 60000) return;
+  murmurErrorSeen.set(fingerprint, now);
+  user.getIdToken().then(token => fetch(MURMUR_ERROR_LOG_URL, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'apikey': MURMUR_SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      kind, message, source,
+      code: String(error && error.code || '').slice(0, 80),
+      line: Number(meta.line) || null,
+      column: Number(meta.column) || null,
+      page: (location.pathname + location.hash).slice(0, 120),
+      fingerprint
+    }),
+    keepalive: true
+  })).catch(() => {});
+}
+
 // ---------- anything unhandled becomes a 500 page, details stay in the console ----------
 let lastCrash = 0;
 function crash(e) {
-  console.error('Unhandled:', e && (e.message || e.code || e));
+  sendMurmurError('crash', e);
   const now = Date.now();
   if (now - lastCrash < 5000) return;
   lastCrash = now;
   if (state.loggedIn || authEl.hidden === false) showStatusPage(500);
 }
-window.addEventListener('error', ev => { if (ev.target === window) crash(ev.error || ev.message); });
+window.addEventListener('error', ev => {
+  if (ev.target === window) {
+    sendMurmurError('crash', ev.error || ev.message, { source: ev.filename, line: ev.lineno, column: ev.colno });
+    crash(ev.error || ev.message);
+  } else {
+    const target = ev.target;
+    sendMurmurError('resource', 'A page resource failed to load.', { source: target && (target.src || target.href) });
+  }
+}, true);
 window.addEventListener('unhandledrejection', ev => {
   const code = ev.reason && ev.reason.code || '';
   if (/^(auth|permission|PERMISSION)/.test(code)) return; // handled elsewhere with friendly messages
-  crash(ev.reason);
+  sendMurmurError('crash', ev.reason);\n  crash(ev.reason);
 });
 
 
