@@ -903,6 +903,10 @@ html[data-theme="dark"] .legal-doc, html[data-theme="dark"] .legal-doc h1, html[
 .story-top button{ border: 0; border-radius: 999px; background: rgba(255,255,255,0.2); color: #fff; font-size: 1rem; }
 .story-prev, .story-next{ position: absolute; bottom: 0; width: 50%; border: 0; background: transparent; z-index: 2; }
 .story-prev{ left: 0; } .story-next{ right: 0; }
+.story-reactions{ position:absolute; z-index:5; left:0; right:0; bottom:24px; display:flex; justify-content:center; gap:10px; padding:12px; pointer-events:none; }
+.story-reactions button{ pointer-events:auto; width:46px; height:46px; border:1px solid rgba(255,255,255,.28); border-radius:50%; background:rgba(20,20,20,.58); color:#fff; font-size:25px; display:grid; place-items:center; box-shadow:0 3px 14px rgba(0,0,0,.25); }
+.story-reactions button:active{ transform:scale(1.14); }
+.story-reactions button:disabled{ opacity:.55; }
 .comment{ display: flex; align-items: flex-start; }
 .comment .avatar{ width: 28px; height: 28px; font-size: 0.65rem; flex-shrink: 0; }
 html[data-theme="dark"] .stories{ background: #1c2430; }
@@ -3471,8 +3475,28 @@ function viewStory(uid) {
     clearTimeout(storyTimer);
     if (i >= list.length) return close();
     const st = list[i], mine = uid === meUid(), name = mine ? 'Your story' : (friendsOf().find(d => d.uid === uid) || {}).name || '';
-    el.innerHTML = `<div class="story-bars">${list.map((_, k) => `<i class="${k <= i ? 'on' : ''}"></i>`).join('')}</div><div class="story-top"><strong>${esc(name)}</strong><span>${timeAgo(st.createdAt)}${mine ? ' · ' + Math.max(1, Math.ceil((st.createdAt + STORY_MS - Date.now()) / 36e5)) + 'h left' : ''}</span>${mine ? '<button type="button" data-sdel>Delete</button>' : ''}<button type="button" data-sclose aria-label="Close">×</button></div>${st.photo ? `<img alt="" src="${okImg(st.photo) ? st.photo : ''}" />` : `<div class="story-text" style="background:${STORY_BGS[st.bg] || STORY_BGS[0]}"><p>${esc(st.text || '')}</p></div>`}<button class="story-prev" type="button" aria-label="Previous"></button><button class="story-next" type="button" aria-label="Next"></button>`;
+    el.innerHTML = `<div class="story-bars">${list.map((_, k) => `<i class="${k <= i ? 'on' : ''}"></i>`).join('')}</div><div class="story-top"><strong>${esc(name)}</strong><span>${timeAgo(st.createdAt)}${mine ? ' · ' + Math.max(1, Math.ceil((st.createdAt + STORY_MS - Date.now()) / 36e5)) + 'h left' : ''}</span>${mine ? '<button type="button" data-sdel>Delete</button>' : ''}<button type="button" data-sclose aria-label="Close">×</button></div>${st.photo ? `<img alt="" src="${okImg(st.photo) ? st.photo : ''}" />` : `<div class="story-text" style="background:${STORY_BGS[st.bg] || STORY_BGS[0]}"><p>${esc(st.text || '')}</p></div>`}${!mine ? '<div class="story-reactions" aria-label="Send a story reaction"><button type="button" data-story-emoji="❤️" aria-label="Send heart">❤️</button><button type="button" data-story-emoji="😂" aria-label="Send laughing face">😂</button><button type="button" data-story-emoji="😮" aria-label="Send surprised face">😮</button><button type="button" data-story-emoji="🔥" aria-label="Send fire">🔥</button><button type="button" data-story-emoji="👏" aria-label="Send clapping hands">👏</button></div>' : ''}<button class="story-prev" type="button" aria-label="Previous"></button><button class="story-next" type="button" aria-label="Next"></button>`;
     el.querySelector('[data-sclose]').onclick = close;
+    el.querySelectorAll('[data-story-emoji]').forEach(button => {
+      button.onclick = async event => {
+        event.preventDefault(); event.stopPropagation();
+        const reactorUid = meUid(), emoji = button.dataset.storyEmoji;
+        if (!reactorUid || !uid || !st.id || reactorUid === uid) return;
+        button.disabled = true;
+        try {
+          const fromName = state.currentUser?.name || 'A friend';
+          await set(ref(db, `notifications/${uid}/story_${st.id}_${reactorUid}`), {
+            type: 'story_reaction', storyId: st.id, from: reactorUid, fromName,
+            emoji, text: `${fromName} reacted ${emoji} to your story`,
+            createdAt: serverTimestamp(), read: false
+          });
+          showToast(`Sent ${emoji} to ${name}'s story.`);
+        } catch (error) {
+          showToast(friendlyError(error, 'Could not send your reaction.'));
+          button.disabled = false;
+        }
+      };
+    });
     el.querySelector('.story-next').onclick = () => { i++; show(); };
     el.querySelector('.story-prev').onclick = () => { i = Math.max(0, i - 1); show(); };
     const del = el.querySelector('[data-sdel]');
