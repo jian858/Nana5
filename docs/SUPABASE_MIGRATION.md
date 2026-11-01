@@ -73,7 +73,7 @@ The current RLS model is still mixed:
 
 Therefore, simply swapping the browser login SDK would break social-table authorization until the RLS identity helper and the app's identity model are migrated together. Do not replace the helper prematurely while the current Firebase app is live.
 
-Current database snapshot observed during this audit: 6 profile rows, 0 post rows, and 0 message rows. Preserve all six profiles; do not assume the six profile IDs are all active Auth users.
+Current database snapshot after the user-approved cleanup: 1 profile row, 1 Supabase Auth user, 0 unmatched profiles, 0 legacy Firebase identity links, 0 post rows, and 0 message rows. The five profile rows without matching Auth users and their three Firebase identity-link rows were deleted at the user's explicit instruction after checking that they had no linked social records. The one profile matching the active Supabase Auth account was preserved.
 
 Before changing identity/RLS:
 1. Inventory `auth.users` and the legacy `private.firebase_user_links` rows without exposing credentials.
@@ -87,8 +87,21 @@ This is a required cutover dependency, not optional cleanup.
 ### Auth inventory result (latest audit)
 
 - Supabase Auth currently has 1 user.
-- There are 6 profiles; only 1 profile ID currently matches a Supabase Auth user.
-- 5 profiles do not currently have a matching Supabase Auth user.
-- 3 legacy Firebase-to-Supabase identity-link rows remain.
+- There is 1 profile, and its ID matches that Auth user.
+- There are 0 unmatched profile rows.
+- There are 0 legacy Firebase-to-Supabase identity-link rows.
+- The five unmatched profiles and three legacy identity-link rows were removed only after the user explicitly requested deletion and the database check found no linked social records for those profiles.
 
-Do not delete or reassign these five unmatched profiles automatically. The cutover needs an explicit account-recovery/re-registration strategy for those users, or a verified ownership mapping. Credentials cannot be inferred from profile rows.
+No additional profile cleanup is authorized or needed.
+
+
+## Latest implementation update
+
+- Hardened the existing `on_auth_user_created` trigger.
+- Moved its trigger function from exposed `public` into the non-exposed `private` schema.
+- Renamed it to `private.handle_new_murmur_user()` and revoked direct execution from `anon`, `authenticated`, and `public`.
+- The trigger now normalizes and validates optional username metadata, caps display names at 80 characters, and falls back to creating a profile without a username if the submitted username is invalid or already taken. This avoids a duplicate username blocking account creation.
+- Verified the trigger still points to the private function and that neither `anon` nor `authenticated` can execute it directly.
+- This is a safe Supabase Auth foundation change; it does **not** switch the live main app away from Firebase or change the mixed RLS identity helper.
+
+Security advisor items observed after this change (pre-existing and not silently altered): six RLS-enabled internal tables have no client policies; the five-minute refresh RPC is a SECURITY DEFINER function intentionally callable by authenticated users and must be reviewed against its internal `auth.uid()` checks; leaked-password protection is disabled in project Auth settings.
