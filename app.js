@@ -37,6 +37,25 @@ const monitoredFirebase = new Proxy(window.__fb, {
           throw error;
         });
       }
+      if (property === 'uploadBytesResumable' && result && typeof result.on === 'function') {
+        const task = result;
+        return new Proxy(task, {
+          get(taskTarget, taskProperty, taskReceiver) {
+            const taskValue = Reflect.get(taskTarget, taskProperty, taskReceiver);
+            if (taskProperty !== 'on' || typeof taskValue !== 'function') return typeof taskValue === 'function' ? taskValue.bind(taskTarget) : taskValue;
+            return function (...taskArgs) {
+              if (taskArgs[0] === 'state_changed' && typeof taskArgs[2] === 'function') {
+                const originalError = taskArgs[2];
+                taskArgs[2] = error => {
+                  sendMurmurError('storage', error, { source: 'firebase.uploadBytesResumable' });
+                  return originalError(error);
+                };
+              }
+              return Reflect.apply(taskValue, taskTarget, taskArgs);
+            };
+          }
+        });
+      }
       return result;
     };
   }
@@ -2438,7 +2457,6 @@ function openCustomerSupport(mode = 'question') {
         createdAt: serverTimestamp(),
         status: 'open'
       });
-      if (mode === 'report') sendMurmurError('bug', 'User submitted a bug report in category ' + category + '. See the Customer Support queue for details.');
       status.textContent = 'Your request was sent. Thank you.';
       showToast('Your support request was sent.');
       setTimeout(() => back.remove(), 900);
