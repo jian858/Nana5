@@ -3157,15 +3157,21 @@ async function loadPublicAnnouncements() {
     });
     if (!response.ok) throw new Error('Announcement request failed (' + response.status + ').');
     const rows = await response.json();
-    annList = (Array.isArray(rows) ? rows : []).map(row => ({
+    if (!Array.isArray(rows)) throw new Error('Announcement response was not a list.');
+    annList = rows.map(row => ({
       id: row.id, title: row.title, body: row.body, kind: row.kind,
       pinned: row.is_pinned === true,
       createdAt: Date.parse(row.created_at || row.published_at) || Date.now(),
       expiresAt: row.expires_at ? Date.parse(row.expires_at) : null
     }));
-    renderAnnouncements();
+    // The announcements are rendered in Alerts only. Refresh that list immediately
+    // after the async Supabase request finishes; never mark them read just by rendering.
+    const box = document.getElementById('announceBox');
+    if (box) box.innerHTML = '';
+    renderAlerts();
   } catch (error) {
     console.warn('Could not load Murmur announcements:', error);
+    renderAlerts();
   }
 }
 function startExtras(uid) {
@@ -3200,7 +3206,9 @@ function markAnnSeen() {
 function renderAnnouncements() {
   const box = document.getElementById('announceBox');
   if (box) box.innerHTML = '';
-  if (state.activeView === 'alerts') markAnnSeen(); else renderAlerts();
+  // Rendering is not the same as reading: only markAnnSeen() on an explicit
+  // visit to the Alerts tab or when the user opens an announcement.
+  renderAlerts();
 }
 function renderSuspended() {
   document.getElementById('suspendedScreen')?.remove();
