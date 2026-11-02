@@ -602,20 +602,51 @@ function formatAlertBadge(alerts) {
     : (Array.isArray(alerts) ? alerts.filter(alert => alert && !alert.read).length : 0);
   return unread > 99 ? '99+' : String(unread);
 }
+function openAnnouncementDetails(id) {
+  const item = liveAnnouncements().find(entry => String(entry.id) === String(id));
+  if (!item) return;
+  document.querySelector('.announcement-detail-screen')?.remove();
+  const screen = document.createElement('section');
+  screen.className = 'announcement-detail-screen';
+  screen.setAttribute('role', 'dialog');
+  screen.setAttribute('aria-modal', 'true');
+  screen.setAttribute('aria-label', 'Announcement details');
+  screen.innerHTML = '<div class="announcement-detail-card"><header class="announcement-detail-head"><button type="button" data-announcement-back>Back</button><span>MURMUR ANNOUNCEMENT</span><span></span></header><article class="announcement-detail-content"><small>FROM MURMUR</small><h1 data-announcement-title></h1><p class="announcement-detail-date" data-announcement-date></p><div class="announcement-detail-body" data-announcement-body></div></article></div>';
+  screen.querySelector('[data-announcement-title]').textContent = item.title || 'Announcement';
+  screen.querySelector('[data-announcement-date]').textContent = new Date(item.createdAt || Date.now()).toLocaleString();
+  screen.querySelector('[data-announcement-body]').textContent = item.body || '';
+  const previousOverflow = document.body.style.overflow;
+  const close = () => { screen.remove(); document.body.style.overflow = previousOverflow; document.removeEventListener('keydown', onKey); };
+  const onKey = event => { if (event.key === 'Escape') close(); };
+  screen.querySelector('[data-announcement-back]').addEventListener('click', close);
+  screen.addEventListener('click', event => { if (event.target === screen) close(); });
+  document.addEventListener('keydown', onKey);
+  document.body.style.overflow = 'hidden';
+  document.body.appendChild(screen);
+}
 function renderAlerts() {
   const inc = incoming();
   const acc = [];
   const el = document.getElementById('alertsList');
   const ann = liveAnnouncements(), seen = seenAnn();
   el.innerHTML = (inc.length || notes.length || ann.length) ? '' : '<div class="empty">No alerts yet.</div>';
-  ann.forEach(a => {   // messages from the admin of Murmur (published in admin.html)
+  ann.forEach(a => {
     const mins = Math.max(0, Math.round((Date.now() - (a.createdAt || Date.now())) / 60000));
     const when = mins < 1 ? 'now' : mins < 60 ? mins + 'm' : mins < 1440 ? Math.round(mins / 60) + 'h' : Math.round(mins / 1440) + 'd';
-    el.insertAdjacentHTML('beforeend', `<div class="notice admin-notice ${a.kind === 'warn' ? 'warn' : ''}"><span class="admin-ava" aria-hidden="true">M</span><div style="flex:1;min-width:0"><h4>${esc(a.title)}</h4><p>${esc(a.body)}</p><small>From Admin of Murmur · ${when}</small></div>${seen.includes(a.id) ? '' : '<span class="dot" style="background:var(--acc)"></span>'}</div>`);
+    el.insertAdjacentHTML('beforeend', `<button type="button" class="notice admin-notice ${a.kind === 'warning' || a.kind === 'warn' || a.kind === 'urgent' ? 'warn' : ''}" data-announcement="${esc(a.id)}" aria-label="Open announcement: ${esc(a.title)}"><span class="admin-ava" aria-hidden="true">M</span><span class="admin-notice-copy"><strong>${esc(a.title)}</strong><small>From Murmur · ${when}</small></span>${seen.includes(a.id) ? '' : '<span class="dot" aria-label="Unread"></span>'}</button>`);
   });
   inc.forEach(d => el.insertAdjacentHTML('beforeend', `<div class="notice" data-goto="friends"><button type="button" class="person-link">${avatarHtml(d.uid, d.name)}<div style="flex:1;min-width:0"><h4>${esc(d.name)} sent you a friend request</h4><small>${esc(d.username)}</small></div></button></div>`));
   acc.forEach(d => el.insertAdjacentHTML('beforeend', `<div class="notice"><span class="dot" style="background:rgba(20,33,61,0.3)"></span><div><h4>${esc(d.toName)} accepted your friend request</h4><small>${esc(d.toUsername)}</small></div></div>`));
   notes.forEach(n => el.insertAdjacentHTML('beforeend', `<div class="notice"${n.type === 'like' ? ' data-goto="home"' : ''}><span class="dot" style="background:${n.read ? 'rgba(20,33,61,0.3)' : 'var(--acc)'}"></span><div><h4>${n.type === 'like' ? esc(n.text) : 'Message from Murmur'}</h4>${n.type === 'like' ? '' : `<p>${esc(n.text)}</p>`}</div></div>`));
+  el.querySelectorAll('[data-announcement]').forEach(button => button.addEventListener('click', () => {
+    const id = button.dataset.announcement;
+    const current = seenAnn();
+    if (!current.includes(id)) {
+      try { localStorage.setItem('murmur-seen-ann', JSON.stringify([...current, id].slice(-60))); } catch {}
+    }
+    openAnnouncementDetails(id);
+    renderAlerts();
+  }));
   const unread = notes.filter(n => !n.read).length + (state.activeView === 'alerts' ? 0 : ann.filter(a => !seen.includes(a.id)).length);
   document.title = (inc.length + unread ? `(${inc.length + unread}) ` : '') + 'Murmur – Chat, share and watch together';
   [['friendsBadge', inc.length], ['alertsBadge', inc.length + unread]].forEach(([id, c]) => { const b = document.getElementById(id); b.textContent = formatAlertBadge(c); b.hidden = !c; });
@@ -3110,11 +3141,39 @@ document.getElementById('chatProfileBtn').addEventListener('click', () => { if (
 
 let annList = [], notes = [], suspendedInfo = null, myAppeal = null, extraSubs = [], presenceTimer = null, suspendedCountdownTimer = null;
 
+let announcementRefreshTimer = null;
+async function loadPublicAnnouncements() {
+  const now = new Date().toISOString();
+  const params = new URLSearchParams({
+    select: 'id,title,body,kind,is_pinned,published_at,expires_at,created_at',
+    published_at: 'lte.' + now,
+    or: '(expires_at.is.null,expires_at.gt.' + now + ')',
+    order: 'is_pinned.desc,created_at.desc',
+    limit: '50'
+  });
+  try {
+    const response = await fetch(MURMUR_SUPABASE_URL + '/rest/v1/announcements?' + params.toString(), {
+      headers: { apikey: MURMUR_SUPABASE_KEY, Authorization: 'Bearer ' + MURMUR_SUPABASE_KEY, Accept: 'application/json' }
+    });
+    if (!response.ok) throw new Error('Announcement request failed (' + response.status + ').');
+    const rows = await response.json();
+    annList = (Array.isArray(rows) ? rows : []).map(row => ({
+      id: row.id, title: row.title, body: row.body, kind: row.kind,
+      pinned: row.is_pinned === true,
+      createdAt: Date.parse(row.created_at || row.published_at) || Date.now(),
+      expiresAt: row.expires_at ? Date.parse(row.expires_at) : null
+    }));
+    renderAnnouncements();
+  } catch (error) {
+    console.warn('Could not load Murmur announcements:', error);
+  }
+}
 function startExtras(uid) {
   stopExtras();
   const off = () => {};
+  loadPublicAnnouncements();
+  announcementRefreshTimer = setInterval(() => { if (!document.hidden) loadPublicAnnouncements(); }, 300000);
   extraSubs = [
-    onValue(query(ref(db, 'announcements'), orderByChild('createdAt'), limitToLast(20)), s => { annList = Object.entries(s.val() || {}).map(([id, a]) => ({ id, ...a })); renderAnnouncements(); }, off),
     onValue(ref(db, 'notifications/' + uid), s => { notes = Object.entries(s.val() || {}).map(([id, n]) => ({ id, ...n })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); renderAlerts(); }, off),
     onValue(ref(db, 'savedPosts/' + uid), s => { savedPostIds = s.val() || {}; renderPosts(); }, off),
     onValue(ref(db, 'suspended/' + uid), s => { suspendedInfo = s.exists() ? s.val() : null; renderSuspended(); }, off),
@@ -3127,6 +3186,7 @@ function startExtras(uid) {
 function stopExtras() {
   extraSubs.forEach(u => u()); extraSubs = [];
   clearInterval(presenceTimer); presenceTimer = null;
+  clearInterval(announcementRefreshTimer); announcementRefreshTimer = null;
   annList = []; notes = []; savedPostIds = {}; suspendedInfo = null; myAppeal = null;
   renderAnnouncements(); renderSuspended();
 }
