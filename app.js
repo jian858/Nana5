@@ -625,6 +625,18 @@ function openAnnouncementDetails(id) {
   document.body.appendChild(screen);
 }
 let alertsFilter = 'all';
+document.querySelectorAll('[data-alert-filter]').forEach(button => {
+  button.addEventListener('click', () => {
+    alertsFilter = button.dataset.alertFilter || 'all';
+    document.querySelectorAll('[data-alert-filter]').forEach(tab => {
+      const active = tab === button;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    renderAlerts();
+  });
+});
+
 function renderAlerts() {
   const inc = incoming();
   const el = document.getElementById('alertsList');
