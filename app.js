@@ -3143,17 +3143,10 @@ let annList = [], notes = [], suspendedInfo = null, myAppeal = null, extraSubs =
 
 let announcementRefreshTimer = null;
 async function loadPublicAnnouncements() {
-  const now = new Date().toISOString();
-  const params = new URLSearchParams({
-    select: 'id,title,body,kind,is_pinned,published_at,expires_at,created_at',
-    published_at: 'lte.' + now,
-    or: '(expires_at.is.null,expires_at.gt.' + now + ')',
-    order: 'is_pinned.desc,created_at.desc',
-    limit: '50'
-  });
   try {
-    const response = await fetch(MURMUR_SUPABASE_URL + '/rest/v1/announcements?' + params.toString(), {
-      headers: { apikey: MURMUR_SUPABASE_KEY, Accept: 'application/json' }
+    const response = await fetch(MURMUR_SUPABASE_URL + '/functions/v1/murmur-public-announcements', {
+      headers: { apikey: MURMUR_SUPABASE_KEY, Accept: 'application/json' },
+      cache: 'no-store'
     });
     if (!response.ok) throw new Error('Announcement request failed (' + response.status + ').');
     const rows = await response.json();
@@ -3164,8 +3157,6 @@ async function loadPublicAnnouncements() {
       createdAt: Date.parse(row.created_at || row.published_at) || Date.now(),
       expiresAt: row.expires_at ? Date.parse(row.expires_at) : null
     }));
-    // The announcements are rendered in Alerts only. Refresh that list immediately
-    // after the async Supabase request finishes; never mark them read just by rendering.
     const box = document.getElementById('announceBox');
     if (box) box.innerHTML = '';
     renderAlerts();
