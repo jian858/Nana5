@@ -363,6 +363,11 @@ function renderMenuHeader() {
 let friendDocs = [], unsubFriends = null, activeChatUid = null, unsubMsgs = null, chatMsgs = [], searchResults = [];
 const meUid = () => auth.currentUser?.uid;
 const otherOf = d => ({ uid: d.uid, name: d.name, username: d.username });
+function getFriendCount(friends) {
+  if (Array.isArray(friends)) return friends.filter(friend => friend && friend.status === 'accepted').length;
+  if (!friends || typeof friends !== 'object') return 0;
+  return Object.values(friends).filter(Boolean).length;
+}
 const friendsOf = () => friendDocs.filter(d => d.status === 'accepted');
 const incoming = () => friendDocs.filter(d => d.status === 'incoming');
 const outgoing = () => friendDocs.filter(d => d.status === 'outgoing');
@@ -590,6 +595,12 @@ function renderConversation() {
 /* =====================================================================
    ALERTS  -  friend requests and notifications
    ===================================================================== */
+function formatAlertBadge(alerts) {
+  const unread = typeof alerts === 'number'
+    ? Math.max(0, Math.floor(alerts))
+    : (Array.isArray(alerts) ? alerts.filter(alert => alert && !alert.read).length : 0);
+  return unread > 99 ? '99+' : String(unread);
+}
 function renderAlerts() {
   const inc = incoming();
   const acc = [];
@@ -606,7 +617,7 @@ function renderAlerts() {
   notes.forEach(n => el.insertAdjacentHTML('beforeend', `<div class="notice"${n.type === 'like' ? ' data-goto="home"' : ''}><span class="dot" style="background:${n.read ? 'rgba(20,33,61,0.3)' : 'var(--acc)'}"></span><div><h4>${n.type === 'like' ? esc(n.text) : 'Message from Murmur'}</h4>${n.type === 'like' ? '' : `<p>${esc(n.text)}</p>`}</div></div>`));
   const unread = notes.filter(n => !n.read).length + (state.activeView === 'alerts' ? 0 : ann.filter(a => !seen.includes(a.id)).length);
   document.title = (inc.length + unread ? `(${inc.length + unread}) ` : '') + 'Murmur – Chat, share and watch together';
-  [['friendsBadge', inc.length], ['alertsBadge', inc.length + unread]].forEach(([id, c]) => { const b = document.getElementById(id); b.textContent = c; b.hidden = !c; });
+  [['friendsBadge', inc.length], ['alertsBadge', inc.length + unread]].forEach(([id, c]) => { const b = document.getElementById(id); b.textContent = formatAlertBadge(c); b.hidden = !c; });
 }
 
 /* Every user gets their own 16-character ID. It is only for the admin: it lives in the database (users/<uid>/code and
@@ -1349,6 +1360,9 @@ function setMurmurLoginLock(email, value) {
 function clearMurmurLoginLock(email) {
   try { localStorage.removeItem(murmurLoginLockKey(email)); } catch {}
 }
+function isLockedOut(fails) {
+  return Number(fails) >= MURMUR_LOGIN_LOCK.maxAttempts;
+}
 function showMurmurLoginLockMessage() {
   authError.textContent = '';
   const message = document.createElement('span');
@@ -1376,7 +1390,7 @@ async function login(email, password) {
     return;
   }
   const accountLock = getMurmurLoginLock(normalized);
-  if (accountLock.locked || accountLock.fails >= MURMUR_LOGIN_LOCK.maxAttempts) {
+  if (accountLock.locked || isLockedOut(accountLock.fails)) {
     accountLock.locked = true;
     setMurmurLoginLock(normalized, accountLock);
     showMurmurLoginLockMessage();
@@ -1419,7 +1433,7 @@ async function login(email, password) {
     if (isWrongLogin) {
       const failed = getMurmurLoginLock(normalized);
       failed.fails = Math.min(MURMUR_LOGIN_LOCK.maxAttempts, (Number(failed.fails) || 0) + 1);
-      failed.locked = failed.fails >= MURMUR_LOGIN_LOCK.maxAttempts;
+      failed.locked = isLockedOut(failed.fails);
       setMurmurLoginLock(normalized, failed);
       if (failed.locked) {
         showMurmurLoginLockMessage();
@@ -2866,7 +2880,7 @@ function renderProfileActions() {
   if (!profileOverlay) return;
   if (profileUid === meUid()) {
     profileOverlay.querySelector('[data-p-actions]').innerHTML = '<button class="btn primary" type="button" data-p-story>Add to story</button><button class="btn ghost" type="button" data-p-edit>Edit profile</button>';
-    const n = friendDocs.filter(d => d.status === 'accepted').length;
+    const n = getFriendCount(friendDocs);
     profileOverlay.querySelector('[data-p-rel]').textContent = n + (n === 1 ? ' friend' : ' friends');
     return;
   }
@@ -3015,6 +3029,11 @@ async function loadProfileDetails(uid) {
   paintProfile();
 }
 
+function openProfileCard(user) {
+  const uid = typeof user === 'string' ? user : (user && (user.uid || user.id));
+  if (!uid) return;
+  openProfile(uid);
+}
 function openProfile(uid) {
   const person = findPerson(uid);
   if (!person) return;
@@ -3061,7 +3080,7 @@ function openProfile(uid) {
   node.style.cursor = 'pointer';
   node.addEventListener('click', () => openProfile(meUid()));
 });
-document.addEventListener('click', e => { const pr = e.target.closest('[data-profile]'); if (pr) openProfile(pr.dataset.profile); });
+document.addEventListener('click', e => { const pr = e.target.closest('[data-profile]'); if (pr) openProfileCard(pr.dataset.profile); });
 // tapping a notification takes you to the page it is about
 document.addEventListener('click', e => {
   if (e.target.closest('[data-fr-accept], [data-fr-del], [data-profile]')) return;   // the buttons inside keep their own job
