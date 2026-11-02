@@ -1310,7 +1310,9 @@ function openRegisterWizard() {
       : 'Use 8+ characters and mix letters, numbers, symbols.';
   }
 
+  let isSubmitting = false;
   async function submit() {
+    if (isSubmitting) return;
     const err = validateStep(TOTAL);
     if (err) { setError(err); return; }
     for (let n = 1; n < TOTAL; n++) {
@@ -1350,8 +1352,12 @@ function openRegisterWizard() {
       goTo(4); setError('Choose an image smaller than 5 MB.'); return;
     }
 
+    isSubmitting = true;
     nextButton.disabled = true;
-    nextButton.textContent = 'Creating...';
+    nextButton.setAttribute('aria-busy', 'true');
+    nextButton.textContent = 'Creating account…';
+    backButton.disabled = true;
+    $('.close-btn').disabled = true;
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
@@ -1371,25 +1377,55 @@ function openRegisterWizard() {
         await saveProfileToRealtimeDatabase(uid, userProfile);
         await ensureProfile(userCredential.user);
       } catch (profileErr) { console.warn('Profile save skipped:', profileErr); }
+
+      // Save a durable welcome notification so it appears in the user's Notifications tab.
+      try {
+        const notificationId = 'system_account_created_' + uid;
+        await set(ref(db, 'notifications/' + uid + '/' + notificationId), {
+          type: 'system',
+          title: 'Account created successfully',
+          text: 'Welcome to Murmur. Your account is ready to use.',
+          createdAt: Date.now(),
+          read: false
+        });
+      } catch (notificationError) {
+        console.warn('Welcome notification could not be saved:', notificationError);
+      }
+
       state.loggedIn = true;
       state.currentUser = { name: fullName, email, username: normalizedUser, uid, ...(userProfile.photo ? { photo: userProfile.photo } : {}) };
       state.users.me = { ...state.currentUser };
       state.activeView = 'home';
       saveState();
+
+      // Show a clear success confirmation before opening the newly created account.
+      overlay.innerHTML = `
+        <section class="reg-success" role="status" aria-live="polite">
+          <div class="reg-success-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48"><path d="M10 25l9 9L38 14"/></svg>
+          </div>
+          <h1>You have successfully created an account</h1>
+          <p>Your Murmur account is ready. Welcome to the community.</p>
+          <div class="reg-success-progress"><span></span></div>
+          <small>Opening your account…</small>
+        </section>`;
+      await new Promise(resolve => setTimeout(resolve, 1400));
       registerOverlay.remove();
       registerOverlay = null;
       document.body.style.overflow = '';
       history.replaceState(null, '', location.pathname + location.search);
       showApp();
       window.scrollTo(0, 0);
-      showToast(identityLink && identityLink.status === 'connected'
-        ? 'Welcome to Murmur! Your Firebase and Supabase IDs are linked.'
-        : 'Account created. Supabase ID linking is pending; sign in again later to retry.');
+      showToast('Account created successfully. Your welcome notification is in Notifications.');
     } catch (error) {
       console.error('Create account failed:', error && error.code);
+      isSubmitting = false;
       setError(friendlyError(error, 'Unable to create account.'));
       nextButton.disabled = false;
+      nextButton.removeAttribute('aria-busy');
       nextButton.textContent = 'Create account';
+      backButton.disabled = false;
+      $('.close-btn').disabled = false;
     }
   }
 
