@@ -321,7 +321,18 @@
         </div>
       </section>
 
-      <section class="pane" data-pane="alerts">
+      <section class="pane alerts-pane" data-pane="alerts">
+        <div class="alerts-heading">
+          <div><p class="alerts-eyebrow">YOUR ACTIVITY</p><h1>Notifications</h1><p id="alertsUnreadCount">Your latest updates in one place</p></div>
+          <span class="alerts-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 17v-6a6 6 0 0 1 12 0v6l2 2H4z"/><path d="M10 21h4"/></svg></span>
+        </div>
+        <div class="alerts-filters" role="tablist" aria-label="Filter notifications">
+          <button type="button" class="active" data-alert-filter="all" role="tab" aria-selected="true">All</button>
+          <button type="button" data-alert-filter="unread" role="tab" aria-selected="false">Unread</button>
+          <button type="button" data-alert-filter="announcements" role="tab" aria-selected="false">Murmur</button>
+          <button type="button" data-alert-filter="people" role="tab" aria-selected="false">People</button>
+          <button type="button" data-alert-filter="activity" role="tab" aria-selected="false">Activity</button>
+        </div>
         <div class="alerts-list" id="alertsList"></div>
       </section>
       <section class="pane murmur-menu-pane" data-pane="menu">
@@ -365,7 +376,7 @@
   <script src="./config.js?v=20261102-1"></script>
   <script type="module" src="./firebase.js?v=20261102-1"></script>
   <script src="./account-restrictions.js?v=20261102-1"></script>
-  <script type="module" src="./app.js?v=20261102-8"></script>
+  <script type="module" src="./app.js?v=20261102-9"></script>
   <script src="./pwa.js?v=20261102-1"></script>
 </body>
 </html>
