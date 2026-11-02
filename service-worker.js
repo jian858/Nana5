@@ -1,7 +1,7 @@
-const CACHE_NAME = "murmur-shell-v3";
+const CACHE_NAME = "murmur-shell-v4";
 const APP_SHELL = [
-  "/", "/index.html", "/styles.css?v=20261102-1", "/config.js?v=20261102-1", "/firebase.js?v=20261102-1",
-  "/account-restrictions.js?v=20261102-1", "/app.js?v=20261102-7", "/pwa.js?v=20261102-1", "/manifest.json?v=20261102-1",
+  "/", "/index.html", "/styles.css?v=20261102-2", "/config.js?v=20261102-1", "/firebase.js?v=20261102-1",
+  "/account-restrictions.js?v=20261102-1", "/app.js?v=20261102-8", "/pwa.js?v=20261102-1", "/manifest.json?v=20261102-1",
   "/murmur-icon.svg"
 ];
 
