@@ -687,7 +687,7 @@ function renderAlerts() {
         }
         const n = item.data;
         const title = n.type === 'like' ? (n.text || 'Someone interacted with your post') : (n.title || 'Murmur activity');
-        return `<button type="button" class="notice alerts-row ${item.unread ? 'is-unread' : ''}" ${n.type === 'like' ? 'data-alert-goto="home"' : ''}><span class="alerts-activity-icon">${ic(n.type === 'like' ? 'heart' : 'bell')}</span><span class="alerts-row-copy"><strong>${esc(title)}</strong>${n.type === 'like' ? '' : `<span class="alerts-message">${esc(n.text || '')}</span>`}<small>${when}</small></span>${item.unread ? '<span class="alerts-unread-dot" aria-label="Unread"></span>' : ''}</button>`;
+        return `<button type="button" class="notice alerts-row" data-note-id="${esc(n.id)}" ${item.unread ? 'is-unread' : ''}" ${n.type === 'like' ? 'data-alert-goto="home"' : ''}><span class="alerts-activity-icon">${ic(n.type === 'like' ? 'heart' : 'bell')}</span><span class="alerts-row-copy"><strong>${esc(title)}</strong>${n.type === 'like' ? '' : `<span class="alerts-message">${esc(n.text || '')}</span>`}<small>${when}</small></span>${item.unread ? '<span class="alerts-unread-dot" aria-label="Unread"></span>' : ''}</button>`;
       }).join('')}</div></section>`;
     };
     el.innerHTML = renderGroup('Today', today) + renderGroup('Earlier', earlier);
@@ -700,6 +700,15 @@ function renderAlerts() {
     }
     openAnnouncementDetails(id);
     renderAlerts();
+  }));
+  el.querySelectorAll('[data-note-id]').forEach(button => button.addEventListener('click', async () => {
+    const id = button.dataset.noteId, uid = meUid();
+    if (uid && id) {
+      try { await update(ref(db), { ['notifications/' + uid + '/' + id + '/read']: true }); }
+      catch (error) { console.warn('Could not mark notification as read:', error); }
+    }
+    if (button.dataset.alertGoto) setView(button.dataset.alertGoto);
+    else renderAlerts();
   }));
   el.querySelectorAll('[data-alert-goto]').forEach(button => button.addEventListener('click', () => {
     const view = button.dataset.alertGoto;
@@ -813,7 +822,7 @@ function leaveView(next) {
   if (next !== 'chats' && activeChatUid) { if (location.hash === '#chat') history.replaceState(null, '', location.pathname + location.search); closeChat(); }
   if (next !== 'reels') pauseReels();
   if (next === 'friends' && typeof setFrSearch === 'function') setFrSearch(false);
-  if (next === 'alerts') { markNotesRead(); markAnnSeen(); }
+  // Keep each notification unread until that specific item is opened.
 }
 function setView(view) {
   animateRows();
