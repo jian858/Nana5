@@ -687,7 +687,7 @@ function renderAlerts() {
         }
         const n = item.data;
         const title = n.type === 'like' ? (n.text || 'Someone interacted with your post') : (n.title || 'Murmur activity');
-        return `<button type="button" class="notice alerts-row" data-note-id="${esc(n.id)}" ${item.unread ? 'is-unread' : ''}" ${n.type === 'like' ? 'data-alert-goto="home"' : ''}><span class="alerts-activity-icon">${ic(n.type === 'like' ? 'heart' : 'bell')}</span><span class="alerts-row-copy"><strong>${esc(title)}</strong>${n.type === 'like' ? '' : `<span class="alerts-message">${esc(n.text || '')}</span>`}<small>${when}</small></span>${item.unread ? '<span class="alerts-unread-dot" aria-label="Unread"></span>' : ''}</button>`;
+        return `<button type="button" class="notice alerts-row ${item.unread ? 'is-unread' : ''}" data-note-id="${esc(n.id)}" ${n.type === 'like' ? 'data-alert-goto="home"' : ''}><span class="alerts-activity-icon">${ic(n.type === 'like' ? 'heart' : 'bell')}</span><span class="alerts-row-copy"><strong>${esc(title)}</strong>${n.type === 'like' ? '' : `<span class="alerts-message">${esc(n.text || '')}</span>`}<small>${when}</small></span>${item.unread ? '<span class="alerts-unread-dot" aria-label="Unread"></span>' : ''}</button>`;
       }).join('')}</div></section>`;
     };
     el.innerHTML = renderGroup('Today', today) + renderGroup('Earlier', earlier);
