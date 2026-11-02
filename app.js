@@ -3153,7 +3153,7 @@ async function loadPublicAnnouncements() {
   });
   try {
     const response = await fetch(MURMUR_SUPABASE_URL + '/rest/v1/announcements?' + params.toString(), {
-      headers: { apikey: MURMUR_SUPABASE_KEY, Authorization: 'Bearer ' + MURMUR_SUPABASE_KEY, Accept: 'application/json' }
+      headers: { apikey: MURMUR_SUPABASE_KEY, Accept: 'application/json' }
     });
     if (!response.ok) throw new Error('Announcement request failed (' + response.status + ').');
     const rows = await response.json();
