@@ -624,20 +624,62 @@ function openAnnouncementDetails(id) {
   document.body.style.overflow = 'hidden';
   document.body.appendChild(screen);
 }
+let alertsFilter = 'all';
 function renderAlerts() {
   const inc = incoming();
-  const acc = [];
   const el = document.getElementById('alertsList');
+  if (!el) return;
   const ann = liveAnnouncements(), seen = seenAnn();
-  el.innerHTML = (inc.length || notes.length || ann.length) ? '' : '<div class="empty">No alerts yet.</div>';
-  ann.forEach(a => {
-    const mins = Math.max(0, Math.round((Date.now() - (a.createdAt || Date.now())) / 60000));
-    const when = mins < 1 ? 'now' : mins < 60 ? mins + 'm' : mins < 1440 ? Math.round(mins / 60) + 'h' : Math.round(mins / 1440) + 'd';
-    el.insertAdjacentHTML('beforeend', `<button type="button" class="notice admin-notice ${a.kind === 'warning' || a.kind === 'warn' || a.kind === 'urgent' ? 'warn' : ''}" data-announcement="${esc(a.id)}" aria-label="Open announcement: ${esc(a.title)}"><span class="admin-ava" aria-hidden="true">M</span><span class="admin-notice-copy"><strong>${esc(a.title)}</strong><small>From Murmur · ${when}</small></span>${seen.includes(a.id) ? '' : '<span class="dot" aria-label="Unread"></span>'}</button>`);
+  const items = [
+    ...ann.map(a => ({ type: 'announcement', id: a.id, time: a.createdAt || 0, unread: !seen.includes(a.id), data: a })),
+    ...inc.map(d => ({ type: 'request', id: d.uid, time: d.createdAt || 0, unread: true, data: d })),
+    ...notes.map(n => ({ type: 'activity', id: n.id, time: n.createdAt || 0, unread: !n.read, data: n }))
+  ].sort((a, b) => (b.time || 0) - (a.time || 0));
+  const filtered = items.filter(item => {
+    if (alertsFilter === 'unread') return item.unread;
+    if (alertsFilter === 'announcements') return item.type === 'announcement';
+    if (alertsFilter === 'people') return item.type === 'request';
+    if (alertsFilter === 'activity') return item.type === 'activity';
+    return true;
   });
-  inc.forEach(d => el.insertAdjacentHTML('beforeend', `<div class="notice" data-goto="friends"><button type="button" class="person-link">${avatarHtml(d.uid, d.name)}<div style="flex:1;min-width:0"><h4>${esc(d.name)} sent you a friend request</h4><small>${esc(d.username)}</small></div></button></div>`));
-  acc.forEach(d => el.insertAdjacentHTML('beforeend', `<div class="notice"><span class="dot" style="background:rgba(20,33,61,0.3)"></span><div><h4>${esc(d.toName)} accepted your friend request</h4><small>${esc(d.toUsername)}</small></div></div>`));
-  notes.forEach(n => el.insertAdjacentHTML('beforeend', `<div class="notice"${n.type === 'like' ? ' data-goto="home"' : ''}><span class="dot" style="background:${n.read ? 'rgba(20,33,61,0.3)' : 'var(--acc)'}"></span><div><h4>${n.type === 'like' ? esc(n.text) : 'Message from Murmur'}</h4>${n.type === 'like' ? '' : `<p>${esc(n.text)}</p>`}</div></div>`));
+  const unreadCount = items.filter(item => item.unread).length;
+  const countEl = document.getElementById('alertsUnreadCount');
+  if (countEl) countEl.textContent = unreadCount ? unreadCount + ' unread' : 'You’re all caught up';
+  el.innerHTML = '';
+  if (!filtered.length) {
+    const title = alertsFilter === 'unread' ? 'You’re all caught up' : 'Nothing in this filter yet';
+    const copy = alertsFilter === 'unread'
+      ? 'New friend requests, activity and Murmur announcements will appear here.'
+      : 'Try another filter or explore Murmur while you wait for new updates.';
+    el.innerHTML = `<div class="alerts-empty"><span class="alerts-empty-icon" aria-hidden="true">${ic('bell')}</span><h2>${title}</h2><p>${copy}</p><div class="alerts-empty-actions"><button type="button" data-alert-goto="friends">Find people</button><button type="button" data-alert-goto="home">Explore feed</button></div></div>`;
+  } else {
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    const earlier = [], today = [];
+    filtered.forEach(item => ((item.time || 0) >= todayStart.getTime() ? today : earlier).push(item));
+    const renderGroup = (label, list) => {
+      if (!list.length) return '';
+      return `<section class="alerts-group"><h2>${label}</h2><div class="alerts-group-items">${list.map(item => {
+        const mins = Math.max(0, Math.round((Date.now() - (item.time || Date.now())) / 60000));
+        const when = mins < 1 ? 'Just now' : mins < 60 ? mins + 'm ago' : mins < 1440 ? Math.round(mins / 60) + 'h ago' : Math.round(mins / 1440) + 'd ago';
+        if (item.type === 'announcement') {
+          const a = item.data;
+          return `<button type="button" class="notice admin-notice alerts-row ${item.unread ? 'is-unread' : ''} ${a.kind === 'warning' || a.kind === 'warn' || a.kind === 'urgent' ? 'warn' : ''}" data-announcement="${esc(a.id)}" aria-label="Open announcement: ${esc(a.title)}">
+            <span class="admin-ava" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10v4h3l11 5V5L6 10H3z"/><path d="M6 14l2 6h4l-3-7M20 9l2-2M20 15l2 2"/></svg></span>
+            <span class="admin-notice-copy"><strong>From Admin of Murmur</strong><span class="alerts-message">${esc(a.body || a.title || 'A new announcement is available.')}</span><span class="alerts-see-more">See more</span><small>${esc(a.title || 'Murmur announcement')} · ${when}</small></span>
+            ${item.unread ? '<span class="alerts-unread-dot" aria-label="Unread"></span>' : ''}
+          </button>`;
+        }
+        if (item.type === 'request') {
+          const d = item.data;
+          return `<article class="notice alerts-row is-unread"><span class="alerts-person-avatar">${avatarHtml(d.uid, d.name)}</span><span class="alerts-row-copy"><strong>${esc(d.name)} sent you a friend request</strong><small>${esc(d.username || '')} · ${when}</small></span><span class="alerts-unread-dot" aria-label="Unread"></span><button type="button" class="alerts-row-action" data-alert-goto="friends">View</button></article>`;
+        }
+        const n = item.data;
+        const title = n.type === 'like' ? (n.text || 'Someone interacted with your post') : (n.title || 'Murmur activity');
+        return `<button type="button" class="notice alerts-row ${item.unread ? 'is-unread' : ''}" ${n.type === 'like' ? 'data-alert-goto="home"' : ''}><span class="alerts-activity-icon">${ic(n.type === 'like' ? 'heart' : 'bell')}</span><span class="alerts-row-copy"><strong>${esc(title)}</strong>${n.type === 'like' ? '' : `<span class="alerts-message">${esc(n.text || '')}</span>`}<small>${when}</small></span>${item.unread ? '<span class="alerts-unread-dot" aria-label="Unread"></span>' : ''}</button>`;
+      }).join('')}</div></section>`;
+    };
+    el.innerHTML = renderGroup('Today', today) + renderGroup('Earlier', earlier);
+  }
   el.querySelectorAll('[data-announcement]').forEach(button => button.addEventListener('click', () => {
     const id = button.dataset.announcement;
     const current = seenAnn();
@@ -647,10 +689,15 @@ function renderAlerts() {
     openAnnouncementDetails(id);
     renderAlerts();
   }));
-  const unread = notes.filter(n => !n.read).length + (state.activeView === 'alerts' ? 0 : ann.filter(a => !seen.includes(a.id)).length);
-  document.title = (inc.length + unread ? `(${inc.length + unread}) ` : '') + 'Murmur – Chat, share and watch together';
-  [['friendsBadge', inc.length], ['alertsBadge', inc.length + unread]].forEach(([id, c]) => { const b = document.getElementById(id); b.textContent = formatAlertBadge(c); b.hidden = !c; });
+  el.querySelectorAll('[data-alert-goto]').forEach(button => button.addEventListener('click', () => {
+    const view = button.dataset.alertGoto;
+    if (view) setView(view);
+  }));
+  const unread = notes.filter(n => !n.read).length + inc.length + (state.activeView === 'alerts' ? 0 : ann.filter(a => !seen.includes(a.id)).length);
+  document.title = (unread ? `(${unread}) ` : '') + 'Murmur – Chat, share and watch together';
+  [['friendsBadge', inc.length], ['alertsBadge', unread]].forEach(([id, c]) => { const b = document.getElementById(id); b.textContent = formatAlertBadge(c); b.hidden = !c; });
 }
+
 
 /* Every user gets their own 16-character ID. It is only for the admin: it lives in the database (users/<uid>/code and
    the list codes/<ID> = uid, so no two users share one) and is never shown in the app. Letters/numbers without 0, 1, I, O. */
