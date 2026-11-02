@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#14c8a0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>You're offline | Murmur</title>
+  <style>
+    :root{color-scheme:light;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f1f2f6;color:#172033}
+    *{box-sizing:border-box}
+    body{min-height:100vh;min-height:100dvh;margin:0;display:grid;place-items:center;padding:24px}
+    main{width:min(100%,420px);padding:32px 24px;border:1px solid #e1e6eb;border-radius:22px;background:#fff;text-align:center;box-shadow:0 12px 40px #17203312}
+    img{width:72px;height:72px;margin:0 auto 18px}
+    h1{margin:0 0 10px;font-size:1.6rem}
+    p{margin:0;color:#5d6875;line-height:1.6}
+    button{min-height:46px;margin-top:22px;padding:0 20px;border:0;border-radius:10px;background:#14c8a0;color:#073c32;font:700 1rem inherit;cursor:pointer}
+    button:focus-visible{outline:3px solid #087e69;outline-offset:3px}
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/murmur-icon.svg" alt="Murmur">
+    <h1>You're offline</h1>
+    <p>Murmur couldn't connect to the internet. Check your connection and try again. Previously loaded app pages may still be available.</p>
+    <button type="button" onclick="location.reload()">Try again</button>
+  </main>
+</body>
+</html>
