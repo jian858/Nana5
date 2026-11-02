@@ -70,6 +70,7 @@ const CONFIG = window.MURMUR_CONFIG;             // edit in SETTINGS
 document.documentElement.style.setProperty('--chat-ms', CONFIG.chatAnimMs);
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+window.MurmurErrorTokenProvider = () => auth.currentUser ? auth.currentUser.getIdToken().catch(() => "") : "";
 const db = getDatabase(app);
 
 // Firebase remains the login provider. Supabase independently creates and stores its own UUID.
