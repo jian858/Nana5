@@ -318,7 +318,7 @@ function postMediaHtml(p) {
     const d = new Date(p.event.when || 0);
     h += `<div class="post-event"><div class="ev-date"><b>${d.getDate()}</b><span>${esc(d.toLocaleString('en', { month: 'short' }))}</span></div><div><strong>${esc(p.event.title)}</strong><small>${esc(fmtEventWhen(p.event.when || 0))}${p.event.place ? ' · ' + esc(p.event.place) : ''}</small></div></div>`;
   }
-  if (okImg(p.photo)) h += `<img class="post-photo" src="${p.photo}" alt="Photo in post" loading="lazy" />`;
+  if (okImg(p.photo)) h += `<img class="post-photo" src="${p.photo}" alt="Photo in post" loading="lazy" decoding="async" />`;
   return h;
 }
 let savedPostIds = {};
@@ -2426,7 +2426,7 @@ function reelHtml(r) {
   const capText = [r.caption || '', r.hashtags || ''].filter(Boolean).join(' ');
   const cap = (r.title || capText) ? `<div class="reel-caption-block">${r.title ? `<strong class="reel-title">${esc(r.title)}</strong>` : ''}${capText ? `<p class="reel-cap" data-rcap>${esc(capText)}</p>${capText.length > 60 ? '<button type="button" class="reel-more" data-rmore>more</button>' : ''}` : ''}</div>` : '';
   return `<article class="reel paused" data-rid="${esc(r.id)}">
-    <video src="${esc(r.url)}" playsinline loop ${reelMuted ? 'muted' : ''} preload="metadata"></video>
+    <video src="${esc(r.url)}" playsinline loop ${reelMuted ? 'muted' : ''} preload="none"></video>
     <button type="button" class="reel-tap" data-rtap aria-label="Play or pause"><span class="reel-play">${ic('play')}</span></button>
     <div class="reel-side">
       <button type="button" data-rlike class="${likes[me] ? 'on' : ''}" aria-label="Like">${ic('heart')}<span data-rn>${Object.keys(likes).length}</span></button>
