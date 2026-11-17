@@ -3718,6 +3718,9 @@ function startMurmurAuthSessionChecks(user) {
       checkMurmurAuthSession(auth.currentUser);
     }
   }, MURMUR_AUTH_RECHECK_MS);
+  // Check immediately on app startup/login so a reset made while this device
+  // was offline is detected as soon as Firebase can refresh its token.
+  checkMurmurAuthSession(user);
 }
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && auth.currentUser && auth.currentUser.uid === murmurAuthRecheckUid) {
