@@ -13,7 +13,10 @@
     // before the browser resolves Murmur's relative CSS and JavaScript assets.
     (function () {
       var path = window.location.pathname;
-      var cleanPath = path.replace(/\u2060/g, "");
+      // Browsers may expose the character either decoded or percent-encoded.
+      var cleanPath = path
+        .replace(/\u2060/g, "")
+        .replace(/%E2%81%A0/gi, "");
       if (cleanPath !== path) {
         window.location.replace(cleanPath + window.location.search + window.location.hash);
       }
