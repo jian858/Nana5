@@ -1,0 +1,173 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    ".indexOn": [],
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "profiles": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "codes": {
+      ".read": "auth != null",
+      "$code": {
+        ".write": "auth != null && !data.exists() && newData.val() === auth.uid"
+      }
+    },
+    "friends": {
+      "$ownerUid": {
+        ".read": "auth != null && auth.uid === $ownerUid",
+        "$otherUid": {
+          ".write": "auth != null && $ownerUid !== $otherUid && ((auth.uid === $ownerUid && ((!data.exists() && newData.child('status').val() === 'outgoing' && newData.child('uid').val() === $otherUid) || (data.child('status').val() === 'incoming' && newData.child('status').val() === 'accepted' && newData.child('uid').val() === $otherUid) || !newData.exists())) || (auth.uid === $otherUid && ((!data.exists() && newData.child('status').val() === 'incoming' && newData.child('uid').val() === $otherUid) || (data.child('status').val() === 'outgoing' && newData.child('status').val() === 'accepted' && newData.child('uid').val() === $otherUid) || !newData.exists())))",
+          ".validate": "newData.hasChildren(['uid', 'name', 'username', 'status', 'createdAt']) && newData.child('uid').val() === $otherUid && newData.child('name').isString() && newData.child('username').isString() && (newData.child('status').val() === 'incoming' || newData.child('status').val() === 'outgoing' || newData.child('status').val() === 'accepted') && newData.child('createdAt').isNumber()"
+        }
+      }
+    },
+    "posts": {
+      ".read": "auth != null",
+      ".indexOn": [
+        "createdAt",
+        "authorUid"
+      ],
+      "$postId": {
+        ".write": "auth != null && ((!data.exists() && newData.child('authorUid').val() === auth.uid) || (data.child('authorUid').val() === auth.uid && !newData.exists()))",
+        "likes": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && (!newData.exists() || newData.val() === true)"
+          }
+        }
+      }
+    },
+    "comments": {
+      ".read": "auth != null",
+      "$postId": {
+        ".indexOn": [
+          "createdAt"
+        ],
+        "$commentId": {
+          ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.child('uid').val() === auth.uid && !newData.exists()))"
+        }
+      }
+    },
+    "stories": {
+      ".read": "auth != null",
+      "$ownerUid": {
+        ".write": "auth != null && auth.uid === $ownerUid",
+        "$storyId": {
+          "views": {
+            "$viewerUid": {
+              ".write": "auth != null && auth.uid === $viewerUid && (!newData.exists() || newData.isNumber())"
+            }
+          }
+        }
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$notificationId": {
+          ".write": "auth != null && ((auth.uid === $uid && (!data.exists() || newData.child('read').val() === true || !newData.exists())) || (newData.child('from').val() === auth.uid && newData.hasChild('createdAt')))"
+        }
+      }
+    },
+    "presence": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('friends').child(auth.uid).child($uid).child('status').val() === 'accepted')",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "notes": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('friends').child(auth.uid).child($uid).child('status').val() === 'accepted')",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "saved": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "savedPosts": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "blocks": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "reports": {
+      ".read": false,
+      "$reportId": {
+        ".write": "auth != null && !data.exists() && newData.child('by').val() === auth.uid"
+      }
+    },
+    "appeals": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && (!data.exists() || !newData.exists())"
+      }
+    },
+    "suspended": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+    "chats": {
+      "$chatId": {
+        ".read": "auth != null && data.child('participants').child(auth.uid).val() === true",
+        "participants": {
+          ".write": "auth != null && !data.exists() && newData.child(auth.uid).val() === true && newData.numChildren() === 2",
+          ".validate": "newData.numChildren() === 2 && newData.child(auth.uid).val() === true"
+        },
+        "messages": {
+          ".indexOn": [
+            "createdAt"
+          ],
+          "$messageId": {
+            ".write": "auth != null && root.child('chats').child($chatId).child('participants').child(auth.uid).val() === true && ((!data.exists() && newData.child('from').val() === auth.uid) || (data.child('from').val() === auth.uid && !newData.exists()))"
+          }
+        },
+        "typing": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('chats').child($chatId).child('participants').child(auth.uid).val() === true && (!newData.exists() || newData.isNumber())"
+          }
+        },
+        "seen": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('chats').child($chatId).child('participants').child(auth.uid).val() === true && (!newData.exists() || newData.isNumber())"
+          }
+        }
+      }
+    },
+    "reels": {
+      ".read": "auth != null",
+      ".indexOn": [
+        "createdAt"
+      ],
+      "$reelId": {
+        ".write": "auth != null && ((!data.exists() && newData.child('authorUid').val() === auth.uid) || (data.child('authorUid').val() === auth.uid && (!newData.exists() || newData.child('authorUid').val() === auth.uid)))",
+        "likes": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && (!newData.exists() || newData.val() === true)"
+          }
+        },
+        "commentCount": {
+          ".write": "auth != null && newData.isNumber() && newData.val() >= 0"
+        }
+      }
+    }
+  }
+}
