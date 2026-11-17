@@ -3677,7 +3677,59 @@ function openDeleteAccount() {
 }
 document.getElementById('deleteAccountBtn').addEventListener('click', openDeleteAccount);
 
+// Firebase revokes refresh tokens after a password reset. Re-check each active
+// browser session so other devices notice revocation promptly instead of waiting
+// for the normal one-hour ID-token expiry. Supabase stores Murmur's separate ID
+// mapping; it is not a second interactive login session in this app.
+const MURMUR_AUTH_RECHECK_MS = 5 * 60 * 1000;
+let murmurAuthRecheckTimer = null;
+let murmurAuthRecheckBusy = false;
+let murmurAuthRecheckUid = null;
+
+async function checkMurmurAuthSession(user) {
+  if (!user || !auth.currentUser || auth.currentUser.uid !== user.uid || murmurAuthRecheckBusy) return;
+  murmurAuthRecheckBusy = true;
+  try {
+    await user.getIdToken(true);
+  } catch (error) {
+    const code = String(error && error.code || '');
+    // Do not sign users out for temporary network failures. These codes mean
+    // Firebase no longer accepts this user's refresh token/session.
+    if (/auth\/(user-token-expired|invalid-user-token|user-disabled|user-not-found)/.test(code)) {
+      console.warn('Murmur session was revoked; signing out this device:', code);
+      try { await signOut(auth); } catch (signOutError) {
+        console.warn('Could not complete revoked-session sign-out:', signOutError && signOutError.code);
+      }
+    } else {
+      console.warn('Murmur session recheck was deferred:', code || error);
+    }
+  } finally {
+    murmurAuthRecheckBusy = false;
+  }
+}
+
+function startMurmurAuthSessionChecks(user) {
+  if (murmurAuthRecheckTimer) clearInterval(murmurAuthRecheckTimer);
+  murmurAuthRecheckTimer = null;
+  murmurAuthRecheckUid = user ? user.uid : null;
+  if (!user) return;
+  murmurAuthRecheckTimer = setInterval(() => {
+    if (!document.hidden && auth.currentUser && auth.currentUser.uid === murmurAuthRecheckUid) {
+      checkMurmurAuthSession(auth.currentUser);
+    }
+  }, MURMUR_AUTH_RECHECK_MS);
+  // Check immediately on app startup/login so a reset made while this device
+  // was offline is detected as soon as Firebase can refresh its token.
+  checkMurmurAuthSession(user);
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && auth.currentUser && auth.currentUser.uid === murmurAuthRecheckUid) {
+    checkMurmurAuthSession(auth.currentUser);
+  }
+});
+
 onAuthStateChanged(auth, async (user) => {
+  startMurmurAuthSessionChecks(user);
   // Finish the Firebase-to-Supabase identity handshake before starting data listeners.
   // The helper handles failures internally, so Firebase sign-in remains available during migration.
   await syncMurmurSupabaseIdentity(user);
