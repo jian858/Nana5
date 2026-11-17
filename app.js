@@ -662,14 +662,17 @@ document.querySelectorAll('[data-alert-filter]').forEach(button => {
 });
 
 function renderAlerts() {
-  const inc = incoming();
+  const accountStart = accountCreatedAt || 0;
+  const inc = incoming().filter(item => !accountStart || alertTime(item.createdAt) >= accountStart);
+  const visibleAnnouncements = liveAnnouncements().filter(item => !accountStart || alertTime(item.createdAt) >= accountStart);
+  const visibleNotes = notes.filter(item => !accountStart || alertTime(item.createdAt) >= accountStart);
   const el = document.getElementById('alertsList');
   if (!el) return;
-  const ann = liveAnnouncements(), seen = seenAnn();
+  const ann = visibleAnnouncements, seen = seenAnn();
   const items = [
-    ...ann.map(a => ({ type: 'announcement', id: a.id, time: a.createdAt || 0, unread: !seen.includes(a.id), data: a })),
-    ...inc.map(d => ({ type: 'request', id: d.uid, time: d.createdAt || 0, unread: true, data: d })),
-    ...notes.map(n => ({ type: 'activity', id: n.id, time: n.createdAt || 0, unread: !n.read, data: n }))
+    ...ann.map(a => ({ type: 'announcement', id: a.id, time: alertTime(a.createdAt), unread: !seen.includes(a.id), data: a })),
+    ...inc.map(d => ({ type: 'request', id: d.uid, time: alertTime(d.createdAt), unread: true, data: d })),
+    ...visibleNotes.map(n => ({ type: 'activity', id: n.id, time: alertTime(n.createdAt), unread: !n.read, data: n }))
   ].sort((a, b) => (b.time || 0) - (a.time || 0));
   const filtered = items.filter(item => {
     if (alertsFilter === 'unread') return item.unread;
@@ -738,7 +741,7 @@ function renderAlerts() {
     const view = button.dataset.alertGoto;
     if (view) setView(view);
   }));
-  const unread = notes.filter(n => !n.read).length + inc.length + (state.activeView === 'alerts' ? 0 : ann.filter(a => !seen.includes(a.id)).length);
+  const unread = visibleNotes.filter(n => !n.read).length + inc.length + (state.activeView === 'alerts' ? 0 : ann.filter(a => !seen.includes(a.id)).length);
   document.title = (unread ? `(${unread}) ` : '') + 'Murmur – Chat, share and watch together';
   [['friendsBadge', inc.length], ['alertsBadge', unread]].forEach(([id, c]) => { const b = document.getElementById(id); b.textContent = formatAlertBadge(c); b.hidden = !c; });
 }
@@ -1430,6 +1433,7 @@ function openRegisterWizard() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
+      accountCreatedAt = alertTime(userProfile.createdAt) || Date.now();
       if (selectedPhoto) {
         const photoPath = 'profile-photos/' + uid + '/profile-' + Date.now();
         const photoTask = uploadBytesResumable(storageRef(getStorage(app), photoPath), selectedPhoto, { contentType: selectedPhoto.type });
@@ -3309,6 +3313,8 @@ document.getElementById('chatProfileBtn').addEventListener('click', () => { if (
 });
 
 let annList = [], notes = [], suspendedInfo = null, myAppeal = null, extraSubs = [], presenceTimer = null, suspendedCountdownTimer = null;
+let accountCreatedAt = 0;
+const alertTime = value => typeof value === 'number' ? value : (Date.parse(value || '') || 0);
 
 let announcementRefreshTimer = null;
 async function loadPublicAnnouncements() {
@@ -3353,7 +3359,7 @@ function stopExtras() {
   extraSubs.forEach(u => u()); extraSubs = [];
   clearInterval(presenceTimer); presenceTimer = null;
   clearInterval(announcementRefreshTimer); announcementRefreshTimer = null;
-  annList = []; notes = []; savedPostIds = {}; suspendedInfo = null; myAppeal = null;
+  annList = []; notes = []; savedPostIds = {}; suspendedInfo = null; myAppeal = null; accountCreatedAt = 0;
   renderAnnouncements(); renderSuspended();
 }
 /* Announcements from admin.html show in Alerts (not on Home), signed "Admin of Murmur". */
@@ -3686,6 +3692,13 @@ onAuthStateChanged(auth, async (user) => {
       renderSuspended();
       return;
     }
+    // Read the account creation time before starting notification listeners.
+    try {
+      const accountSnap = await get(ref(db, 'users/' + user.uid));
+      const accountProfile = accountSnap.val() || {};
+      accountCreatedAt = alertTime(accountProfile.createdAt || accountProfile.accountCreatedAt) || accountCreatedAt || 0;
+    } catch (accountError) { console.warn('Could not load account creation time:', accountError); }
+    if (!auth.currentUser || auth.currentUser.uid !== user.uid) return;
     startSession(user);
     state.activeView = 'home';
     state.loggedIn = true;
