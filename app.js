@@ -704,7 +704,7 @@ function renderAlerts() {
           const a = item.data;
           return `<button type="button" class="notice admin-notice alerts-row ${item.unread ? 'is-unread' : ''} ${a.kind === 'warning' || a.kind === 'warn' || a.kind === 'urgent' ? 'warn' : ''}" data-announcement="${esc(a.id)}" aria-label="Open announcement: ${esc(a.title)}">
             <span class="admin-ava" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10v4h3l11 5V5L6 10H3z"/><path d="M6 14l2 6h4l-3-7M20 9l2-2M20 15l2 2"/></svg></span>
-            <span class="admin-notice-copy"><strong>From Admin of Murmur</strong><span class="alerts-message">${esc(a.body || a.title || 'A new announcement is available.')}</span><span class="alerts-see-more">See more</span><small>${esc(a.title || 'Murmur announcement')} · ${when}</small></span>
+            <span class="admin-notice-copy"><strong>From Murmur</strong><span class="alerts-message">${esc(a.body || a.title || 'A new announcement is available.')}</span><span class="alerts-see-more">See more</span><small>${esc(a.title || 'Murmur announcement')} · ${when}</small></span>
             ${item.unread ? '<span class="alerts-unread-dot" aria-label="Unread"></span>' : ''}
           </button>`;
         }
