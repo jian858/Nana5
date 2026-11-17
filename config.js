@@ -19,9 +19,6 @@ window.MURMUR_FIREBASE = {
   measurementId: 'G-4VGXRWCJS8'
 };
 
-/* =====================================================================
-   SETTINGS  (change numbers/text here, you don't need to touch the code)
-   ===================================================================== */
 window.MURMUR_CONFIG = {
   appName: 'Murmur',
   maxLength:   { message: 300, post: 200 },          // characters
