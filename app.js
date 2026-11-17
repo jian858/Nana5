@@ -3677,32 +3677,35 @@ function openDeleteAccount() {
 }
 document.getElementById('deleteAccountBtn').addEventListener('click', openDeleteAccount);
 
-// Firebase revokes refresh tokens after a password reset. Re-check each active
-// browser session so other devices notice revocation promptly instead of waiting
-// for the normal one-hour ID-token expiry. Supabase stores Murmur's separate ID
-// mapping; it is not a second interactive login session in this app.
-const MURMUR_AUTH_RECHECK_MS = 5 * 60 * 1000;
+// Re-check active Firebase sessions every five seconds so a password reset
+// or administrator revocation is detected quickly. Checks run only while the
+// app is visible; the initial forced refresh is awaited before account data opens.
+// Supabase's separate Murmur ID mapping is preserved.
+const MURMUR_AUTH_RECHECK_MS = 5 * 1000;
 let murmurAuthRecheckTimer = null;
 let murmurAuthRecheckBusy = false;
 let murmurAuthRecheckUid = null;
 
 async function checkMurmurAuthSession(user) {
-  if (!user || !auth.currentUser || auth.currentUser.uid !== user.uid || murmurAuthRecheckBusy) return;
+  if (!user || !auth.currentUser || auth.currentUser.uid !== user.uid) return false;
+  if (murmurAuthRecheckBusy) return null;
   murmurAuthRecheckBusy = true;
   try {
     await user.getIdToken(true);
+    return true;
   } catch (error) {
     const code = String(error && error.code || '');
-    // Do not sign users out for temporary network failures. These codes mean
-    // Firebase no longer accepts this user's refresh token/session.
+    // A rejected refresh token means this device must not continue into Murmur.
     if (/auth\/(user-token-expired|invalid-user-token|user-disabled|user-not-found)/.test(code)) {
       console.warn('Murmur session was revoked; signing out this device:', code);
       try { await signOut(auth); } catch (signOutError) {
         console.warn('Could not complete revoked-session sign-out:', signOutError && signOutError.code);
       }
-    } else {
-      console.warn('Murmur session recheck was deferred:', code || error);
+      return false;
     }
+    // Temporary network/service errors are not proof of revocation.
+    console.warn('Murmur session recheck was deferred:', code || error);
+    return null;
   } finally {
     murmurAuthRecheckBusy = false;
   }
@@ -3732,6 +3735,12 @@ onAuthStateChanged(auth, async (user) => {
   startMurmurAuthSessionChecks(user);
   // Finish the Firebase-to-Supabase identity handshake before starting data listeners.
   // The helper handles failures internally, so Firebase sign-in remains available during migration.
+  if (user) {
+    // Fail closed for a revoked Firebase session: do not initialize the Murmur
+    // identity or open account data until Firebase accepts a forced token refresh.
+    const sessionValid = await checkMurmurAuthSession(user);
+    if (sessionValid === false) return;
+  }
   await syncMurmurSupabaseIdentity(user);
   if (!user) { endSession(); suspendedInfo = null; document.getElementById('suspendedScreen')?.remove(); }
   renderMenuHeader();
