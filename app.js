@@ -505,12 +505,36 @@ function stopChatSession() {
   activeChatUid = null; chatMsgs = []; otherTyping = false; otherSeenAt = 0; lastSeenWrite = 0;
   convShownFor = null; convShownCount = 0;
 }
-function startChatSession(uid) {
+async function startChatSession(uid) {
   if (!uid || uid === meUid()) return;
   stopChatSession();
   activeChatUid = uid;
   const token = chatSessionToken;
   const base = chatPath();
+
+  // Create immutable participant metadata for new chats. Existing chats are
+  // readable only if Firebase confirms that this account is already a member.
+  try {
+    const participantsRef = ref(db, base + '/participants');
+    try {
+      await set(participantsRef, { [meUid()]: true, [uid]: true });
+    } catch (_) {
+      // Expected for an existing chat: its participants node is create-only.
+    }
+    const membership = await get(participantsRef);
+    const participants = membership.val() || {};
+    if (participants[meUid()] !== true || participants[uid] !== true) {
+      throw new Error('This account is not a participant in this conversation.');
+    }
+  } catch (error) {
+    if (token !== chatSessionToken || activeChatUid !== uid) return;
+    console.warn('Chat membership could not be verified:', error);
+    showToast(friendlyError(error, 'Could not open this conversation.'));
+    activeChatUid = null;
+    renderConversation();
+    return;
+  }
+  if (token !== chatSessionToken || activeChatUid !== uid) return;
   unsubMsgs = onValue(query(ref(db, base + '/messages'), orderByChild('createdAt'), limitToLast(200)), snap => {
     if (token !== chatSessionToken || activeChatUid !== uid) return;
     chatMsgs = Object.entries(snap.val() || {}).map(([id, message]) => ({ id, ...message })).filter(Boolean).sort((a, b) => (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0));
