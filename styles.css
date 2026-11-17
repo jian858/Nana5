@@ -1968,3 +1968,32 @@ html.murmur-lite .murmur-menu-item .menu-tile-icon{width:23px;height:23px}
 @keyframes reg-progress{from{transform:translateX(-110%)}to{transform:translateX(330%)}}
 .reg-footer button:disabled{opacity:.6;cursor:not-allowed}
 @media(prefers-reduced-motion:reduce){.reg-success-progress span,.reg-footer [data-action="next"][aria-busy="true"]::before{animation:none}}
+
+
+/* Murmur menu: complete dark theme surfaces and controls */
+html[data-theme="dark"] .murmur-menu-pane{background:#121820!important;color:#e9eef6}
+html[data-theme="dark"] .murmur-menu-heading,
+html[data-theme="dark"] .murmur-menu-heading h1{color:#e9eef6}
+html[data-theme="dark"] .murmur-menu-item,
+html[data-theme="dark"] .menu-profile-card{background:#1c2430!important;border-color:#334155!important;color:#e9eef6!important}
+html[data-theme="dark"] .menu-profile-details span,
+html[data-theme="dark"] .menu-profile-chevron,
+html[data-theme="dark"] .menu-section-icon{color:#a3b0c4}
+html[data-theme="dark"] .murmur-menu-pane .menu-accordion-toggle{color:#e9eef6;border-color:#334155;background:transparent}
+html[data-theme="dark"] .murmur-menu-pane .menu-accordion-content{background:#1c2430;border-color:#334155}
+html[data-theme="dark"] .murmur-menu-pane .menu-row,
+html[data-theme="dark"] .murmur-menu-pane .menu-link-row{background:#1c2430;color:#e9eef6;border-color:#334155}
+html[data-theme="dark"] .murmur-menu-pane .menu-row .ic,
+html[data-theme="dark"] .murmur-menu-pane .menu-link-row .ic{color:#a3b0c4}
+html[data-theme="dark"] .murmur-menu-pane .menu-add-account{color:#e9eef6;border-color:#334155}
+html[data-theme="dark"] .murmur-menu-pane .menu-logout{background:#1c2430;color:#e9eef6;border-color:#334155}
+html[data-theme="dark"] .murmur-menu-pane .menu-search-field{background:#2a3442;border-color:#45546a;color:#a3b0c4}
+html[data-theme="dark"] .murmur-menu-pane .menu-search-field input{background:transparent;color:#e9eef6}
+html[data-theme="dark"] .murmur-menu-pane .menu-search-close{color:#7de4cd}
+html[data-theme="dark"] .murmur-menu-pane .menu-back,
+html[data-theme="dark"] .murmur-menu-pane .menu-search,
+html[data-theme="dark"] .murmur-menu-pane .menu-sort{color:#e9eef6}
+html[data-theme="dark"] .murmur-menu-pane .menu-row:hover,
+html[data-theme="dark"] .murmur-menu-pane .menu-link-row:hover,
+html[data-theme="dark"] .murmur-menu-pane .menu-accordion-toggle:hover,
+html[data-theme="dark"] .murmur-menu-pane .menu-add-account:hover{background:#263244}
