@@ -2458,7 +2458,7 @@ function startSession(user) {
 }
 function endSession() {
   hideAppSkeleton();
-  stopPostsListener(); stopFriendsListener(); stopExtras(); stopReelsListener();
+  stopPostsListener(); stopFriendsListener(); stopExtras(); stopReelsListener(); accountCreatedAt = 0;
 }
 
 /* =====================================================================
@@ -3359,7 +3359,7 @@ function stopExtras() {
   extraSubs.forEach(u => u()); extraSubs = [];
   clearInterval(presenceTimer); presenceTimer = null;
   clearInterval(announcementRefreshTimer); announcementRefreshTimer = null;
-  annList = []; notes = []; savedPostIds = {}; suspendedInfo = null; myAppeal = null; accountCreatedAt = 0;
+  annList = []; notes = []; savedPostIds = {}; suspendedInfo = null; myAppeal = null;
   renderAnnouncements(); renderSuspended();
 }
 /* Announcements from admin.html show in Alerts (not on Home), signed "Admin of Murmur". */
