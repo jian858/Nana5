@@ -786,26 +786,71 @@ function stopFriendsListener() {
 }
 
 async function searchFriends() {
-  const raw = document.getElementById('friendSearch').value.trim().toLowerCase().replace(/^@/, '');
-  if (raw.length < 3) { showToast('Type at least 3 letters of a username.'); return; }
+  const input = document.getElementById('friendSearch');
+  const raw = input.value.trim().toLowerCase().replace(/^@/, '');
+  if (raw.length < 2) { showToast('Type at least 2 letters of a name or username.'); return; }
+
+  const button = document.getElementById('friendSearchBtn');
+  if (button) { button.disabled = true; button.textContent = 'Searching…'; }
   try {
-    const snap = await get(query(ref(db, 'profiles'), orderByChild('usernameLower'), equalTo('@' + raw)));
-    searchResults = Object.values(snap.val() || {}).filter(r => r.uid !== meUid());
-    searchResults.forEach(r => watchPhoto(r.uid));
-    if (!searchResults.length) showToast('No one found with that username.');
-  } catch (e) { showToast(friendlyError(e, 'Search failed.')); }
-  renderFriends();
+    // Search both public display names and usernames, not username equality only.
+    // The public profiles node contains discoverable profile fields, not private account data.
+    const snap = await get(ref(db, 'profiles'));
+    const needle = raw.replace(/^@/, '');
+    searchResults = Object.values(snap.val() || {})
+      .filter(profile => {
+        if (!profile || !profile.uid || profile.uid === meUid()) return false;
+        const name = String(profile.name || '').toLowerCase();
+        const username = String(profile.username || '').toLowerCase().replace(/^@/, '');
+        return name.includes(needle) || username.includes(needle);
+      })
+      .sort((a, b) => {
+        const an = String(a.name || '').toLowerCase();
+        const au = String(a.username || '').toLowerCase().replace(/^@/, '');
+        const bn = String(b.name || '').toLowerCase();
+        const bu = String(b.username || '').toLowerCase().replace(/^@/, '');
+        const aExact = an === needle || au === needle ? 0 : 1;
+        const bExact = bn === needle || bu === needle ? 0 : 1;
+        return aExact - bExact || an.localeCompare(bn);
+      })
+      .slice(0, 40);
+    searchResults.forEach(profile => watchPhoto(profile.uid));
+    if (!searchResults.length) showToast('No matching name or username was found.');
+  } catch (e) {
+    searchResults = [];
+    showToast(friendlyError(e, 'Could not search profiles. Check your connection and profile-read database rules.'));
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Search'; }
+    renderFriends();
+  }
 }
 
 async function sendFriendRequest(t) {
-  const me = state.currentUser, u = meUid(), now = serverTimestamp();
+  const me = state.currentUser, u = meUid();
+  if (!auth.currentUser || !u) { showToast('Please log in to add friends.'); return; }
+  if (!t || !t.uid || t.uid === u) { showToast('You cannot add your own account.'); return; }
+  const existing = friendDocs.find(friend => friend.uid === t.uid);
+  if (existing) {
+    showToast(existing.status === 'accepted' ? 'You are already friends.' : 'A friend request is already pending.');
+    return;
+  }
+  const now = serverTimestamp();
   try {
+    // This is an in-app database action; it does not request device permissions.
+    // Both request records are written atomically so sender and recipient stay in sync.
     await update(ref(db), {
-      [`friends/${u}/${t.uid}`]: { uid: t.uid, name: t.name, username: t.username, status: 'outgoing', createdAt: now },
-      [`friends/${t.uid}/${u}`]: { uid: u, name: me.name, username: me.username, status: 'incoming', createdAt: now }
+      [`friends/${u}/${t.uid}`]: { uid: t.uid, name: t.name || '', username: t.username || '', status: 'outgoing', createdAt: now },
+      [`friends/${t.uid}/${u}`]: { uid: u, name: me.name || '', username: me.username || '', status: 'incoming', createdAt: now }
     });
     showToast('Friend request sent.');
-  } catch (e) { showToast(friendlyError(e, 'Could not send request.')); }
+  } catch (e) {
+    const code = String(e && e.code || '');
+    if (/permission|denied/i.test(code + ' ' + (e && e.message || ''))) {
+      showToast('Firebase blocked this friend request. The Realtime Database rules must allow an authenticated user to create a friend request; device permissions are not needed.');
+    } else {
+      showToast(friendlyError(e, 'Could not send friend request.'));
+    }
+  }
 }
 
 function renderAll() {
