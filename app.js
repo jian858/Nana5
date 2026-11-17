@@ -731,8 +731,8 @@ function renderAlerts() {
   el.querySelectorAll('[data-note-id]').forEach(button => button.addEventListener('click', async () => {
     const id = button.dataset.noteId, uid = meUid();
     if (uid && id) {
-      try { await update(ref(db), { ['notifications/' + uid + '/' + id + '/read']: true }); }
-      catch (error) { console.warn('Could not mark notification as read:', error); }
+      try { await remove(ref(db, 'notifications/' + uid + '/' + id)); }
+      catch (error) { console.warn('Could not delete read notification:', error); }
     }
     if (button.dataset.alertGoto) setView(button.dataset.alertGoto);
     else renderAlerts();
@@ -3419,9 +3419,8 @@ function renderSuspended() {
 }
 function markNotesRead() {
   const u = meUid(); if (!u) return;
-  const upd = {};
-  notes.filter(n => !n.read).forEach(n => { upd[`notifications/${u}/${n.id}/read`] = true; });
-  if (Object.keys(upd).length) update(ref(db), upd).catch(() => {});
+  const removals = notes.filter(n => !n.read).map(n => remove(ref(db, `notifications/${u}/${n.id}`)));
+  if (removals.length) Promise.allSettled(removals).then(() => {});
 }
 document.addEventListener('click', async e => {
   const rp = e.target.closest('[data-report-post],[data-report-user]');
