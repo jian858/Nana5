@@ -8,6 +8,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    // Remove accidental invisible Word Joiner characters from incoming paths
+    // before the browser resolves Murmur's relative CSS and JavaScript assets.
+    (function () {
+      var path = window.location.pathname;
+      var cleanPath = path.replace(/\u2060/g, "");
+      if (cleanPath !== path) {
+        window.location.replace(cleanPath + window.location.search + window.location.hash);
+      }
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
   <title>Murmur | Chat, Share Posts, Stories and Reels</title>
   <meta name="referrer" content="strict-origin-when-cross-origin" />
