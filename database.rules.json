@@ -2,7 +2,6 @@
   "rules": {
     ".read": false,
     ".write": false,
-    ".indexOn": [],
     "users": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
@@ -129,8 +128,8 @@
       "$chatId": {
         ".read": "auth != null && data.child('participants').child(auth.uid).val() === true",
         "participants": {
-          ".write": "auth != null && !data.exists() && newData.child(auth.uid).val() === true && newData.numChildren() === 2",
-          ".validate": "newData.numChildren() === 2 && newData.child(auth.uid).val() === true"
+          ".write": "auth != null && !data.exists() && newData.child(auth.uid).val() === true && newData.hasChildren([auth.uid])",
+          ".validate": "newData.hasChildren([auth.uid]) && newData.child(auth.uid).val() === true"
         },
         "messages": {
           ".indexOn": [
