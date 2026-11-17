@@ -664,11 +664,16 @@ document.querySelectorAll('[data-alert-filter]').forEach(button => {
 function renderAlerts() {
   const accountStart = accountCreatedAt || 0;
   const inc = incoming().filter(item => !accountStart || alertTime(item.createdAt) >= accountStart);
-  const visibleAnnouncements = liveAnnouncements().filter(item => !accountStart || alertTime(item.createdAt) >= accountStart);
+  const seen = seenAnn();
+  // Announcements are shared by all users, so hide a read announcement only
+  // for this user's local account instead of deleting the global admin post.
+  const visibleAnnouncements = liveAnnouncements().filter(item =>
+    (!accountStart || alertTime(item.createdAt) >= accountStart) && !seen.includes(String(item.id))
+  );
   const visibleNotes = notes.filter(item => !accountStart || alertTime(item.createdAt) >= accountStart);
   const el = document.getElementById('alertsList');
   if (!el) return;
-  const ann = visibleAnnouncements, seen = seenAnn();
+  const ann = visibleAnnouncements;
   const items = [
     ...ann.map(a => ({ type: 'announcement', id: a.id, time: alertTime(a.createdAt), unread: !seen.includes(a.id), data: a })),
     ...inc.map(d => ({ type: 'request', id: d.uid, time: alertTime(d.createdAt), unread: true, data: d })),
