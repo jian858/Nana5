@@ -2845,11 +2845,6 @@ function handleMenuAction(action) {
     case 'saved': openSavedPosts(); break;
     case 'memories': openMenuMemories(); break;
     case 'privacy': openLegal('privacy'); break;
-    case 'lite':
-      document.documentElement.classList.toggle('murmur-lite');
-      try { localStorage.setItem('murmur-lite', document.documentElement.classList.contains('murmur-lite') ? '1' : '0'); } catch {}
-      showToast(document.documentElement.classList.contains('murmur-lite') ? 'Lite view enabled on this device.' : 'Standard view restored.');
-      break;
     case 'add-account': openMenuSwitchAccount(); break;
     case 'account-settings': openEditProfile(); break;
     case 'permissions': openAppPermissions(); break;
@@ -2979,7 +2974,8 @@ menuSearchInput?.addEventListener('keydown', event => {
 document.getElementById('menuProfileBtn')?.addEventListener('click', () => {
   if (meUid()) openProfile(meUid());
 });
-try { if (localStorage.getItem('murmur-lite') === '1') document.documentElement.classList.add('murmur-lite'); } catch {}
+document.documentElement.classList.remove('murmur-lite');
+try { localStorage.removeItem('murmur-lite'); } catch {}
 
 const okImg = u => typeof u === 'string' && u.startsWith('data:image/') && !/["')\s]/.test(u);
 function fileToDataUrl(file, w, h) {
