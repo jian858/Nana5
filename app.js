@@ -438,7 +438,7 @@ function renderFriends() {
   document.getElementById('searchResults').innerHTML = searchResults.map((r, i) => {
     const rel = friendDocs.find(d => d.uid === r.uid);
     const first = rel ? `<span class="fr-note">${rel.status === 'accepted' ? 'Friends' : 'Request pending'}</span>` : frBlue('data-fr-add', i, 'Add friend');
-    return fbRow(r.uid, r.name, esc(r.username), first, '', i);
+    return fbRow(r.uid, r.name, esc(r.username), first, frBlue('data-msg', r.uid, 'Message'), i);
   }).join('');
 }
 
@@ -448,9 +448,15 @@ function renderFriends() {
 function renderChats() {
   const list = document.getElementById('chatList');
   const f = chatFriends();
-  list.innerHTML = f.length ? '' : '<div class="empty">Add a friend to start chatting.</div>';
-  f.forEach((d, idx) => {
-    const o = otherOf(d);
+  const activePerson = activeChatUid
+    ? { uid: activeChatUid, ...getUserById(activeChatUid) }
+    : null;
+  const people = activePerson && !f.some(person => person.uid === activeChatUid)
+    ? [...f, activePerson]
+    : f;
+  list.innerHTML = people.length ? '' : '<div class="empty">Find someone to start a conversation.</div>';
+  people.forEach((d, idx) => {
+    const o = d.uid ? otherOf(d) : d;
     const item = document.createElement('button');
     item.style.setProperty('--i', Math.min(idx, 8));
     item.type = 'button';
@@ -462,7 +468,7 @@ function renderChats() {
   renderNoteRow();
   renderActiveRow();
   document.querySelector('.chat-layout').classList.toggle('open', !!activeChatUid);
-  const cur = f.map(otherOf).find(o => o.uid === activeChatUid);
+  const cur = people.map(person => person.uid ? otherOf(person) : person).find(o => o.uid === activeChatUid);
   const ca = document.getElementById('chatAvatar');
   ca.textContent = cur ? initials(cur.name) : '?'; ca.style.backgroundImage = '';
   if (cur) setBg(ca, photoFor(cur.uid));
@@ -601,7 +607,8 @@ function renderConversation() {
     box.appendChild(st);
   }
   if (otherTyping) renderTyping();
-  const who = chatFriends().map(otherOf).find(o => o.uid === activeChatUid);
+  const who = chatFriends().map(otherOf).find(o => o.uid === activeChatUid)
+    || (activeChatUid ? { uid: activeChatUid, ...getUserById(activeChatUid) } : null);
   if (who) { const nt = noteData[who.uid]; box.insertAdjacentHTML('afterbegin', `<div class="chat-profile">${avatarHtml(who.uid, who.name)}<strong>${esc(who.name)}</strong>${who.username ? `<small>${esc(who.username)}</small>` : ''}${nt ? `<div class="note-bubble">${esc(nt.text)}</div>` : ''}<button type="button" class="btn small ghost" data-profile="${esc(who.uid)}">View profile</button></div>`); }
   convShownFor = activeChatUid; convShownCount = list.length;
   box.scrollTop = box.scrollHeight;
