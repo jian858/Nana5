@@ -1758,11 +1758,16 @@ function openForgotPassword() {
       }
 
       sendBtn.textContent = 'Sending reset link…';
-      await sendPasswordResetEmail(auth, email, {
-        url: 'https://murmurrr.vercel.app/',
-        handleCodeInApp: false
+      const resetResponse = await fetch(MURMUR_SUPABASE_URL + '/auth/v1/recover?redirect_to=' + encodeURIComponent('https://murmurrr.vercel.app/'), {
+        method: 'POST',
+        headers: { 'apikey': MURMUR_SUPABASE_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
       });
-      successBox.textContent = 'Your account is active. A password reset link has been sent. Check your inbox and spam folder.';
+      if (!resetResponse.ok) {
+        const resetResult = await resetResponse.json().catch(() => ({}));
+        throw new Error(resetResult.msg || resetResult.message || resetResult.error_description || 'Supabase could not send the password reset email.');
+      }
+      successBox.textContent = 'Your Supabase account is active. A password reset link has been sent. Check your inbox and spam folder.';
       successBox.hidden = false;
       sendBtn.textContent = 'Send again';
     } catch (error) {
