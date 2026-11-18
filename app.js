@@ -1688,8 +1688,8 @@ function openForgotPassword() {
     <aside class="forgot-side">
       <div class="brand-row"><span class="brand-mark" aria-hidden="true"></span><span>Murmur</span></div>
       <div>
-        <h2>Locked out? It happens.</h2>
-        <p>Enter the email you signed up with and we'll send you a link to choose a new password.</p>
+        <h2>Let's get you back in.</h2>
+        <p>Enter the email address connected to your Murmur account. If it can receive a password reset, we'll send you a secure link.</p>
       </div>
       <span></span>
     </aside>
@@ -1700,13 +1700,13 @@ function openForgotPassword() {
       <div class="forgot-body">
         <div class="forgot-content">
           <h3 id="forgot-title">Reset your password</h3>
-          <p data-forgot-intro>We'll email you a reset link.</p>
+          <p data-forgot-intro>We'll help you securely reset your password.</p>
           <div class="field">
             <label for="forgot-email">Email address</label>
             <input id="forgot-email" type="email" autocomplete="email" placeholder="you@example.com" />
           </div>
           <div class="error" role="alert" aria-live="polite" data-forgot-error></div>
-          <div class="forgot-success" data-forgot-success hidden></div>
+          <div class="forgot-success" role="status" aria-live="polite" data-forgot-success hidden></div>
           <button class="btn primary" type="button" data-forgot-send>Send reset link</button>
           <button class="btn ghost" type="button" data-forgot-back>Back to login</button>
         </div>
@@ -1722,25 +1722,45 @@ function openForgotPassword() {
   const sendBtn = $('[data-forgot-send]');
   emailInput.value = (document.getElementById('email').value || '').trim();
 
+  function showError(message) {
+    errorBox.textContent = message;
+    successBox.hidden = true;
+    successBox.textContent = '';
+  }
+
   async function send() {
     const email = emailInput.value.trim();
     errorBox.textContent = '';
     successBox.hidden = true;
-    if (!email) { errorBox.textContent = 'Add your email address first.'; return; }
-    if (!email.includes('@')) { errorBox.textContent = 'Use a valid email address.'; return; }
+    successBox.textContent = '';
+    if (!email) { showError('Enter the email address for your Murmur account.'); return; }
+    if (!isValidEmail(email)) { showError('That email address doesn't look valid. Check it and try again.'); return; }
+
     sendBtn.disabled = true;
     sendBtn.textContent = 'Sending...';
     try {
       await sendPasswordResetEmail(auth, email);
-      successBox.textContent = 'If an account exists for ' + email + ', a reset link is on its way. Check your inbox and spam folder.';
+      // Keep the response private: Firebase may intentionally conceal whether an
+      // email is registered when Email Enumeration Protection is enabled.
+      successBox.textContent = 'If an active Murmur account can receive a reset email at this address, a secure link is on its way. Check your inbox and spam folder. If you recently deleted your account, password reset cannot restore it.';
       successBox.hidden = false;
       sendBtn.textContent = 'Send again';
     } catch (error) {
-      console.error('Password reset failed:', error && error.code);
-      errorBox.textContent = error.code === 'auth/invalid-email'
-        ? 'Use a valid email address.'
-        : (friendlyError(error, 'Unable to send the reset email.'));
-      sendBtn.textContent = 'Send reset link';
+      const code = String(error && error.code || '');
+      console.warn('Password reset request could not be completed:', code);
+      const messages = {
+        'auth/invalid-email': 'That email address doesn't look valid. Check it and try again.',
+        'auth/missing-email': 'Enter your email address first.',
+        'auth/too-many-requests': 'Too many reset attempts. Please wait a while before trying again.',
+        'auth/network-request-failed': 'You appear to be offline. Check your internet connection and try again.',
+        'auth/user-not-found': 'We couldn't verify an active account for that address. Check the email or create a new account if you have not registered.',
+        'auth/user-disabled': 'This account is unavailable. If you think this is a mistake, contact Murmur support.',
+        'auth/operation-not-allowed': 'Password reset email is not enabled for Murmur yet. Please contact support.',
+        'auth/unauthorized-continue-uri': 'Password reset is temporarily unavailable because the reset-link domain is not configured.',
+        'auth/invalid-continue-uri': 'Password reset is temporarily unavailable because the reset-link address is invalid.'
+      };
+      showError(messages[code] || 'We could not send the reset email right now. Please try again later.');
+      sendBtn.textContent = 'Try again';
     }
     sendBtn.disabled = false;
   }
@@ -1752,7 +1772,10 @@ function openForgotPassword() {
     if (e.key === 'Escape') closeForgotPassword(false);
     if (e.key === 'Enter' && e.target === emailInput) { e.preventDefault(); send(); }
   });
-  emailInput.addEventListener('input', () => { errorBox.textContent = ''; });
+  emailInput.addEventListener('input', () => {
+    errorBox.textContent = '';
+    successBox.hidden = true;
+  });
   setTimeout(() => emailInput.focus(), 30);
 }
 
