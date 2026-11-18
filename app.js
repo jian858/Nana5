@@ -1758,15 +1758,24 @@ function openForgotPassword() {
       }
 
       sendBtn.textContent = 'Sending reset link…';
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(auth, email, {
+        url: 'https://murmurrr.vercel.app/',
+        handleCodeInApp: false
+      });
       successBox.textContent = 'Your account is active. A password reset link has been sent. Check your inbox and spam folder.';
       successBox.hidden = false;
       sendBtn.textContent = 'Send again';
     } catch (error) {
-      console.error('Password reset check/send failed:', error && (error.code || error.message));
-      errorBox.textContent = error.code === 'auth/invalid-email'
-        ? 'Use a valid email address.'
-        : friendlyError(error, 'We could not check your account right now. Please try again.');
+      const code = String(error && error.code || '');
+      console.error('Password reset check/send failed:', code || (error && error.message));
+      const resetMessages = {
+        'auth/invalid-email': 'Use a valid email address.',
+        'auth/user-disabled': 'This Firebase account is disabled. Contact Murmur support for help.',
+        'auth/user-not-found': 'This email has no active Firebase login. Check the email or contact Murmur support.',
+        'auth/unauthorized-continue-uri': 'Murmur’s password-reset link domain is not authorized in Firebase Authentication settings.',
+        'auth/invalid-continue-uri': 'The password-reset return address is invalid. Contact Murmur support.'
+      };
+      errorBox.textContent = resetMessages[code] || friendlyError(error, 'We could not send the reset link. Please try again.');
       sendBtn.textContent = 'Try again';
     } finally {
       loading.hidden = true;
