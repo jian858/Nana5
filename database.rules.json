@@ -167,6 +167,13 @@
           ".write": "auth != null && newData.isNumber() && newData.val() >= 0"
         }
       }
+    },
+    "messageExpiry": {
+      ".read": false,
+      ".write": false,
+      ".indexOn": [
+        "expiresAt"
+      ]
     }
   }
 }
