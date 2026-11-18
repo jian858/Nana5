@@ -8,7 +8,7 @@
    ===================================================================== */
 const monitoredFirebaseMethods = new Set([
   'createUserWithEmailAndPassword','signInWithEmailAndPassword','sendPasswordResetEmail',
-  'reauthenticateWithCredential','deleteUser','signOut','set','get','push','update','remove',
+  'reauthenticateWithCredential','verifyBeforeUpdateEmail','deleteUser','signOut','set','get','push','update','remove',
   'uploadBytesResumable','getDownloadURL','deleteObject'
 ]);
 const monitoredFirebase = new Proxy(window.__fb, {
@@ -60,7 +60,7 @@ const monitoredFirebase = new Proxy(window.__fb, {
     };
   }
 });
-const { initializeApp, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider, deleteUser, signOut, onAuthStateChanged, getDatabase, ref, set, get, push, update, remove, onValue, query, orderByChild, equalTo, limitToLast, serverTimestamp, getStorage, storageRef, uploadBytesResumable, getDownloadURL, deleteObject } = monitoredFirebase;
+const { initializeApp, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, sendPasswordResetEmail, reauthenticateWithCredential, verifyBeforeUpdateEmail, EmailAuthProvider, deleteUser, signOut, onAuthStateChanged, getDatabase, ref, set, get, push, update, remove, onValue, query, orderByChild, equalTo, limitToLast, serverTimestamp, getStorage, storageRef, uploadBytesResumable, getDownloadURL, deleteObject } = monitoredFirebase;
 
 const firebaseConfig = window.MURMUR_FIREBASE;   // edit in SETTINGS
 
@@ -3081,12 +3081,47 @@ async function openEditProfile() {
     <div class="field"><label>Hometown</label><input data-f="hometown" type="text" maxlength="60" /></div>
     <div class="field"><label>Workplace</label><input data-f="work" type="text" maxlength="60" /></div>
     <div class="field"><label>Job title</label><input data-f="role" type="text" maxlength="60" /></div>
+    <section class="p-sec" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line,#e5e7eb)"><h4 style="margin:0 0 8px">Change email address</h4><p class="reel-muted" style="margin:0 0 10px">Current email: <strong data-current-email></strong></p><div class="field"><label for="changeEmailNew">New email address</label><input id="changeEmailNew" type="email" autocomplete="email" placeholder="new@example.com" /></div><div class="field"><label for="changeEmailPassword">Current password</label><input id="changeEmailPassword" type="password" autocomplete="current-password" placeholder="Enter your password to confirm" /></div><button class="btn ghost small" type="button" data-change-email>Send verification email</button><p class="reel-muted" data-email-status role="status" aria-live="polite"></p></section>
     <div class="error" role="alert" data-err></div>
     <div class="upload-status" data-up hidden><div class="splash-bar" data-upbar><i></i></div><strong data-uptext></strong></div>
     <div class="row-actions" style="justify-content:flex-end"><button class="btn ghost" type="button" data-cancel>Cancel</button><button class="btn primary" type="button" data-save>Save</button></div></div>`;
   document.body.appendChild(back);
   const q = sel => back.querySelector(sel), pending = {};
   PROFILE_FIELDS.forEach(k => { q(`[data-f="${k}"]`).value = d[k] || ''; });
+  q('[data-current-email]').textContent = auth.currentUser?.email || 'Unavailable';
+  q('[data-change-email]').onclick = async () => {
+    const user = auth.currentUser;
+    const nextEmail = q('#changeEmailNew').value.trim();
+    const password = q('#changeEmailPassword').value;
+    const status = q('[data-email-status]');
+    status.textContent = '';
+    q('[data-err]').textContent = '';
+    if (!user) { q('[data-err]').textContent = 'Please sign in again before changing your email.'; return; }
+    if (!nextEmail || !isValidEmail(nextEmail)) { q('[data-err]').textContent = 'Email is not valid. Please enter a valid email address.'; return; }
+    if (nextEmail.toLowerCase() === String(user.email || '').toLowerCase()) { q('[data-err]').textContent = 'That is already your current email address.'; return; }
+    if (!password) { q('[data-err]').textContent = 'Enter your current password to confirm this change.'; return; }
+    const changeBtn = q('[data-change-email]');
+    changeBtn.disabled = true; changeBtn.textContent = 'Sending verification…';
+    try {
+      await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+      await verifyBeforeUpdateEmail(user, nextEmail, { url: 'https://murmurrr.vercel.app/', handleCodeInApp: false });
+      q('#changeEmailPassword').value = '';
+      status.textContent = 'Verification email sent to ' + nextEmail + '. Open that email and confirm the change. Your Murmur email will update after verification; sign in again afterward to sync your private Supabase account link.';
+      changeBtn.textContent = 'Verification sent';
+    } catch (error) {
+      const code = String(error && error.code || '');
+      const messages = {
+        'auth/wrong-password': 'Your current password is incorrect.',
+        'auth/invalid-credential': 'Your current password is incorrect. Please try again.',
+        'auth/email-already-in-use': 'That email address is already used by another account.',
+        'auth/invalid-email': 'Email is not valid. Please enter a valid email address.',
+        'auth/requires-recent-login': 'Please sign in again, then try changing your email.',
+        'auth/too-many-requests': 'Too many attempts. Please wait before trying again.'
+      };
+      q('[data-err]').textContent = messages[code] || friendlyError(error, 'Could not send the email verification. Please try again.');
+      changeBtn.textContent = 'Send verification email';
+    } finally { changeBtn.disabled = false; }
+  };
   if (!setBg(q('[data-cover]'), d.cover)) q('[data-cover]').style.backgroundImage = '';
   if (!setBg(q('[data-avatar]'), d.photo)) q('[data-avatar]').textContent = initials(state.currentUser?.name || '?');
   back.querySelectorAll('[data-file]').forEach(inp => inp.addEventListener('change', async () => {
