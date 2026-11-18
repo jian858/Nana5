@@ -73,19 +73,14 @@ const auth = getAuth(app);
 window.MurmurErrorTokenProvider = () => auth.currentUser ? auth.currentUser.getIdToken().catch(() => "") : "";
 const db = getDatabase(app);
 
-// Firebase remains the login provider. Supabase independently creates and stores its own UUID.
+// Firebase remains the primary login provider. The private identity pair is
+// returned only by the trusted server and is never copied onto window or logged.
 const MURMUR_SUPABASE_URL = 'https://pkadftvqslkykehcqedj.supabase.co';
 const MURMUR_SUPABASE_KEY = 'sb_publishable_etoHiUGbJ96MUPzJABL12A_UiTWVxok';
 const MURMUR_IDENTITY_URL = MURMUR_SUPABASE_URL + '/functions/v1/murmur-identity';
-window.MURMUR_IDS = window.MURMUR_IDS || { firebaseUid: null, supabaseId: null, status: 'not-signed-in' };
 async function syncMurmurSupabaseIdentity(user) {
-  if (!user) {
-    window.MURMUR_IDS = { firebaseUid: null, supabaseId: null, status: 'not-signed-in' };
-    return window.MURMUR_IDS;
-  }
-  window.MURMUR_IDS = { firebaseUid: user.uid, supabaseId: null, status: 'checking' };
+  if (!user) return { status: 'not-signed-in' };
   try {
-    // The Edge Function verifies the Firebase token itself; no Firebase custom role claim is needed to create IDs.
     const firebaseToken = await user.getIdToken();
     const response = await fetch(MURMUR_IDENTITY_URL, {
       method: 'POST',
@@ -101,18 +96,13 @@ async function syncMurmurSupabaseIdentity(user) {
     if (result.firebaseUid !== user.uid || !result.supabaseId) {
       throw new Error('Supabase returned an invalid account ID link');
     }
-    window.MURMUR_IDS = {
-      firebaseUid: result.firebaseUid,
-      supabaseId: result.supabaseId,
-      status: 'connected'
-    };
-    console.info('Murmur Firebase/Supabase identity linked', window.MURMUR_IDS);
+    // Do not retain or expose either identifier in browser globals or logs.
+    return { status: 'connected' };
   } catch (error) {
-    window.MURMUR_IDS.status = 'sync-error';
-    window.MURMUR_IDS.error = String(error && error.message || error);
-    console.warn('Supabase identity sync is not ready:', window.MURMUR_IDS.error);
+    const message = String(error && error.message || error);
+    console.warn('Supabase identity sync is not ready:', message);
+    return { status: 'sync-error', error: message };
   }
-  return window.MURMUR_IDS;
 }
 
 /* =====================================================================
