@@ -1,0 +1,17 @@
+{
+  "name": "murmur-firebase-functions",
+  "private": true,
+  "description": "Server-side Firebase authentication claims for Murmur Supabase integration",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "scripts": {
+    "lint": "node --check index.js",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.3.2"
+  }
+}

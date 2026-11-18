@@ -73,19 +73,14 @@ const auth = getAuth(app);
 window.MurmurErrorTokenProvider = () => auth.currentUser ? auth.currentUser.getIdToken().catch(() => "") : "";
 const db = getDatabase(app);
 
-// Firebase remains the login provider. Supabase independently creates and stores its own UUID.
+// Firebase remains the primary login provider. The private identity pair is
+// returned only by the trusted server and is never copied onto window or logged.
 const MURMUR_SUPABASE_URL = 'https://pkadftvqslkykehcqedj.supabase.co';
 const MURMUR_SUPABASE_KEY = 'sb_publishable_etoHiUGbJ96MUPzJABL12A_UiTWVxok';
 const MURMUR_IDENTITY_URL = MURMUR_SUPABASE_URL + '/functions/v1/murmur-identity';
-window.MURMUR_IDS = window.MURMUR_IDS || { firebaseUid: null, supabaseId: null, status: 'not-signed-in' };
 async function syncMurmurSupabaseIdentity(user) {
-  if (!user) {
-    window.MURMUR_IDS = { firebaseUid: null, supabaseId: null, status: 'not-signed-in' };
-    return window.MURMUR_IDS;
-  }
-  window.MURMUR_IDS = { firebaseUid: user.uid, supabaseId: null, status: 'checking' };
+  if (!user) return { status: 'not-signed-in' };
   try {
-    // The Edge Function verifies the Firebase token itself; no Firebase custom role claim is needed to create IDs.
     const firebaseToken = await user.getIdToken();
     const response = await fetch(MURMUR_IDENTITY_URL, {
       method: 'POST',
@@ -101,18 +96,13 @@ async function syncMurmurSupabaseIdentity(user) {
     if (result.firebaseUid !== user.uid || !result.supabaseId) {
       throw new Error('Supabase returned an invalid account ID link');
     }
-    window.MURMUR_IDS = {
-      firebaseUid: result.firebaseUid,
-      supabaseId: result.supabaseId,
-      status: 'connected'
-    };
-    console.info('Murmur Firebase/Supabase identity linked', window.MURMUR_IDS);
+    // Do not retain or expose either identifier in browser globals or logs.
+    return { status: 'connected' };
   } catch (error) {
-    window.MURMUR_IDS.status = 'sync-error';
-    window.MURMUR_IDS.error = String(error && error.message || error);
-    console.warn('Supabase identity sync is not ready:', window.MURMUR_IDS.error);
+    const message = String(error && error.message || error);
+    console.warn('Supabase identity sync is not ready:', message);
+    return { status: 'sync-error', error: message };
   }
-  return window.MURMUR_IDS;
 }
 
 /* =====================================================================
@@ -448,7 +438,7 @@ function renderFriends() {
   document.getElementById('searchResults').innerHTML = searchResults.map((r, i) => {
     const rel = friendDocs.find(d => d.uid === r.uid);
     const first = rel ? `<span class="fr-note">${rel.status === 'accepted' ? 'Friends' : 'Request pending'}</span>` : frBlue('data-fr-add', i, 'Add friend');
-    return fbRow(r.uid, r.name, esc(r.username), first, '', i);
+    return fbRow(r.uid, r.name, esc(r.username), first, frBlue('data-msg', r.uid, 'Message'), i);
   }).join('');
 }
 
@@ -458,9 +448,15 @@ function renderFriends() {
 function renderChats() {
   const list = document.getElementById('chatList');
   const f = chatFriends();
-  list.innerHTML = f.length ? '' : '<div class="empty">Add a friend to start chatting.</div>';
-  f.forEach((d, idx) => {
-    const o = otherOf(d);
+  const activePerson = activeChatUid
+    ? { ...(searchResults.find(person => person.uid === activeChatUid) || getUserById(activeChatUid)), uid: activeChatUid }
+    : null;
+  const people = activePerson && !f.some(person => person.uid === activeChatUid)
+    ? [...f, activePerson]
+    : f;
+  list.innerHTML = people.length ? '' : '<div class="empty">Find someone to start a conversation.</div>';
+  people.forEach((d, idx) => {
+    const o = d.uid ? otherOf(d) : d;
     const item = document.createElement('button');
     item.style.setProperty('--i', Math.min(idx, 8));
     item.type = 'button';
@@ -472,7 +468,7 @@ function renderChats() {
   renderNoteRow();
   renderActiveRow();
   document.querySelector('.chat-layout').classList.toggle('open', !!activeChatUid);
-  const cur = f.map(otherOf).find(o => o.uid === activeChatUid);
+  const cur = people.map(person => person.uid ? otherOf(person) : person).find(o => o.uid === activeChatUid);
   const ca = document.getElementById('chatAvatar');
   ca.textContent = cur ? initials(cur.name) : '?'; ca.style.backgroundImage = '';
   if (cur) setBg(ca, photoFor(cur.uid));
@@ -611,7 +607,8 @@ function renderConversation() {
     box.appendChild(st);
   }
   if (otherTyping) renderTyping();
-  const who = chatFriends().map(otherOf).find(o => o.uid === activeChatUid);
+  const who = chatFriends().map(otherOf).find(o => o.uid === activeChatUid)
+    || (activeChatUid ? { ...(searchResults.find(person => person.uid === activeChatUid) || getUserById(activeChatUid)), uid: activeChatUid } : null);
   if (who) { const nt = noteData[who.uid]; box.insertAdjacentHTML('afterbegin', `<div class="chat-profile">${avatarHtml(who.uid, who.name)}<strong>${esc(who.name)}</strong>${who.username ? `<small>${esc(who.username)}</small>` : ''}${nt ? `<div class="note-bubble">${esc(nt.text)}</div>` : ''}<button type="button" class="btn small ghost" data-profile="${esc(who.uid)}">View profile</button></div>`); }
   convShownFor = activeChatUid; convShownCount = list.length;
   box.scrollTop = box.scrollHeight;
