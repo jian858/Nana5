@@ -1733,7 +1733,7 @@ function openForgotPassword() {
     errorBox.textContent = '';
     successBox.hidden = true;
     if (!email) { errorBox.textContent = 'Add your email address first.'; return; }
-    if (!isValidEmail(email)) { errorBox.textContent = 'Use a valid email address.'; return; }
+    if (!isValidEmail(email)) { errorBox.textContent = 'Email is not valid. Please enter a valid email address.'; return; }
 
     sendBtn.disabled = true;
     emailInput.disabled = true;
@@ -1774,7 +1774,7 @@ function openForgotPassword() {
       const code = String(error && error.code || '');
       console.error('Password reset check/send failed:', code || (error && error.message));
       const resetMessages = {
-        'auth/invalid-email': 'Use a valid email address.',
+        'auth/invalid-email': 'Email is not valid. Please enter a valid email address.',
         'auth/user-disabled': 'This Firebase account is disabled. Contact Murmur support for help.',
         'auth/user-not-found': 'This email has no active Firebase login. Check the email or contact Murmur support.',
         'auth/unauthorized-continue-uri': 'Murmur’s password-reset link domain is not authorized in Firebase Authentication settings.',
