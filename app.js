@@ -449,7 +449,7 @@ function renderChats() {
   const list = document.getElementById('chatList');
   const f = chatFriends();
   const activePerson = activeChatUid
-    ? { uid: activeChatUid, ...getUserById(activeChatUid) }
+    ? { ...(searchResults.find(person => person.uid === activeChatUid) || getUserById(activeChatUid)), uid: activeChatUid }
     : null;
   const people = activePerson && !f.some(person => person.uid === activeChatUid)
     ? [...f, activePerson]
@@ -608,7 +608,7 @@ function renderConversation() {
   }
   if (otherTyping) renderTyping();
   const who = chatFriends().map(otherOf).find(o => o.uid === activeChatUid)
-    || (activeChatUid ? { uid: activeChatUid, ...getUserById(activeChatUid) } : null);
+    || (activeChatUid ? { ...(searchResults.find(person => person.uid === activeChatUid) || getUserById(activeChatUid)), uid: activeChatUid } : null);
   if (who) { const nt = noteData[who.uid]; box.insertAdjacentHTML('afterbegin', `<div class="chat-profile">${avatarHtml(who.uid, who.name)}<strong>${esc(who.name)}</strong>${who.username ? `<small>${esc(who.username)}</small>` : ''}${nt ? `<div class="note-bubble">${esc(nt.text)}</div>` : ''}<button type="button" class="btn small ghost" data-profile="${esc(who.uid)}">View profile</button></div>`); }
   convShownFor = activeChatUid; convShownCount = list.length;
   box.scrollTop = box.scrollHeight;
