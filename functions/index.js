@@ -8,7 +8,11 @@ const { getStorage } = require("firebase-admin/storage");
 const { onValueCreated, onValueDeleted } = require("firebase-functions/v2/database");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 
-initializeApp();
+initializeApp({
+  projectId: "murmur-fc430",
+  databaseURL: "https://murmur-fc430-default-rtdb.firebaseio.com",
+  storageBucket: "murmur-fc430.firebasestorage.app"
+});
 
 /**
  * Supabase Third-Party Auth requires role=authenticated on Firebase ID tokens.
