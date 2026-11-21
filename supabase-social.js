@@ -29,7 +29,17 @@ async function renderFriends() {
     const reqList = el("reqList");
     if (el("reqCard")) el("reqCard").hidden = !incoming.length;
     if (el("reqCount")) el("reqCount").textContent = incoming.length ? String(incoming.length) : "";
-    if (reqList) reqList.innerHTML = incoming.map(row => '<div class="friend-row"><span>' + esc(row.requester_id.slice(0,8)) + '</span><button class="btn primary" data-accept="' + esc(row.requester_id) + '">Accept</button></div>').join("");
+    const requesterIds = [...new Set(incoming.map(row => row.requester_id))];
+    const { data: requesters, error: requesterError } = requesterIds.length
+      ? await supabase.from("murmur_public_profiles").select("id,display_name,username,avatar_url").in("id", requesterIds)
+      : { data: [], error: null };
+    if (requesterError) throw requesterError;
+    const requesterById = new Map((requesters || []).map(person => [person.id, person]));
+    if (reqList) reqList.innerHTML = incoming.map(row => {
+      const person = requesterById.get(row.requester_id) || {};
+      const name = person.display_name || (person.username ? "@" + person.username : "Someone");
+      return '<div class="friend-row"><span class="avatar">' + esc(String(name).slice(0,1).toUpperCase()) + '</span><div><strong>' + esc(name) + '</strong><small>Friend request</small></div><button class="btn primary" data-accept="' + esc(row.requester_id) + '">Accept</button></div>';
+    }).join("");
     reqList?.querySelectorAll("[data-accept]").forEach(button => button.addEventListener("click", async () => {
       try { await friendships.setStatus(button.dataset.accept, "accepted"); await renderFriends(); }
       catch (error) { alert(error.message); }
@@ -57,13 +67,13 @@ async function searchPeople() {
   try {
     const safe = term.replace(/[%,()]/g, "");
     const { data, error } = await supabase.from("murmur_public_profiles")
-      .select("id,public_id,username,display_name,avatar_url")
-      .or("username.ilike.%" + safe + "%,display_name.ilike.%" + safe + "%,public_id.eq." + safe)
+      .select("id,username,display_name,avatar_url")
+      .or("username.ilike.%" + safe + "%,display_name.ilike.%" + safe + "%")
       .limit(20);
     if (error) throw error;
     const { data: authData } = await supabase.auth.getUser();
     target.innerHTML = (data || []).filter(p => p.id !== authData.user?.id).map(p =>
-      '<div class="friend-row"><div><strong>' + esc(p.display_name || "Murmur user") + '</strong><small>@' + esc(p.username || "") + ' · ID ' + esc(p.public_id || "") + '</small></div><div class="friend-actions"><button class="btn secondary" type="button" data-chat-user="' + esc(p.id) + '">Message</button><button class="btn secondary" type="button" data-request="' + esc(p.id) + '">Add friend</button></div></div>'
+      '<div class="friend-row"><div><strong>' + esc(p.display_name || "Murmur user") + '</strong><small>@' + esc(p.username || "") + '</small></div><div class="friend-actions"><button class="btn secondary" type="button" data-chat-user="' + esc(p.id) + '">Message</button><button class="btn secondary" type="button" data-request="' + esc(p.id) + '">Add friend</button></div></div>'
     ).join("") || '<p class="empty-state">No people found.</p>';
     target.querySelectorAll("[data-chat-user]").forEach(button => button.addEventListener("click", async () => {
       button.disabled = true;
@@ -438,11 +448,10 @@ export function initSupabaseSocial() {
   el("sendBtn")?.addEventListener("click", sendChatMessage);
   el("chatSettingsBtn")?.addEventListener("click", () => {
     const menu=document.createElement("div"); menu.className="chat-settings-popover";
-    menu.innerHTML='<strong>Message settings</strong><p>Search your conversations or manage blocked people in Settings.</p><button type="button" class="btn secondary" data-chat-settings-close>Close</button>';
+    menu.innerHTML='<strong>Message settings</strong><p>Manage blocked people in Settings.</p><button type="button" class="btn secondary" data-chat-settings-close>Close</button>';
     document.querySelector(".chat-settings-popover")?.remove(); document.querySelector('[data-pane="chats"]')?.append(menu);
     menu.querySelector("[data-chat-settings-close]")?.addEventListener("click",()=>menu.remove());
   });
-  el("chatSearch")?.addEventListener("focus", () => { el("chatSearch")?.classList.add("is-focused"); });
 
   el("chatBack")?.addEventListener("click", () => { document.querySelector(".chat-layout")?.classList.remove("open"); });
   el("messageInput")?.addEventListener("keydown", event => { if (event.key === "Enter") sendChatMessage(); });
