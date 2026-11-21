@@ -1,4 +1,4 @@
-/* Murmur data access — explicit Postgres operations, no Firebase compatibility layer. */
+/* Murmur data access — explicit Supabase Postgres operations. */
 import { supabase, requireUser } from "./supabase-client.js";
 
 const PAGE_SIZE = 20;
