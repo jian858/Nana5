@@ -43,7 +43,7 @@ for (const file of htmlFiles) {
       const raw = match[2].trim();
       if (!raw || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(raw)) continue;
       const localPath = stripQueryAndHash(raw);
-      if (!localPath || !extname(localPath)) continue;
+      if (!localPath) continue;
 
       let decodedPath;
       try {
@@ -54,6 +54,11 @@ for (const file of htmlFiles) {
         continue;
       }
 
+      // Root-relative extensionless URLs are app routes (for example /terms),
+      // not static assets. The hosting platform resolves these routes.
+      if (decodedPath.startsWith("/") && !extname(decodedPath)) continue;
+
+      // Relative extensionless links may point to HTML pages, so check them too.
       const target = decodedPath.startsWith("/")
         ? resolve(root, `.${decodedPath}`)
         : resolve(dirname(file), decodedPath);
