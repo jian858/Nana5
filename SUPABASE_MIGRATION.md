@@ -30,7 +30,7 @@ Last updated: 2026-11-21
 - The Supabase UI is an initial working slice, not a complete recreation of every previous screen. Remaining UI work includes full messaging attachments/voice, read receipts/typing, comments/reactions/saved posts, richer story views, richer reels controls, block/report flows, admin tools and device/visitor administration.
 - Confirm Supabase Auth email-confirmation settings and Google OAuth provider credentials/redirect URLs in the dashboard.
 - Validate RLS and Storage policies with separate test accounts; run the documented two-user and anonymous tests.
-- Supabase Auth's leaked-password protection remains disabled. Supabase documents this control as Pro and above; project plan eligibility has not been independently confirmed in this pass.
+- Supabase Auth's leaked-password protection is disabled. The Supabase organization is confirmed on the Free plan; Supabase documents this control as Pro and above, so it cannot currently be enabled in this project.
 - The avatar bucket remains public; post, story, and reel media buckets are private. The client stores object paths and requests short-lived signed URLs; row-aware Storage policies check post visibility, story friendship/expiry, and reel audience. Media buckets were empty when the private-media migration was applied.
 - Verify Realtime subscriptions and media uploads in a browser on desktop and mobile.
 - Test signup, login, Google OAuth, password reset, session restoration, posts, friend requests, chat, stories, reels, notes and notifications before public deployment.
@@ -215,3 +215,11 @@ Last updated: 2026-11-21
 - The worker dry-run processed zero deletions because there are currently no scheduled restriction rows.
 - Applied migration `20261121140328_add_admin_restriction_reason_codes`; admin suspension/deletion now require one of ten approved reason codes and a reason detail. Suspension duration is required (1–8760 hours); scheduled deletion requires a future timestamp.
 - Verified in a rollback-only test that a suspended account can still see its own restriction and profile to appeal, but cannot update its profile or read the public profile directory or notes.
+
+
+## Final account restriction and Admin error reporter review — 2026-11-21
+
+- Admin suspension and scheduled-deletion forms now require one of ten approved reason codes plus a written detail. Timed suspensions require a duration from 1 to 8,760 hours; scheduled deletion requires a future date/time.
+- The service-role-only RPCs reject attempts to suspend or delete accounts on the administrator allowlist.
+- The separate Admin error reporter now sends queued error events only when it can obtain a Supabase session token; it no longer uses the publishable key as a bearer token or queues anonymous reports against the JWT-protected endpoint.
+- The organization's Free plan has been confirmed. Leaked-password protection requires Pro or above and remains disabled until the plan is upgraded.
