@@ -1,0 +1,38 @@
+/* Report a problem and customer support modal */
+.support-modal-back{box-sizing:border-box;padding:16px;overflow-y:auto;overscroll-behavior:contain}
+.support-modal-card{
+  box-sizing:border-box;width:min(100%,540px);max-height:min(90dvh,760px);overflow-y:auto;
+  gap:16px;padding:clamp(19px,4vw,30px);border:1px solid var(--line);
+  border-radius:22px;background:var(--white);box-shadow:0 24px 80px rgba(10,25,45,.24)
+}
+.support-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.support-modal-head h3{margin:5px 0 0;font-size:clamp(1.25rem,4vw,1.55rem);line-height:1.2;color:var(--ink)}
+.support-eyebrow{font-size:.7rem;letter-spacing:.12em;font-weight:850;color:var(--acc-strong,#087e69)}
+.support-close{width:40px;height:40px;flex:0 0 40px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-size:1.5rem;cursor:pointer}
+.support-tabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:5px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.support-tabs button{min-height:42px;padding:9px 10px;border:0;border-radius:10px;background:transparent;color:var(--muted);font:inherit;font-size:.9rem;font-weight:750;cursor:pointer}
+.support-tabs button.active{background:var(--white);color:var(--acc-strong,#087e69);box-shadow:0 2px 8px rgba(20,33,61,.09)}
+.support-intro{font-size:.92rem;line-height:1.55}
+.support-form{display:flex;flex-direction:column;gap:15px;min-width:0}
+.support-form .field{display:flex;flex-direction:column;gap:8px;min-width:0}
+.support-form .field>span{font-size:.9rem;font-weight:750;color:var(--ink)}
+.support-form select,.support-form textarea{box-sizing:border-box;width:100%;max-width:100%;min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);padding:12px 13px;font:inherit;font-size:16px}
+.support-form select{min-height:48px}
+.support-form textarea{min-height:140px;resize:vertical;line-height:1.5}
+.support-form select:focus,.support-form textarea:focus{outline:3px solid rgba(20,168,138,.17);border-color:var(--acc,#14c8a0)}
+.support-form-actions{display:flex;gap:10px;flex-wrap:wrap}
+.support-form-actions .btn{flex:1 1 140px;min-height:46px}
+.support-status{min-height:1.4em;font-size:.9rem;line-height:1.45}
+.support-modal-card button:focus-visible{outline:3px solid rgba(20,168,138,.35);outline-offset:2px}
+html[data-theme="dark"] .support-modal-card{background:#1c2938;border-color:#344357;color:#e8eef7}
+html[data-theme="dark"] .support-modal-head h3,html[data-theme="dark"] .support-form .field>span{color:#f2f6fb}
+html[data-theme="dark"] .support-tabs{background:#111b27;border-color:#344357}
+html[data-theme="dark"] .support-tabs button.active{background:#26384a;color:#8ce6d2}
+html[data-theme="dark"] .support-close{background:#263446;border-color:#405169;color:#f2f6fb}
+html[data-theme="dark"] .support-form select,html[data-theme="dark"] .support-form textarea{background:#111b27;border-color:#405169;color:#f2f6fb}
+@media(max-width:480px){
+ .support-modal-back{align-items:end;padding:8px}
+ .support-modal-card{width:100%;max-height:92dvh;border-radius:22px 22px 14px 14px;padding:20px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+ .support-tabs button{font-size:.82rem;padding:8px 6px}
+ .support-form textarea{min-height:125px}
+}
