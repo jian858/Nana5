@@ -117,3 +117,21 @@ html[data-theme="dark"] .screen-forgot .close-btn{background:#263446;color:#f2f6
   .forgot-tab{padding:8px 10px;font-size:.9rem}
 }
 @media(prefers-reduced-motion:reduce){.forgot-spinner{animation:none}}
+
+/* In-app legal screen controls match the standalone legal page header. */
+.screen-legal .close-btn{
+ display:inline-flex;align-items:center;justify-content:center;flex:0 0 44px;
+ width:44px;height:44px;min-width:44px;min-height:44px;padding:0;
+ border:1px solid #dce9e5;border-radius:14px;
+ background:#f5faf8;color:#173b36;font-size:1.45rem;font-weight:600;
+ line-height:1;box-shadow:0 2px 8px rgba(20,45,42,.05);
+ transition:background .18s ease,border-color .18s ease,transform .18s ease;
+ -webkit-tap-highlight-color:transparent;
+}
+.screen-legal .close-btn:hover{background:#e7f8f2;border-color:#b9e8dc;transform:translateX(-2px)}
+.screen-legal .close-btn:active{transform:scale(.96)}
+.screen-legal .close-btn:focus-visible{outline:3px solid rgba(16,191,160,.35);outline-offset:3px}
+.screen-legal .legal-top{gap:12px}
+.screen-legal .legal-tabs{align-items:center}
+.screen-legal .legal-tab{border-radius:12px}
+@media(prefers-reduced-motion:reduce){.screen-legal .close-btn{transition:none}}
