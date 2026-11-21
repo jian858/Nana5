@@ -251,3 +251,14 @@ Last updated: 2026-11-21
 - The Cloudflare Pages production build for commit `3637153f` completed successfully; a subsequent metadata-only commit was also queued for production.
 - The custom zone `murmur.social` is still pending activation because its authoritative nameservers do not yet match the Cloudflare-assigned nameservers. The `workers.dev` hostname remains the active app address until that domain is activated.
 - Hosting/deployment verification is separate from Supabase runtime testing; full authenticated browser checks of chat, feed, notifications, and media still need to be completed.
+
+
+## Chat UI, mobile layout and Realtime repair — 2026-11-21
+- Repaired the Supabase chat list so it resolves conversation members through the safe public-profile directory and displays the other participant's display name, username and latest message instead of a raw conversation UUID.
+- Opening a conversation now activates the mobile full-screen chat layout; the Back button returns to the conversation list. Message rows distinguish the current user's messages from incoming messages.
+- Realtime message updates refresh only the open thread. Conversation and membership changes refresh the chat list.
+- Applied migration `20261121152640_add_chat_conversation_realtime_tables` and committed the matching SQL file. The Realtime publication now includes `messages`, `conversations`, and `conversation_members`.
+- Added responsive chat list, message bubble, composer and safe-area styles. Updated stylesheet/module cache versions and the service-worker shell version so clients request the repaired assets.
+- Verified the migration is recorded, all three chat tables are in `supabase_realtime`, authenticated chat RPC/helper privileges are present, and a synthetic authenticated-role check can read only its own full profile and the permitted public directory without RLS errors.
+- The ten RLS-enabled tables without policies remain intentionally inaccessible to browser roles: five are in the private schema and five are admin/worker-only public tables. Verification found no `anon` or `authenticated` table grants on those ten tables; do not add permissive policies just to silence the informational advisor.
+- Full two-account chat delivery, block enforcement and mobile browser interaction still require a second test account and a real browser session before launch.
