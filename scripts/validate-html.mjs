@@ -25,11 +25,11 @@ let errors = 0;
 for (const file of htmlFiles) {
   const relativeFile = file.slice(root.length + 1);
   const source = readFileSync(file, "utf8");
-  const markup = source.replace(/<(script|style)\\b[^>]*>[\\s\\S]*?<\\/\\1\\s*>/gi, "");
+  const markup = source.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "");
   const ids = new Set();
 
   for (const tag of markup.matchAll(/<[a-z][^>]*>/gi)) {
-    for (const match of tag[0].matchAll(/\\bid\\s*=\\s*(["'])(.*?)\\1/gi)) {
+    for (const match of tag[0].matchAll(/\bid\s*=\s*(["'])(.*?)\1/gi)) {
       const id = match[2].trim();
       if (!id) continue;
       if (ids.has(id)) {
@@ -39,9 +39,9 @@ for (const file of htmlFiles) {
       ids.add(id);
     }
 
-    for (const match of tag[0].matchAll(/\\b(?:src|href)\\s*=\\s*(["'])(.*?)\\1/gi)) {
+    for (const match of tag[0].matchAll(/\b(?:src|href)\s*=\s*(["'])(.*?)\1/gi)) {
       const raw = match[2].trim();
-      if (!raw || /^(?:[a-z][a-z0-9+.-]*:|\\/\\/|#)/i.test(raw)) continue;
+      if (!raw || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(raw)) continue;
       const localPath = stripQueryAndHash(raw);
       if (!localPath) continue;
 
