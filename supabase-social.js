@@ -55,15 +55,15 @@ async function renderFriends() {
   } catch (error) { fail(list, error); }
 }
 
-async function openDirectChat(targetUserId) {
+export async function openDirectChat(targetUserId) {
   const { data: conversationId, error } = await supabase.rpc("start_murmur_direct_conversation", {
     p_target_user_id: targetUserId
   });
   if (error) throw error;
   if (!conversationId) throw new Error("The conversation could not be opened.");
 
-  document.querySelector('[data-view="chats"]')?.click();
-  await renderChats();
+  const chatsTab = document.querySelector('[data-view="chats"]');
+  if (chatsTab) chatsTab.click();
   await openConversation(conversationId);
 }
 
