@@ -1039,3 +1039,40 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
   object-position:50% 50%!important;
   border-radius:inherit!important;
 }
+
+/* Home and profile avatar hardening: fixed square frame, true circle, no image overflow. */
+#composerAvatar,
+#menuAvatar,
+.avatar.menu-profile-avatar,
+.murmur-profile-avatar,
+.murmur-edit-avatar,
+#noteRow .note-avatar-circle,
+.note-avatar-circle{
+  box-sizing:border-box!important;
+  aspect-ratio:1 / 1!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+  clip-path:circle(50% at 50% 50%)!important;
+  padding:0!important;
+}
+#composerAvatar,
+#menuAvatar{
+  min-width:0;
+  flex-shrink:0;
+}
+#composerAvatar img,
+#menuAvatar img,
+.murmur-profile-avatar img,
+.murmur-edit-avatar img,
+.note-avatar-circle img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:100%!important;
+  min-height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  border-radius:50%!important;
+}
