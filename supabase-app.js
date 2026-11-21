@@ -574,8 +574,11 @@ function openSignup() {
     const password = form.elements.password.value;
     const confirm = form.elements.confirm_password.value;
     if (!name || !/^[a-z0-9_.]{3,24}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 8 || password !== confirm) {
-      errorBox.textContent = password !== confirm ? "Your passwords do not match." : "Complete your name, valid username, email and password (at least 8 characters).";
+      const message = password !== confirm
+        ? "Your passwords do not match."
+        : "Complete your name, valid username, email and password (at least 8 characters).";
       showTab("account");
+      errorBox.textContent = message;
       return false;
     }
     return true;
@@ -627,9 +630,19 @@ function openSignup() {
       }
     } catch (error) {
       const message = String(error?.message || "Could not create your account. Please try again.");
-      errorBox.textContent = /duplicate key|already exists|profiles_username_key|unique constraint/i.test(message)
-        ? "That username is already taken. Choose another username."
-        : message;
+      if (/duplicate key|profiles_username_key|unique constraint/i.test(message) && /username/i.test(message)) {
+        errorBox.textContent = "That username is already taken. Choose another username.";
+      } else if (/user already registered|already been registered|email.*already/i.test(message)) {
+        errorBox.textContent = "An account already uses that email address. Log in or use a different email.";
+      } else if (/password.*(weak|short)|at least 8 characters/i.test(message)) {
+        errorBox.textContent = "Choose a stronger password with at least 8 characters.";
+      } else if (/rate limit|too many requests/i.test(message)) {
+        errorBox.textContent = "Too many sign-up attempts. Please wait a few minutes and try again.";
+      } else if (/invalid email/i.test(message)) {
+        errorBox.textContent = "Enter a valid email address.";
+      } else {
+        errorBox.textContent = message;
+      }
     } finally {
       if (button.isConnected && !button.hidden) { button.disabled = false; button.textContent = "Create account"; }
     }
