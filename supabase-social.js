@@ -437,6 +437,30 @@ async function sendChatMessage() {
 }
 
 export function initSupabaseSocial() {
+  // Friend tabs are real controls: switch the visible panel and refresh its data.
+  const friendTabs = [...document.querySelectorAll("[data-frtab]")];
+  const friendPanels = [...document.querySelectorAll("[data-frpanel]")];
+  const activateFriendTab = tabName => {
+    friendTabs.forEach(tab => {
+      const selected = tab.dataset.frtab === tabName;
+      tab.classList.toggle("active", selected);
+      tab.setAttribute("aria-selected", String(selected));
+      tab.setAttribute("tabindex", selected ? "0" : "-1");
+    });
+    friendPanels.forEach(panel => {
+      const selected = panel.dataset.frpanel === tabName;
+      panel.hidden = !selected;
+      panel.classList.toggle("active", selected);
+    });
+    if (tabName === "suggest") {
+      const findBlock = el("findBlock");
+      if (findBlock) findBlock.hidden = false;
+      el("friendSearch")?.focus({ preventScroll: true });
+    }
+    renderFriends();
+  };
+  friendTabs.forEach(tab => tab.addEventListener("click", () => activateFriendTab(tab.dataset.frtab || "suggest")));
+  friendTabs.forEach(tab => tab.setAttribute("aria-selected", String(tab.classList.contains("active"))));
   document.querySelectorAll("[data-alert-filter]").forEach(button => button.addEventListener("click", () => {
     activeAlertFilter = button.dataset.alertFilter || "all";
     renderAlerts();
