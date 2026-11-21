@@ -63,7 +63,7 @@ export const profiles = {
   },
   search: async (term, page = 0) => {
     const [from, to] = pageRange(page);
-    const query = supabase.from("profiles").select("id,public_id,username,display_name,bio,avatar_url,created_at").order("created_at", { ascending: false }).range(from, to);
+    const query = supabase.from("murmur_public_profiles").select("id,public_id,username,display_name,bio,avatar_url,created_at").order("created_at", { ascending: false }).range(from, to);
     if (term?.trim()) query.or("username.ilike.%" + term.trim().replace(/[%_,]/g, "") + "%,display_name.ilike.%" + term.trim().replace(/[%_,]/g, "") + "%");
     return throwIfError(await query);
   }
@@ -191,7 +191,7 @@ export const friendships = {
       .order("updated_at", { ascending: false }));
     const ids = [...new Set(relations.map(row => row.requester_id === user.id ? row.addressee_id : row.requester_id))];
     if (!ids.length) return [];
-    const people = throwIfError(await supabase.from("profiles")
+    const people = throwIfError(await supabase.from("murmur_public_profiles")
       .select("id,username,display_name,avatar_url,bio")
       .in("id", ids));
     const byId = new Map(people.map(person => [person.id, person]));
