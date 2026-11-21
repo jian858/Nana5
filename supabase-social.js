@@ -19,21 +19,10 @@ async function renderFriends() {
       return '<article class="friend-row"><span class="avatar">' + esc((p.display_name || "?").slice(0,1).toUpperCase()) + '</span><div><strong>' + esc(p.display_name || "Murmur user") + '</strong><small>@' + esc(p.username || "") + '</small></div><button class="btn secondary" type="button" data-chat-user="' + esc(p.id) + '">Message</button></article>';
     }).join("") : '<p class="empty-state">Your friends will appear here.</p>';
     list?.querySelectorAll("[data-chat-user]").forEach(button => button.addEventListener("click", async () => {
-      try {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError) throw userError;
-        const { data: conversation, error: conversationError } = await supabase.from("conversations")
-          .insert({ created_by: userData.user.id }).select("id").single();
-        if (conversationError) throw conversationError;
-        const { error: membersError } = await supabase.from("conversation_members").insert([
-          { conversation_id: conversation.id, user_id: userData.user.id },
-          { conversation_id: conversation.id, user_id: button.dataset.chatUser }
-        ]);
-        if (membersError) throw membersError;
-        document.querySelector('[data-view="chats"]')?.click();
-        await renderChats();
-        await openConversation(conversation.id);
-      } catch (error) { alert(error.message); }
+      button.disabled = true;
+      try { await openDirectChat(button.dataset.chatUser); }
+      catch (error) { alert(error.message); }
+      finally { button.disabled = false; }
     }));
     if (search) search.innerHTML = "";
     const incoming = await friendships.incoming();
@@ -46,6 +35,58 @@ async function renderFriends() {
       catch (error) { alert(error.message); }
     }));
   } catch (error) { fail(list, error); }
+}
+
+async function openDirectChat(targetUserId) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  const currentUserId = userData.user?.id;
+  if (!currentUserId || !targetUserId || targetUserId === currentUserId) {
+    throw new Error("Choose another Murmur user to message.");
+  }
+
+  const { data: mine, error: mineError } = await supabase.from("conversation_members")
+    .select("conversation_id").eq("user_id", currentUserId);
+  if (mineError) throw mineError;
+
+  const conversationIds = [...new Set((mine || []).map(row => row.conversation_id))];
+  let conversationId = null;
+  if (conversationIds.length) {
+    const { data: shared, error: sharedError } = await supabase.from("conversation_members")
+      .select("conversation_id,user_id")
+      .in("conversation_id", conversationIds)
+      .in("user_id", [currentUserId, targetUserId]);
+    if (sharedError) throw sharedError;
+
+    const membersByConversation = new Map();
+    for (const row of shared || []) {
+      const members = membersByConversation.get(row.conversation_id) || new Set();
+      members.add(row.user_id);
+      membersByConversation.set(row.conversation_id, members);
+    }
+    conversationId = [...membersByConversation.entries()]
+      .find(([, members]) => members.size === 2 && members.has(currentUserId) && members.has(targetUserId))?.[0] || null;
+  }
+
+  if (!conversationId) {
+    const { data: conversation, error: conversationError } = await supabase.from("conversations")
+      .insert({ created_by: currentUserId }).select("id").single();
+    if (conversationError) throw conversationError;
+
+    const { error: membersError } = await supabase.from("conversation_members").insert([
+      { conversation_id: conversation.id, user_id: currentUserId },
+      { conversation_id: conversation.id, user_id: targetUserId }
+    ]);
+    if (membersError) {
+      await supabase.from("conversations").delete().eq("id", conversation.id).eq("created_by", currentUserId);
+      throw membersError;
+    }
+    conversationId = conversation.id;
+  }
+
+  document.querySelector('[data-view="chats"]')?.click();
+  await renderChats();
+  await openConversation(conversationId);
 }
 
 async function searchPeople() {
@@ -62,8 +103,14 @@ async function searchPeople() {
     if (error) throw error;
     const { data: authData } = await supabase.auth.getUser();
     target.innerHTML = (data || []).filter(p => p.id !== authData.user?.id).map(p =>
-      '<div class="friend-row"><div><strong>' + esc(p.display_name || "Murmur user") + '</strong><small>@' + esc(p.username || "") + ' · ID ' + esc(p.public_id || "") + '</small></div><button class="btn secondary" data-request="' + esc(p.id) + '">Add friend</button></div>'
+      '<div class="friend-row"><div><strong>' + esc(p.display_name || "Murmur user") + '</strong><small>@' + esc(p.username || "") + ' · ID ' + esc(p.public_id || "") + '</small></div><div class="friend-actions"><button class="btn secondary" type="button" data-chat-user="' + esc(p.id) + '">Message</button><button class="btn secondary" type="button" data-request="' + esc(p.id) + '">Add friend</button></div></div>'
     ).join("") || '<p class="empty-state">No people found.</p>';
+    target.querySelectorAll("[data-chat-user]").forEach(button => button.addEventListener("click", async () => {
+      button.disabled = true;
+      try { await openDirectChat(button.dataset.chatUser); }
+      catch (error) { alert(error.message); }
+      finally { button.disabled = false; }
+    }));
     target.querySelectorAll("[data-request]").forEach(button => button.addEventListener("click", async () => {
       button.disabled = true;
       try { await friendships.request(button.dataset.request); button.textContent = "Request sent"; }
