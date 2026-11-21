@@ -1076,3 +1076,63 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
   object-position:center!important;
   border-radius:50%!important;
 }
+
+/* Final avatar containment fix: constrain the frame itself and every nested photo. */
+#composerAvatar,
+#menuAvatar,
+#murmurEditAvatar,
+.murmur-edit-avatar,
+.murmur-profile-avatar,
+.note-avatar-circle,
+.avatar.menu-profile-avatar{
+  position:relative!important;
+  display:block!important;
+  width:52px!important;
+  height:52px!important;
+  min-width:52px!important;
+  min-height:52px!important;
+  max-width:52px!important;
+  max-height:52px!important;
+  flex:0 0 52px!important;
+  box-sizing:border-box!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+  clip-path:circle(50% at 50% 50%)!important;
+  contain:paint!important;
+}
+#murmurEditAvatar,
+.murmur-edit-avatar{width:82px!important;height:82px!important;min-width:82px!important;min-height:82px!important;max-width:82px!important;max-height:82px!important;flex-basis:82px!important;border:3px solid var(--surface,#fff)!important}
+.murmur-profile-avatar{width:112px!important;height:112px!important;min-width:112px!important;min-height:112px!important;max-width:112px!important;max-height:112px!important;flex-basis:112px!important}
+#noteRow .note-avatar-circle,
+.note-avatar-circle{width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;max-width:48px!important;max-height:48px!important;flex-basis:48px!important}
+#composerAvatar > img,
+#menuAvatar > img,
+#murmurEditAvatar > img,
+.murmur-edit-avatar > img,
+.murmur-profile-avatar > img,
+.note-avatar-circle > img,
+#composerAvatar img,
+#menuAvatar img,
+#murmurEditAvatar img,
+.murmur-edit-avatar img,
+.murmur-profile-avatar img,
+.note-avatar-circle img{
+  position:absolute!important;
+  inset:0!important;
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  margin:0!important;
+  padding:0!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  border:0!important;
+  border-radius:50%!important;
+  transform:none!important;
+}
