@@ -420,7 +420,28 @@ async function login() {
     await enterApp(data.user);
   } catch (error) {
     console.error("[Murmur login]", error);
-    showError(error.message || "Sign-in failed. Please try again.");
+    // Supabase can establish the session even if a later client-side step
+    // rejects. Recover from the persisted session before showing a login error.
+    let recoveredUser = null;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      recoveredUser = sessionData?.session?.user || null;
+    } catch (sessionError) {
+      console.error("[Murmur session recovery]", sessionError);
+    }
+    if (recoveredUser?.id) {
+      try {
+        await enterApp(recoveredUser);
+        if (enteredUserId === recoveredUser.id) return;
+      } catch (recoveryError) {
+        console.error("[Murmur login recovery]", recoveryError);
+        error = recoveryError;
+      }
+    }
+    const detail = error?.message || error?.details || error?.hint || error?.code;
+    showError(detail
+      ? "Murmur could not finish signing you in: " + detail
+      : "Murmur could not finish signing you in. Please check your connection and try again.");
   } finally {
     loginInProgress = false;
     if (button) button.disabled = false;
