@@ -78,7 +78,7 @@ async function renderFeed() {
       const person = byId.get(post.author_id) || {};
       const author = safeText(person.display_name || "Murmur user");
       const handle = person.username ? "@" + safeText(person.username) : "";
-      const media = post.media_url ? '<img class="post-media" loading="lazy" src="' + safeText(post.media_url) + '" alt="Post attachment">' : "";
+      const media = post.media_url ? (post.media_type === "video" ? '<video class="post-media" controls playsinline preload="metadata" src="' + safeText(post.media_url) + '"></video>' : '<img class="post-media" loading="lazy" src="' + safeText(post.media_url) + '" alt="Post attachment">') : "";
       return '<article class="post-card" data-post-id="' + safeText(post.id) + '"><header class="post-head"><span class="avatar">' + safeText(author.slice(0,1).toUpperCase()) + '</span><div><strong>' + author + '</strong><small>' + handle + ' · ' + safeText(new Date(post.created_at).toLocaleString()) + '</small></div></header><p class="post-content">' + safeText(post.content || "") + '</p>' + media + '</article>';
     }).join("");
   } catch (error) {
