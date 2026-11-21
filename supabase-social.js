@@ -181,13 +181,99 @@ async function renderAlerts() {
   } catch (error) { fail(root, error); }
 }
 
+let activeConversationId = null;
+let activeConversationPerson = null;
+
+async function getConversationPeople(conversationIds, currentUserId) {
+  if (!conversationIds.length) return new Map();
+  const { data: memberships, error: membershipError } = await supabase
+    .from("conversation_members")
+    .select("conversation_id,user_id,last_read_at")
+    .in("conversation_id", conversationIds);
+  if (membershipError) throw membershipError;
+
+  const otherIds = [...new Set((memberships || [])
+    .filter(row => row.user_id !== currentUserId)
+    .map(row => row.user_id))];
+  let people = [];
+  if (otherIds.length) {
+    const { data, error } = await supabase.from("murmur_public_profiles")
+      .select("id,username,display_name,avatar_url")
+      .in("id", otherIds);
+    if (error) throw error;
+    people = data || [];
+  }
+  const profileById = new Map(people.map(person => [person.id, person]));
+  const result = new Map();
+  for (const row of memberships || []) {
+    if (row.user_id === currentUserId) continue;
+    const person = profileById.get(row.user_id);
+    if (person && !result.has(row.conversation_id)) result.set(row.conversation_id, person);
+  }
+  return result;
+}
+
 async function renderChats() {
   const root = el("chatList");
   if (!root) return;
+  root.innerHTML = '<p class="empty-state">Loading conversations…</p>';
   try {
-    const rows = await conversations.list();
-    root.innerHTML = rows.map(c => '<button class="chat-list-item" type="button" data-conversation="' + esc(c.id) + '">Conversation · ' + esc(c.id.slice(0,8)) + '</button>').join("") || '<p class="empty-state">Your conversations will appear here.</p>';
-    root.querySelectorAll("[data-conversation]").forEach(button => button.addEventListener("click", () => openConversation(button.dataset.conversation)));
+    const [{ data: authData, error: authError }, rows] = await Promise.all([
+      supabase.auth.getUser(),
+      conversations.list()
+    ]);
+    if (authError) throw authError;
+    const currentUserId = authData.user?.id;
+    if (!currentUserId) throw new Error("Sign in again to view your chats.");
+    if (!rows.length) {
+      root.innerHTML = '<p class="empty-state">No conversations yet. Find someone and choose Message to start a chat.</p>';
+      return;
+    }
+
+    const ids = rows.map(row => row.id);
+    const [peopleByConversation, latestResult] = await Promise.all([
+      getConversationPeople(ids, currentUserId),
+      supabase.from("messages")
+        .select("conversation_id,content,created_at,sender_id")
+        .in("conversation_id", ids)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(100)
+    ]);
+    if (latestResult.error) throw latestResult.error;
+    const latestByConversation = new Map();
+    for (const message of latestResult.data || []) {
+      if (!latestByConversation.has(message.conversation_id)) {
+        latestByConversation.set(message.conversation_id, message);
+      }
+    }
+
+    root.innerHTML = rows.map(conversation => {
+      const person = peopleByConversation.get(conversation.id) || {};
+      const name = person.display_name || (person.username ? "@" + person.username : "Murmur user");
+      const last = latestByConversation.get(conversation.id);
+      const preview = last ? (last.sender_id === currentUserId ? "You: " : "") + last.content : "Start a conversation";
+      const selected = activeConversationId === conversation.id ? " active" : "";
+      return '<button class="chat-list-item' + selected + '" type="button" data-conversation="' + esc(conversation.id) + '" aria-label="Open chat with ' + esc(name) + '">' +
+        '<span class="avatar">' + esc(String(name).slice(0,1).toUpperCase()) + '</span>' +
+        '<span class="chat-list-copy"><strong>' + esc(name) + '</strong><small>' + esc(preview || "Attachment") + '</small></span>' +
+        '<span class="chat-list-time">' + esc(new Date(conversation.created_at).toLocaleDateString()) + '</span></button>';
+    }).join("");
+
+    root.querySelectorAll("[data-conversation]").forEach(button => {
+      button.addEventListener("click", () => openConversation(button.dataset.conversation));
+    });
+    const search = el("chatSearch");
+    if (search && !search.dataset.bound) {
+      search.dataset.bound = "true";
+      search.addEventListener("input", () => {
+        const query = search.value.trim().toLocaleLowerCase();
+        root.querySelectorAll("[data-conversation]").forEach(button => {
+          button.hidden = !button.textContent.toLocaleLowerCase().includes(query);
+        });
+      });
+    }
+    if (search?.value) search.dispatchEvent(new Event("input"));
   } catch (error) {
     fail(root, error);
     const retry = document.createElement("button");
@@ -198,33 +284,98 @@ async function renderChats() {
     root.appendChild(retry);
   }
 }
+
+async function renderConversationMessages(conversationId) {
+  const root = el("messages");
+  if (!root || root.dataset.conversationId !== conversationId) return;
+  try {
+    const [{ data: authData, error: authError }, rows] = await Promise.all([
+      supabase.auth.getUser(),
+      messages.list(conversationId)
+    ]);
+    if (authError) throw authError;
+    const currentUserId = authData.user?.id;
+    root.innerHTML = rows.length ? rows.slice().reverse().map(message => {
+      const mine = message.sender_id === currentUserId;
+      return '<article class="message-row' + (mine ? ' mine' : '') + '" data-message-id="' + esc(message.id) + '">' +
+        '<p>' + esc(message.content || (message.media_type ? "Attachment" : "")) + '</p>' +
+        '<time datetime="' + esc(message.created_at) + '">' + esc(new Date(message.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})) + '</time></article>';
+    }).join("") : '<p class="empty-state">No messages yet. Send the first message.</p>';
+    root.scrollTop = root.scrollHeight;
+  } catch (error) {
+    fail(root, error);
+  }
+}
+
 async function openConversation(id) {
   const root = el("messages");
-  if (!root) return;
+  if (!root || !id) return;
+  activeConversationId = id;
   root.dataset.conversationId = id;
-  if (messageChannel) supabase.removeChannel(messageChannel);
-  messageChannel = supabase.channel("murmur-chat-" + id)
-    .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: "conversation_id=eq." + id }, () => openConversation(id))
-    .subscribe();
+  document.querySelector(".chat-layout")?.classList.add("open");
+  el("chatName") && (el("chatName").textContent = "Loading chat…");
+  el("chatStatus") && (el("chatStatus").textContent = "Murmur conversation");
+  await renderChats();
+
   try {
-    const rows = await messages.list(id);
-    root.innerHTML = rows.reverse().map(m => '<article class="message-row">' + esc(m.content) + '</article>').join("") || '<p class="empty-state">Start the conversation.</p>';
-    el("chatName") && (el("chatName").textContent = "Conversation");
-  } catch (error) { fail(root, error); }
+    const [{ data: authData, error: authError }, members] = await Promise.all([
+      supabase.auth.getUser(),
+      conversations.members(id)
+    ]);
+    if (authError) throw authError;
+    const otherId = (members || []).find(member => member.user_id !== authData.user?.id)?.user_id;
+    if (otherId) {
+      const { data: person, error } = await supabase.from("murmur_public_profiles")
+        .select("id,username,display_name,avatar_url")
+        .eq("id", otherId).maybeSingle();
+      if (error) throw error;
+      activeConversationPerson = person;
+    } else {
+      activeConversationPerson = null;
+    }
+    const name = activeConversationPerson?.display_name || "Conversation";
+    if (el("chatName")) el("chatName").textContent = name;
+    if (el("chatStatus")) el("chatStatus").textContent = activeConversationPerson?.username ? "@" + activeConversationPerson.username : "Private chat";
+    if (el("chatAvatar")) el("chatAvatar").textContent = name.slice(0,1).toUpperCase();
+
+    if (messageChannel) supabase.removeChannel(messageChannel);
+    messageChannel = supabase.channel("murmur-chat-" + id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: "conversation_id=eq." + id },
+        () => renderConversationMessages(id))
+      .subscribe();
+    await renderConversationMessages(id);
+    conversations.markRead(id).catch(error => console.warn("[Murmur chat] Could not update read state:", error));
+    el("messageInput")?.focus();
+  } catch (error) {
+    fail(root, error);
+  }
 }
+
 async function sendChatMessage() {
   const root = el("messages");
   const id = root?.dataset.conversationId;
   const input = el("messageInput");
-  if (!id || !input?.value.trim()) return;
-  try { await messages.send({ conversationId: id, content: input.value.trim() }); input.value = ""; await openConversation(id); }
-  catch (error) { alert(error.message); }
+  const button = el("sendBtn");
+  const content = input?.value.trim();
+  if (!id || !content) return;
+  if (button) button.disabled = true;
+  try {
+    await messages.send({ conversationId: id, content });
+    input.value = "";
+    await renderConversationMessages(id);
+    await renderChats();
+  } catch (error) {
+    alert(error.message || "Your message could not be sent. Please try again.");
+  } finally {
+    if (button) button.disabled = false;
+    input?.focus();
+  }
 }
 
 export function initSupabaseSocial() {
   el("friendSearchBtn")?.addEventListener("click", searchPeople);
   el("friendSearch")?.addEventListener("keydown", event => { if (event.key === "Enter") searchPeople(); });
-  el("sendBtn")?.addEventListener("click", sendChatMessage);
+  el("sendBtn")?.addEventListener("click", sendChatMessage);\n  el("chatBack")?.addEventListener("click", () => { document.querySelector(".chat-layout")?.classList.remove("open"); });
   el("messageInput")?.addEventListener("keydown", event => { if (event.key === "Enter") sendChatMessage(); });
   el("reelCreateBtn")?.addEventListener("click", () => {
     const picker = document.createElement("input");
