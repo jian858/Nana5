@@ -22,6 +22,12 @@ let pendingPostFile = null;
 function showError(message) {
   if (authError) authError.textContent = String(message || "Something went wrong. Please try again.");
 }
+function setLoginLoading(active, message = "") {
+  const status = $("loginStatus");
+  const button = $("loginBtn");
+  if (status) { status.hidden = !active; status.textContent = message; }
+  if (button) { button.disabled = active; button.textContent = active ? "Please wait…" : "Log in"; }
+}
 function showAuth() {
   if (splash) splash.hidden = true;
   if (appPanel) appPanel.hidden = true;
@@ -347,6 +353,7 @@ async function enterApp(user) {
   let enterStage = "checking account access";
   enterAppTask = (async () => {
     try {
+      setLoginLoading(true, "Checking your account access…");
       const restriction = await accountRestrictions.current();
       if (restriction) {
         showAccountRestriction(restriction);
@@ -354,11 +361,13 @@ async function enterApp(user) {
         return;
       }
       enterStage = "loading your profile";
+      setLoginLoading(true, "Account found. Loading your Murmur profile…");
       currentProfile = await loadProfile(user);
 
       // Authentication and profile loading are complete. Do not send a valid
       // signed-in user back to the login form because a non-critical UI module
       // or realtime subscription fails during startup.
+      setLoginLoading(false);
       showApp();
       enteredUserId = user.id;
       try {
@@ -378,9 +387,10 @@ async function enterApp(user) {
       console.error("[Murmur profile]", { stage: enterStage, error });
       const detail = typeof error === "string" ? error :
         error?.message || error?.details || error?.hint || error?.code;
+      setLoginLoading(false);
       showError(detail
-        ? "You are signed in, but Murmur had a problem " + enterStage + ": " + detail
-        : "You are signed in, but Murmur could not finish " + enterStage + ". Please try again.");
+        ? "Your account was found, but Murmur could not finish " + enterStage + ": " + detail
+        : "Your account was found, but Murmur could not finish " + enterStage + ". Please try again.");
       showAuth();
     } finally {
       enterAppTask = null;
@@ -394,12 +404,12 @@ let loginInProgress = false;
 async function login() {
   if (loginInProgress) return;
   showError("");
+  setLoginLoading(false);
   const email = $("email")?.value.trim().toLowerCase();
   const password = $("password")?.value || "";
   if (!email || !password) return showError("Enter your email address and password.");
   loginInProgress = true;
-  const button = $("loginBtn");
-  if (button) button.disabled = true;
+  setLoginLoading(true, "Searching for your account in the database…");
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
@@ -416,7 +426,8 @@ async function login() {
       }
       throw error;
     }
-    if (!data?.user) throw new Error("Supabase did not return a user. Please try signing in again.");
+    if (!data?.user) throw new Error("No matching account was returned. Check your email and password.");
+    setLoginLoading(true, "Account found. Checking your account and loading your profile…");
     await enterApp(data.user);
   } catch (error) {
     console.error("[Murmur login]", error);
@@ -439,12 +450,13 @@ async function login() {
       }
     }
     const detail = error?.message || error?.details || error?.hint || error?.code;
+    setLoginLoading(false);
     showError(detail
       ? "Murmur could not finish signing you in: " + detail
       : "Murmur could not finish signing you in. Please check your connection and try again.");
   } finally {
     loginInProgress = false;
-    if (button) button.disabled = false;
+    if (!enteredUserId) setLoginLoading(false);
   }
 }
 
