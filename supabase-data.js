@@ -72,19 +72,24 @@ export const profiles = {
 export const posts = {
   feed: async (page = 0) => {
     const [from, to] = pageRange(page);
-    return throwIfError(await supabase.from("posts").select("id,author_id,content,visibility,media_url,media_type,metadata,created_at,updated_at")
+    return throwIfError(await supabase.from("posts").select("id,author_id,content,visibility,media_path,media_type,metadata,created_at,updated_at")
       .order("created_at", { ascending: false }).range(from, to));
   },
-  create: async ({ content, visibility = "public", mediaUrl = null, mediaType = null, metadata = {} }) => {
+  create: async ({ content, visibility = "public", mediaPath = null, mediaType = null, metadata = {} }) => {
     const user = await requireUser();
     return throwIfError(await supabase.from("posts").insert({
-      author_id: user.id, content: content || "", visibility, media_url: mediaUrl,
+      author_id: user.id, content: content || "", visibility, media_url: null, media_path: mediaPath,
       media_type: mediaType, metadata
     }).select().single());
   },
   remove: async (postId) => {
-    await requireUser();
-    return throwIfError(await supabase.from("posts").delete().eq("id", postId).select("id").single());
+    const user = await requireUser();
+    const existing = throwIfError(await supabase.from("posts").select("media_path")
+      .eq("id", postId).eq("author_id", user.id).maybeSingle());
+    const deleted = throwIfError(await supabase.from("posts").delete()
+      .eq("id", postId).eq("author_id", user.id).select("id").single());
+    if (existing?.media_path) await storage.remove("murmur-posts", existing.media_path).catch(() => null);
+    return deleted;
   }
 };
 
@@ -229,21 +234,27 @@ export const friendships = {
 };
 
 export const stories = {
-  list: async () => throwIfError(await supabase.from("stories").select("id,author_id,content,media_url,background,created_at,expires_at")
+  list: async () => throwIfError(await supabase.from("stories").select("id,author_id,content,media_path,media_type,background,created_at,expires_at")
     .gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false }).limit(100)),
-  create: async ({ content = "", mediaUrl = null, background = null, expiresAt }) => {
+  create: async ({ content = "", mediaPath = null, mediaType = null, background = null, expiresAt }) => {
     const user = await requireUser();
     const cleanContent = String(content || "").trim();
-    if (!cleanContent && !mediaUrl) throw new Error("Add text or media before publishing your story.");
+    if (!cleanContent && !mediaPath) throw new Error("Add text or media before publishing your story.");
     if (cleanContent.length > 2000) throw new Error("Stories must be 2,000 characters or fewer.");
     return throwIfError(await supabase.from("stories").insert({
-      author_id: user.id, content: cleanContent, media_url: mediaUrl, background,
+      author_id: user.id, content: cleanContent, media_url: null, media_path: mediaPath,
+      media_type: mediaType, background,
       expires_at: expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
     }).select().single());
   },
   remove: async (storyId) => {
-    await requireUser();
-    return throwIfError(await supabase.from("stories").delete().eq("id", storyId).select("id").single());
+    const user = await requireUser();
+    const existing = throwIfError(await supabase.from("stories").select("media_path")
+      .eq("id", storyId).eq("author_id", user.id).maybeSingle());
+    const deleted = throwIfError(await supabase.from("stories").delete()
+      .eq("id", storyId).eq("author_id", user.id).select("id").single());
+    if (existing?.media_path) await storage.remove("murmur-stories", existing.media_path).catch(() => null);
+    return deleted;
   }
 };
 
@@ -300,8 +311,7 @@ export const reels = {
       .range(from, to));
   },
   create: async ({
-    videoUrl,
-    storagePath = null,
+    storagePath,
     title = "",
     caption = "",
     hashtags = [],
@@ -310,7 +320,7 @@ export const reels = {
     durationSeconds = null
   }) => {
     const user = await requireUser();
-    if (!videoUrl) throw new Error("A video URL is required.");
+    if (!storagePath) throw new Error("Upload a video before publishing the reel.");
     if (!["public", "friends", "private"].includes(audience)) {
       throw new Error("Choose a valid reel audience.");
     }
@@ -319,7 +329,7 @@ export const reels = {
       : [];
     return throwIfError(await supabase.from("reels").insert({
       author_id: user.id,
-      video_url: videoUrl,
+      video_url: null,
       storage_path: storagePath,
       title: String(title).trim().slice(0, 120),
       caption: String(caption).trim().slice(0, 2000),
@@ -347,8 +357,13 @@ export const reels = {
     return throwIfError(await supabase.from("reels").update(patch).eq("id", reelId).select().single());
   },
   remove: async (reelId) => {
-    await requireUser();
-    return throwIfError(await supabase.from("reels").delete().eq("id", reelId).select("id").single());
+    const user = await requireUser();
+    const existing = throwIfError(await supabase.from("reels").select("storage_path")
+      .eq("id", reelId).eq("author_id", user.id).maybeSingle());
+    const deleted = throwIfError(await supabase.from("reels").delete()
+      .eq("id", reelId).eq("author_id", user.id).select("id").single());
+    if (existing?.storage_path) await storage.remove("murmur-reels", existing.storage_path).catch(() => null);
+    return deleted;
   }
 };
 
@@ -382,15 +397,28 @@ export const userNotes = {
 export const storage = {
   upload: async (file, { bucket, folder = "uploads" }) => {
     const user = await requireUser();
-    if (!bucket) throw new Error("A configured Supabase Storage bucket is required.");
-    const safeName = String(file.name || "upload").replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = user.id + "/" + folder.replace(/^\/+|\/+$/g, "") + "/" + crypto.randomUUID() + "-" + safeName;
+    const rules = {
+      "murmur-avatars": { max: 5 * 1024 * 1024, types: ["image/jpeg", "image/png", "image/webp", "image/avif"] },
+      "murmur-posts": { max: 20 * 1024 * 1024, types: ["image/jpeg", "image/png", "image/webp", "image/avif", "video/mp4", "video/webm"] },
+      "murmur-stories": { max: 20 * 1024 * 1024, types: ["image/jpeg", "image/png", "image/webp", "image/avif", "video/mp4", "video/webm"] },
+      "murmur-reels": { max: 100 * 1024 * 1024, types: ["video/mp4", "video/webm"] },
+      "murmur-media": { max: 20 * 1024 * 1024, types: ["image/jpeg", "image/png", "image/webp", "image/avif", "video/mp4", "video/webm"] }
+    };
+    const rule = rules[bucket];
+    if (!rule) throw new Error("A configured Murmur Storage bucket is required.");
+    if (!rule.types.includes(file.type)) throw new Error("This file type is not allowed.");
+    if (file.size > rule.max) throw new Error("This file is larger than the allowed limit.");
+    const folders = ["profiles", "posts", "stories", "reels", "uploads"];
+    const safeFolder = folders.includes(folder) ? folder : "uploads";
+    const extensions = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/avif": ".avif", "video/mp4": ".mp4", "video/webm": ".webm" };
+    const path = user.id + "/" + safeFolder + "/" + crypto.randomUUID() + extensions[file.type];
     const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
-      cacheControl: "3600", upsert: false, contentType: file.type || "application/octet-stream"
+      cacheControl: "3600", upsert: false, contentType: file.type
     });
     if (error) throw error;
-    const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(data.path);
-    return { path: data.path, url: publicData.publicUrl, isPublic: true };
+    const isPublic = bucket === "murmur-avatars";
+    const publicUrl = isPublic ? supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl : null;
+    return { path: data.path, bucket, url: publicUrl, isPublic };
   },
   uploadAvatar: async (file) => storage.upload(file, { bucket: "murmur-avatars", folder: "profiles" }),
   uploadMedia: async (file, folder = "posts") => {
@@ -398,8 +426,9 @@ export const storage = {
     return storage.upload(file, { bucket, folder });
   },
   url: async (bucket, path, expiresIn = 3600) => {
-    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-    return data.publicUrl;
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
+    if (error) throw error;
+    return data.signedUrl;
   },
   remove: async (bucket, paths) => {
     await requireUser();
