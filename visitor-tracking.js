@@ -1,94 +1,135 @@
-/* ANONYMOUS VISITOR ANALYTICS
-   Records page opens and internal navigation without requiring an account.
-   Uses a random first-party visitor ID; does not collect IP addresses,
-   names, email addresses, passwords, fingerprints, or full query strings.
-*/
-(function initAnonymousVisitorTracking() {
+/* MURMUR VISITOR TRACKING
+ * One persistent random first-party ID per browser profile.
+ * A device is counted once in the unique-device table; page opens are events.
+ * Storage is best-effort: blocked sessionStorage must never stop a visit request.
+ */
+(function initMurmurVisitorTracking() {
   "use strict";
   const endpoint = "https://pkadftvqslkykehcqedj.supabase.co/rest/v1/rpc/record_murmur_visit";
   const publicKey = "sb_publishable_etoHiUGbJ96MUPzJABL12A_UiTWVxok";
   const storageKey = "murmur_visitor_id_v1";
-  const throttleKey = "murmur_visit_throttle_v1";
+  const throttleKey = "murmur_visit_throttle_v2";
+  let memoryVisitorId = null;
+  let lastMemoryVisit = { path: "", at: 0 };
+
+  function makeId() {
+    try {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+    } catch (_) {}
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0;
+      return (c === "x" ? r : (r & 3 | 8)).toString(16);
+    });
+  }
 
   function getVisitorId() {
     try {
-      let id = localStorage.getItem(storageKey);
-      if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
-        id = (crypto && crypto.randomUUID) ? crypto.randomUUID() :
-          "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
-            const r = Math.random() * 16 | 0;
-            return (c === "x" ? r : (r & 3 | 8)).toString(16);
-          });
-        localStorage.setItem(storageKey, id);
+      const saved = window.localStorage.getItem(storageKey);
+      if (saved && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(saved)) {
+        memoryVisitorId = saved;
+        return saved;
       }
-      return id;
     } catch (_) {
-      return null;
+      // Private browsing / embedded browser may block localStorage.
     }
+    if (!memoryVisitorId) memoryVisitorId = makeId();
+    try { window.localStorage.setItem(storageKey, memoryVisitorId); } catch (_) {}
+    return memoryVisitorId;
   }
 
   function safePath(value) {
-    let path = String(value || "/").split("?")[0].split("#")[0];
-    if (!path.startsWith("/") || path.length > 100 || !/^\/[a-zA-Z0-9/_-]*$/.test(path)) return "/";
-    return path;
+    const path = String(value || "/").split("?")[0].split("#")[0];
+    return path.startsWith("/") && path.length <= 100 && /^\/[a-zA-Z0-9/_-]*$/.test(path) ? path : "/";
+  }
+
+  function wasRecentlyRecorded(path, now) {
+    let previous = lastMemoryVisit;
+    try {
+      const saved = JSON.parse(window.sessionStorage.getItem(throttleKey) || "null");
+      if (saved && typeof saved.path === "string") previous = saved;
+    } catch (_) {
+      // Continue without sessionStorage.
+    }
+    return previous.path === path && now - Number(previous.at || 0) < 15000;
+  }
+
+  function markRecorded(path, now) {
+    lastMemoryVisit = { path, at: now };
+    try { window.sessionStorage.setItem(throttleKey, JSON.stringify(lastMemoryVisit)); } catch (_) {}
   }
 
   async function record(path, force) {
     const visitorId = getVisitorId();
-    if (!visitorId) return;
     const cleanPath = safePath(path);
-    try {
-      const now = Date.now();
-      const previous = JSON.parse(sessionStorage.getItem(throttleKey) || "{}");
-      if (!force && previous.path === cleanPath && now - Number(previous.at || 0) < 15000) return;
-      // Use the Supabase publishable key for both gateway and PostgREST authorization.
-      // Do not mark this page as recorded until Supabase confirms the insert.
-      let lastError = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          const response = await fetch(endpoint, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "apikey": publicKey,
-              "Prefer": "return=minimal"
-            },
-            body: JSON.stringify({ p_visitor_id: visitorId, p_page_path: cleanPath }),
-            keepalive: true
-          });
-          if (!response.ok) {
-            const detail = await response.text().catch(() => "");
-            throw new Error("Visitor tracking failed (" + response.status + "): " + detail.slice(0, 240));
-          }
-          sessionStorage.setItem(throttleKey, JSON.stringify({ path: cleanPath, at: Date.now() }));
-          return;
-        } catch (error) {
-          lastError = error;
-          if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 350 * (attempt + 1)));
+    const now = Date.now();
+    if (!force && wasRecentlyRecorded(cleanPath, now)) return false;
+
+    let lastError = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      let controller;
+      let timeout;
+      try {
+        if (typeof AbortController !== "undefined") {
+          controller = new AbortController();
+          timeout = setTimeout(() => controller.abort(), 9000);
         }
+        const response = await fetch(endpoint, {
+          method: "POST",
+          mode: "cors",
+          credentials: "omit",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": publicKey,
+            "Prefer": "return=minimal"
+          },
+          body: JSON.stringify({ p_visitor_id: visitorId, p_page_path: cleanPath }),
+          keepalive: true,
+          signal: controller ? controller.signal : undefined
+        });
+        if (timeout) clearTimeout(timeout);
+        if (!response.ok) {
+          const detail = await response.text().catch(() => "");
+          throw new Error("Visitor RPC returned " + response.status + (detail ? ": " + detail.slice(0, 180) : ""));
+        }
+        markRecorded(cleanPath, Date.now());
+        window.dispatchEvent(new CustomEvent("murmur:visitor-recorded", { detail: { path: cleanPath } }));
+        return true;
+      } catch (error) {
+        if (timeout) clearTimeout(timeout);
+        lastError = error;
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
       }
-      console.warn("[Murmur visitor tracking]", lastError);
-    } catch (error) {
-      console.warn("[Murmur visitor tracking]", error);
     }
+    console.warn("[Murmur visitor tracking] Visit was not confirmed by Supabase:", lastError);
+    return false;
   }
 
+  window.MurmurVisitorTracking = { record: (path, force) => record(path || window.location.pathname, !!force) };
+
+  // Record the initial page as soon as this script runs.
   record(window.location.pathname, true);
 
+  // App navigation calls this event even when a view is changed programmatically.
+  window.addEventListener("murmur:viewchange", event => {
+    const view = String(event.detail && event.detail.view || "").toLowerCase();
+    if (/^(home|reels|friends|chats|alerts|menu|profile)$/.test(view)) record("/" + view, false);
+  });
+
+  // Also support ordinary same-origin links and legacy navigation buttons.
   document.addEventListener("click", function (event) {
-    const viewButton = event.target.closest && event.target.closest("[data-view]");
+    const target = event.target && (event.target.closest ? event.target : event.target.parentElement);
+    if (!target || !target.closest) return;
+    const viewButton = target.closest("[data-view]");
     if (viewButton) {
       const view = String(viewButton.getAttribute("data-view") || "").toLowerCase();
-      if (/^(home|reels|friends|chats|alerts|menu|profile)$/.test(view)) {
-        record("/" + view, false);
-      }
+      if (/^(home|reels|friends|chats|alerts|menu|profile)$/.test(view)) record("/" + view, false);
       return;
     }
-    const link = event.target.closest && event.target.closest("a[href]");
+    const link = target.closest("a[href]");
     if (!link) return;
     try {
-      const target = new URL(link.href, window.location.href);
-      if (target.origin === window.location.origin) record(target.pathname, false);
+      const destination = new URL(link.href, window.location.href);
+      if (destination.origin === window.location.origin) record(destination.pathname, false);
     } catch (_) {}
   }, true);
 })();
