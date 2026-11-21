@@ -148,9 +148,10 @@ async function renderNotes() {
     const name = profile.display_name || user.user_metadata?.display_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "You";
     const latest = rows[0] || null;
     root.innerHTML = '<button type="button" class="note-avatar-button" data-add-note aria-label="Create a note">' +
+      '<span class="note-action-label">Create note</span>' +
       '<span class="note-avatar-circle">' + (avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="">' : '<span>' + esc(name.slice(0,1).toUpperCase()) + '</span>') +
-      '<i aria-hidden="true">+</i></span><strong>Your note</strong></button>' +
-      (latest ? '<span class="note-preview-bubble" title="' + esc(latest.content) + '">' + esc(latest.content) + '</span>' : '<span class="note-hint">Share a note…</span>');
+      '</span></button>' +
+      (latest ? '<span class="note-saved-preview" title="' + esc(latest.content) + '">' + esc(latest.content) + '</span>' : '');
     root.querySelector("[data-add-note]")?.addEventListener("click", () => {
       const overlay = document.createElement("div");
       overlay.className = "murmur-auth-modal murmur-note-modal";
