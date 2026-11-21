@@ -129,7 +129,7 @@ Last updated: 2026-11-21
 
 ## Anonymous visitor ingress hardening — 2026-11-21
 
-- Applied migration `20261121133300_restrict_visitor_rpc_to_service_role`.
+- Applied migration `20261121133117_restrict_visitor_rpc_to_service_role`.
 - Revoked `EXECUTE` on `public.record_murmur_visit(uuid,text)` from `PUBLIC`, `anon`, and `authenticated`; granted it only to `service_role`.
 - Added the public `murmur-visitor-track` Edge Function with JWT verification disabled intentionally because visits must be recorded before sign-in. It validates the visitor UUID and path, rate-limits the forwarded network address to 200 requests per five-minute window, and invokes the visitor RPC with the server-side service-role key.
 - The database RPC retains the 40-per-visitor five-minute limit and optional network limit. The browser now calls the Edge Function through the shared Supabase client rather than calling a public SECURITY DEFINER RPC.
