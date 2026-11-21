@@ -1088,6 +1088,27 @@ async function openAppPermissions() {
     }).join("");
   }
 
+  function showPermissionNotice(kind) {
+    const copy = {
+      notifications: ["Notifications", "Murmur wants to send notifications about messages, friend requests and important account activity. Your device may show an official permission prompt after you continue."],
+      camera: ["Camera", "Murmur wants to use your camera when you take a profile picture or photo. The camera is only requested for this feature."],
+      microphone: ["Microphone", "Murmur wants to use your microphone for voice messages and supported calls."],
+      geolocation: ["Location", "Murmur wants to access your location when you choose to share it. This permission check does not save or share your coordinates."],
+      files: ["Photos and files", "Murmur wants you to choose the specific photos, videos or documents you want to upload."],
+      contacts: ["Contacts", "Murmur wants you to choose individual contacts to find friends. It does not access your full address book."]
+    }[kind];
+    if (!copy) return Promise.resolve(false);
+    return new Promise(resolve => {
+      const notice = document.createElement("div");
+      notice.className = "murmur-auth-modal murmur-permission-consent";
+      notice.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="murmurPermissionNoticeTitle"><h2 id="murmurPermissionNoticeTitle">Permission needed: ' + safeText(copy[0]) + '</h2><p>' + safeText(copy[1]) + '</p><p class="murmur-permission-note">You can choose Not now. Continue will open the official device or browser permission prompt when supported.</p><div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px"><button type="button" class="btn secondary" data-consent-deny>Not now</button><button type="button" class="btn primary" data-consent-allow>Continue</button></div></section>';
+      document.body.appendChild(notice);
+      const finish = value => { notice.remove(); resolve(value); };
+      notice.querySelector("[data-consent-deny]")?.addEventListener("click", () => finish(false), { once: true });
+      notice.querySelector("[data-consent-allow]")?.addEventListener("click", () => finish(true), { once: true });
+      notice.addEventListener('click', event => { if (event.target === notice) finish(false); });
+    });
+  }
   async function requestDevicePermission(kind) {
     if (!window.isSecureContext) throw new Error("Device permissions require HTTPS. Open Murmur using its secure HTTPS address.");
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera and microphone access are not supported in this browser.");
@@ -1129,6 +1150,11 @@ async function openAppPermissions() {
     button.disabled = true;
     message.textContent = "Waiting for your choice…";
     try {
+      const consentGiven = await showPermissionNotice(kind);
+      if (!consentGiven) {
+        message.textContent = "Permission request cancelled. Murmur has not accessed this feature.";
+        return;
+      }
       if (kind === "notifications") {
         if (!("Notification" in window)) throw new Error("Notifications are not supported by this browser.");
         if (!window.isSecureContext) throw new Error("Notifications require HTTPS.");
