@@ -1,6 +1,6 @@
 /* Supabase-only social features for Murmur. */
 import { supabase } from "./supabase-client.js";
-import { friendships, stories, reels, userNotes, conversations, messages, comments } from "./supabase-data.js";
+import { friendships, stories, reels, userNotes, conversations, messages, storage } from "./supabase-data.js";
 
 const el = id => document.getElementById(id);
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
@@ -58,7 +58,12 @@ async function renderStories() {
   if (!root) return;
   try {
     const rows = await stories.list();
-    root.innerHTML = '<div class="story-heading">Stories</div>' + (rows.length ? rows.map(s => '<article class="story-card"><strong>' + esc(s.content || "Story") + '</strong><small>' + esc(new Date(s.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No active stories.</p>');
+    root.innerHTML = '<div class="story-heading"><strong>Stories</strong> <button type="button" class="btn secondary" data-add-story>Share a story</button></div>' + (rows.length ? rows.map(s => '<article class="story-card"><strong>' + esc(s.content || "Story") + '</strong><small>' + esc(new Date(s.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No active stories.</p>');
+    root.querySelector("[data-add-story]")?.addEventListener("click", async () => {
+      const content = prompt("Write your story (up to 2,000 characters):");
+      if (!content?.trim()) return;
+      try { await stories.create({ content }); await renderStories(); } catch (error) { alert(error.message); }
+    });
   } catch (error) { fail(root, error); }
 }
 
@@ -76,7 +81,12 @@ async function renderNotes() {
   if (!root) return;
   try {
     const rows = await userNotes.listMine();
-    root.innerHTML = rows.map(n => '<article class="note-card">' + esc(n.content) + '</article>').join("") || '<p class="empty-state">You have no active notes.</p>';
+    root.innerHTML = '<div class="note-heading"><strong>Your notes</strong> <button type="button" class="btn secondary" data-add-note>New note</button></div>' + (rows.map(n => '<article class="note-card">' + esc(n.content) + '</article>').join("") || '<p class="empty-state">You have no active notes.</p>');
+    root.querySelector("[data-add-note]")?.addEventListener("click", async () => {
+      const content = prompt("Write a note (up to 500 characters):");
+      if (!content?.trim()) return;
+      try { await userNotes.create({ content }); await renderNotes(); } catch (error) { alert(error.message); }
+    });
   } catch (error) { fail(root, error); }
 }
 
@@ -131,12 +141,22 @@ export function initSupabaseSocial() {
   el("friendSearch")?.addEventListener("keydown", event => { if (event.key === "Enter") searchPeople(); });
   el("sendBtn")?.addEventListener("click", sendChatMessage);
   el("messageInput")?.addEventListener("keydown", event => { if (event.key === "Enter") sendChatMessage(); });
-  el("noteRow")?.addEventListener("dblclick", async () => {
-    const content = prompt("Write a note (up to 500 characters):");
-    if (!content?.trim()) return;
-    try { await userNotes.create({ content }); await renderNotes(); } catch (error) { alert(error.message); }
+  el("reelCreateBtn")?.addEventListener("click", () => {
+    const picker = document.createElement("input");
+    picker.type = "file"; picker.accept = "video/mp4,video/webm"; picker.hidden = true;
+    document.body.appendChild(picker);
+    picker.addEventListener("change", async () => {
+      const file = picker.files?.[0]; picker.remove();
+      if (!file) return;
+      if (file.size > 100 * 1024 * 1024) return alert("Choose a video under 100 MB.");
+      try {
+        const uploaded = await storage.uploadMedia(file, "reels");
+        await reels.create({ videoUrl: uploaded.url, storagePath: uploaded.path, title: file.name });
+        await renderReels();
+      } catch (error) { alert(error.message); }
+    }, { once: true });
+    picker.click();
   });
-  el("reelCreateBtn")?.addEventListener("click", () => alert("Reel publishing will be enabled after the Supabase video upload flow is configured."));
   el("frSearchIcon")?.addEventListener("click", () => { el("findBlock") && (el("findBlock").hidden = false); el("friendSearch")?.focus(); });
   window.addEventListener("murmur:supabase-user-ready", async () => {
     await Promise.all([renderFriends(), renderStories(), renderReels(), renderNotes(), renderAlerts(), renderChats()]);
