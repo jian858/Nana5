@@ -139,9 +139,9 @@ Last updated: 2026-11-21
 
 ## Error-log identity column cleanup — 2026-11-21
 
-- Applied migration `2026112113XXXX_rename_error_log_firebase_uid_to_actor_key` (exact applied version is recorded in Supabase migration history).
+- Applied migration `20261121133303_rename_error_log_firebase_uid_to_actor_key` (exact applied version is recorded in Supabase migration history).
 - Renamed `public.murmur_error_logs.firebase_uid` to `actor_key` and renamed its supporting index. All 115 existing error records were preserved.
-- Updated the error-log Edge Function and admin API to use `actor_key`; new authenticated records identify users as `supabase:<uuid>`. Historical values remain unchanged and are treated as archived actor references, not active Firebase authentication.
+- Updated the error-log Edge Function and admin API to use `actor_key`; new authenticated records identify users as `supabase:<uuid>`. The 103 historical unprefixed actor identifiers were anonymized to `legacy:anonymous`; the 12 current `supabase:<uuid>` actor keys remain intact. All 115 error records were preserved.
 
 
 ## Supabase-only admin and visitor dashboard — 2026-11-21
@@ -153,3 +153,14 @@ Last updated: 2026-11-21
 - Updated the separate `jian858/Admin` workspace to show the Supabase UUID and Murmur public ID, remove the obsolete Firebase identity view and Firebase password-reset tools, display `actor_key` in error logs, and use the Supabase visitor analytics response.
 - Removed the client-side hardcoded admin email check. The server-side Supabase Auth allowlist remains the actual authorization boundary.
 - Password resets are handled by Supabase Auth's native recovery flow; the retired Firebase bulk/single reset controls are no longer shown.
+
+
+## Final Firebase identity removal — 2026-11-21
+
+- Applied migration `20261121133952_remove_firebase_identity_artifacts`.
+- Removed the Firebase-only identity RPCs and empty admin identity tables.
+- Renamed the two-row private Firebase link table to `private.murmur_legacy_account_archive`, removed the Firebase UID column, and retained its two archived Supabase-ID references plus profile metadata for historical recovery. These IDs do not correspond to active Supabase Auth users.
+- Removed the Firebase UID column from `private.murmur_device_accounts` and changed its primary key to `(visitor_id, supabase_id)`; all three device-account association rows remain.
+- Applied migration `20261121134128_anonymize_legacy_error_log_actors`; historical error records remain, but 103 unprefixed legacy actor identifiers were replaced with `legacy:anonymous`. Twelve current `supabase:<uuid>` actor identifiers were preserved.
+- Verified no Firebase-named tables or columns and no Firebase-referencing database functions remain in the `public` and `private` schemas.
+- Updated the separate Admin app's error page to read `actor_key`, use Supabase/database terminology, and refreshed its script versions. Fixed malformed Announcements tab markup.
