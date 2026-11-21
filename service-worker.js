@@ -1,4 +1,4 @@
-const CACHE_NAME = "murmur-shell-v14";
+const CACHE_NAME = "murmur-shell-v15";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
@@ -9,6 +9,7 @@ const APP_SHELL = [
   "/account-restrictions.js?v=20261102-1",
   "/app.js?v=20261121-3",
   "/pwa.js?v=20261102-2",
+  "/data-mode.js?v=20261121-1",
   "/manifest.json?v=20261102-2",
   "/murmur-icon.svg",
   OFFLINE_URL
