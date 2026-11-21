@@ -1,0 +1,7 @@
+ALTER TABLE private.murmur_legacy_account_archive
+  DROP CONSTRAINT firebase_user_links_supabase_id_key;
+DROP INDEX private.firebase_user_links_email_lower_idx;
+ALTER INDEX private.firebase_user_links_username_lower_uidx
+  RENAME TO murmur_legacy_account_archive_username_lower_uidx;
+ALTER TABLE private.murmur_legacy_account_archive
+  ADD CONSTRAINT murmur_legacy_account_archive_pkey PRIMARY KEY (legacy_supabase_id);
