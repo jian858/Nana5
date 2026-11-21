@@ -1,8 +1,8 @@
 /* Murmur offline app shell.
- * Keep this list in sync with index.html and app-loader.js.
+ * Keep this list in sync with index.html and the Supabase app entry points.
  * Cache version must change whenever this file's shell contents change.
  */
-const CACHE_NAME = "murmur-shell-v17";
+const CACHE_NAME = "murmur-shell-v18";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
@@ -15,36 +15,13 @@ const APP_SHELL = [
   "/performance.css?v=20261121-2",
   "/legal-auth.css?v=20261121-2",
   "/support.css?v=20261121-1",
-  "/config.js?v=20261102-1",
-  "/firebase.js?v=20261118-2",
-  "/account-restrictions.js?v=20261102-1",
-  "/data-mode.js?v=20261121-1",
   "/visitor-tracking.js?v=20261121-2",
-  "/app-loader.js?v=20261121-22",
-  "/app.js?v=20261121-22",
-  "/home-feed.js?v=20261121-22",
-  "/friends.js?v=20261121-22",
-  "/chat.js?v=20261121-22",
-  "/alerts.js?v=20261121-22",
-  "/presence.js?v=20261121-22",
-  "/navigation.js?v=20261121-22",
-  "/registration.js?v=20261121-22",
-  "/login.js?v=20261121-22",
-  "/password-reset.js?v=20261121-22",
-  "/legal.js?v=20261121-22",
-  "/stories.js?v=20261121-22",
-  "/comments.js?v=20261121-22",
-  "/post-composer.js?v=20261121-22",
-  "/notes.js?v=20261121-22",
-  "/session.js?v=20261121-22",
-  "/reels.js?v=20261121-22",
-  "/menu.js?v=20261121-22",
-  "/profile.js?v=20261121-22",
-  "/messaging.js?v=20261121-22",
-  "/account-recovery.js?v=20261121-22",
-  "/blocking.js?v=20261121-22",
-  "/security.js?v=20261121-22",
-  "/pwa.js?v=20261102-2",
+  "/supabase-client.js?v=20261121-24",
+  "/supabase-runtime.js?v=20261121-1",
+  "/supabase-data.js",
+  "/supabase-app.js?v=20261121-1",
+  "/supabase-social.js",
+  "/pwa.js?v=20261121-1",
   "/manifest.json?v=20261102-2",
   "/murmur-icon.svg",
   "/offline.html"
