@@ -721,6 +721,7 @@ function openForgotPasswordPage() {
         let payload = null;
         try { payload = await error.context?.json?.(); } catch (_) {}
         if (payload?.message) {
+          searchState.hidden = true;
           status.textContent = payload.message;
           if (payload.status === "rate_limited") button.dataset.cooldown = "300";
           button.textContent = "Try again";
