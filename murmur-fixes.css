@@ -772,3 +772,6 @@ input,select,textarea{max-width:100%}
 .post-head[data-open-profile]{cursor:pointer}
 .post-head[data-open-profile]:focus-visible{outline:2px solid var(--accent,#14c8a0);outline-offset:3px}
 @media(max-width:420px){.murmur-profile-view>section{padding:0 0 14px}.murmur-profile-view-content{padding-left:14px;padding-right:14px}.murmur-profile-cover{margin-left:-14px;margin-right:-14px}.murmur-profile-edit{width:100%;margin-top:4px}.murmur-profile-summary{gap:8px}}
+
+.people-profile-name{display:block;padding:0;border:0;background:transparent;color:var(--ink);font:inherit;font-weight:750;text-align:left;cursor:pointer}
+.people-profile-name:hover{text-decoration:underline}
