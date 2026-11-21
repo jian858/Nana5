@@ -2475,6 +2475,30 @@ function watchNote(uid) {
     renderNoteRow(); renderProfileNote(); if (activeChatUid === uid) renderConversation();
   }, () => {});
 }
+function stopNoteListeners() {
+  Object.values(noteSubs).forEach(unsubscribe => {
+    if (typeof unsubscribe === 'function') unsubscribe();
+  });
+  noteSubs = {};
+  noteData = {};
+}
+function pruneNotes() {
+  let changed = false;
+  Object.entries(noteData).forEach(([uid, note]) => {
+    if (!note || isNoteActive(note)) return;
+    noteData[uid] = null;
+    changed = true;
+    // Only the owner may clean the expired database record.
+    if (uid === meUid()) remove(ref(db, 'notes/' + uid)).catch(() => {});
+  });
+  if (changed) {
+    renderNoteRow();
+    renderProfileNote();
+    if (activeChatUid) renderConversation();
+  }
+}
+setInterval(pruneNotes, 60000);
+
 function renderNoteRow() {
   const row = document.getElementById('noteRow'), me = meUid();
   if (!row) return;
@@ -2528,7 +2552,9 @@ function startSession(user) {
 }
 function endSession() {
   hideAppSkeleton();
-  stopPostsListener(); stopFriendsListener(); stopExtras(); stopReelsListener(); accountCreatedAt = 0;
+  stopPostsListener(); stopFriendsListener(); stopExtras(); stopReelsListener();
+  stopNoteListeners();
+  accountCreatedAt = 0;
 }
 
 /* =====================================================================
@@ -3429,17 +3455,24 @@ function slideOutChat(done) {
   setTimeout(() => { c.classList.remove('closing'); done(); }, CONFIG.chatAnimMs * 0.85);
 }
 document.getElementById('chatBack').addEventListener('click', () => slideOutChat(() => { if (location.hash === '#chat') history.back(); else closeChat(); }));
+function openProfileFromChat(uid) {
+  if (!uid) return;
+  // Leave the mobile conversation pane before opening the profile. This keeps
+  // the profile from appearing to be trapped behind the active chat view.
+  closeChat();
+  openProfile(uid);
+}
 document.getElementById('chatProfileBtn').addEventListener('click', event => {
   event.preventDefault();
   event.stopPropagation();
   const uid = event.currentTarget.dataset.profileUid || activeChatUid;
   if (!uid) { showToast('Open a conversation first to view this profile.'); return; }
-  openProfile(uid);
+  openProfileFromChat(uid);
 });
 ['chatAvatar', 'chatName'].forEach(id => {
   const node = document.getElementById(id);
   node.style.cursor = 'pointer';
-  node.addEventListener('click', () => { if (activeChatUid) openProfile(activeChatUid); });
+  node.addEventListener('click', () => { if (activeChatUid) openProfileFromChat(activeChatUid); });
 });
 
 let annList = [], notes = [], suspendedInfo = null, myAppeal = null, extraSubs = [], presenceTimer = null, suspendedCountdownTimer = null;
