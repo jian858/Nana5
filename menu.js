@@ -240,7 +240,7 @@ function openPerformanceDiagnostics() {
     }
     const started = performance.now();
     try {
-      await murmurPostsRequest('list');
+      await murmurPostsRequest('ping');
       const latency = Math.max(1, Math.round(performance.now() - started));
       const downlink = Number(connection?.downlink) || 0;
       let score = Math.round(100 * Math.exp(-Math.max(0, latency - 35) / 430));
