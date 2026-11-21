@@ -89,3 +89,8 @@ The live `index.html` loads the Supabase modules, but Firebase-era source and hi
 - The Supabase advisor still flags the visitor RPC because it intentionally remains a public SECURITY DEFINER endpoint for anonymous visitor counting. Its privileged behavior is narrowly scoped, uses an empty search_path and schema-qualified private tables, and is rate-limited. Reassess before launch if anonymous visitor tracking is no longer needed.
 - The advisor also continues to report RLS-enabled tables without policies. These are intentionally private/service-only tables or need further per-feature review; do not add broad client policies to clear informational findings.
 - Leaked-password protection remains a dashboard setting and still needs to be enabled in Supabase Auth.
+
+
+### RLS-without-policy classification
+
+A follow-up privilege audit of every RLS-enabled table currently reported without a policy found that none grants direct `SELECT` or `INSERT` to `anon` or `authenticated`. The set includes private migration/device tables and public admin/system tables, plus `public.murmur_posts`. These are currently inaccessible through direct browser table access. Do not add user-facing policies unless a reviewed feature explicitly needs direct access; use the intended server-side/service-role or narrowly scoped RPC path. The `murmur_posts` table needs a separate legacy-use check before it is retired or exposed.
