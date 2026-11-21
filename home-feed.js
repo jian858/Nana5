@@ -21,6 +21,20 @@ function postMediaHtml(p) {
   return h;
 }
 let savedPostIds = {};
+function mergeRemotePosts() {
+  const byId = new Map();
+  [...legacyPosts, ...supabasePosts].forEach(post => byId.set(String(post.id), post));
+  remotePosts = [...byId.values()].sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+  renderPosts();
+}
+async function loadSupabasePosts() {
+  const result = await murmurPostsRequest('list');
+  supabasePosts = Array.isArray(result.posts) ? result.posts : [];
+  feedLoading = false;
+  hideAppSkeleton();
+  mergeRemotePosts();
+  return supabasePosts;
+}
 function renderPosts() {
   const postsEl = document.getElementById('posts');
   postsEl.innerHTML = '';
