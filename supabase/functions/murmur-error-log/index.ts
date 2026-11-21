@@ -60,13 +60,13 @@ Deno.serve(async (req: Request) => {
       const message = clean(body.message, 500) || "Unknown app error";
       const fingerprint = clean(body.fingerprint, 120) || message.toLowerCase().slice(0, 120);
       const { data: duplicates, error: duplicateError } = await db.from("murmur_error_logs")
-        .select("id").eq("firebase_uid", actorKey).eq("fingerprint", fingerprint)
+        .select("id").eq("actor_key", actorKey).eq("fingerprint", fingerprint)
         .gte("created_at", new Date(Date.now() - 60_000).toISOString()).limit(1);
       if (duplicateError) throw duplicateError;
       if (duplicates?.length) return reply(200, { ok: true, duplicate: true });
 
       const { error } = await db.from("murmur_error_logs").insert({
-        firebase_uid: actorKey,
+        actor_key: actorKey,
         kind,
         message,
         fingerprint,
