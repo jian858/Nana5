@@ -44,3 +44,22 @@ Last updated: 2026-11-21
 - Do not delete the existing Supabase test account.
 - Do not place a service-role key in any frontend or Admin file.
 - Do not deploy this migration as complete until the remaining feature screens and RLS tests pass.
+
+
+## Chatly standards enforcement pass — 2026-11-21
+
+- Added `MURMUR_ENGINEERING_RULES.md` to make both Chatly reference documents mandatory for every Murmur code and database change.
+- Added `.github/pull_request_template.md` with the security, RLS, migration, Realtime, performance, testing and release checklist.
+- Added `.github/workflows/murmur-supabase-guard.yml` to reject Firebase references in the live entrypoint and active Supabase modules, and reject server-only secret patterns in browser modules.
+- The guard is a static architecture check. It does not replace browser tests, two-user RLS tests, Supabase advisors or dashboard configuration checks.
+
+## Verified Supabase security findings — 2026-11-21
+
+A live security-advisor check found the following items. They are not silently treated as fixed:
+
+- RLS is disabled on `private.murmur_visitor_events` and `private.murmur_visitor_devices`. The advisor explicitly warns not to enable RLS without first defining the intended access policies. These tables need a deliberate access-model review before remediation.
+- The advisor reports 10 RLS-enabled tables with no direct policies, including private/admin tables. Confirm each is intentionally inaccessible to browser roles or add narrowly scoped policies where client access is required.
+- `public.record_murmur_visit(p_visitor_id uuid, p_page_path text)` is a SECURITY DEFINER RPC executable by anon and authenticated. Review its input validation, rate limiting and write scope; preserve public visitor tracking only if its constrained behavior is intentional.
+- Leaked-password protection is disabled in Supabase Auth and must be enabled in the project settings.
+
+The live `index.html` loads the Supabase modules, but Firebase-era source and historical database artifacts remain in the repository/database. They are not proof of a fully completed Firebase removal. Do not reconnect legacy Firebase scripts. Audit and retire old source files and Firebase-named database objects through reviewed migrations, preserving required visitor/account data and never editing an already-applied migration.
