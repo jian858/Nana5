@@ -5,6 +5,8 @@ import { friendships, stories, reels, userNotes, conversations, messages, storag
 const el = id => document.getElementById(id);
 let socialChannel = null;
 let messageChannel = null;
+let presenceChannel = null;
+let onlineUserIds = new Set();
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fail = (container, error) => { if (container) container.innerHTML = '<p class="empty-state">' + esc(error.message || "Could not load this section.") + '</p>'; };
 const avatarMarkup = (person, label = "View profile") => {
@@ -340,62 +342,70 @@ async function getConversationPeople(conversationIds, currentUserId) {
 async function renderChats() {
   const root = el("chatList");
   if (!root) return;
-  root.innerHTML = '<p class="empty-state">Loading conversations…</p>';
+  root.innerHTML = '<p class="empty-state">Loading friends and conversations…</p>';
   try {
-    const [{ data: authData, error: authError }, rows] = await Promise.all([
-      supabase.auth.getUser(),
-      conversations.list()
+    const [{ data: authData, error: authError }, rows, friendRows] = await Promise.all([
+      supabase.auth.getUser(), conversations.list(), friendships.people("accepted")
     ]);
     if (authError) throw authError;
     const currentUserId = authData.user?.id;
     if (!currentUserId) throw new Error("Sign in again to view your chats.");
-    if (!rows.length) {
-      root.innerHTML = "";
-      return;
-    }
-
     const ids = rows.map(row => row.id);
     const [peopleByConversation, latestResult] = await Promise.all([
       getConversationPeople(ids, currentUserId),
-      supabase.from("messages")
-        .select("conversation_id,content,created_at,sender_id")
-        .in("conversation_id", ids)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .limit(100)
+      ids.length ? supabase.from("messages").select("conversation_id,content,created_at,sender_id")
+        .in("conversation_id", ids).is("deleted_at", null).order("created_at", { ascending: false }).limit(100)
+        : Promise.resolve({ data: [], error: null })
     ]);
     if (latestResult.error) throw latestResult.error;
     const latestByConversation = new Map();
-    for (const message of latestResult.data || []) {
-      if (!latestByConversation.has(message.conversation_id)) {
-        latestByConversation.set(message.conversation_id, message);
-      }
+    for (const message of latestResult.data || []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
+    const conversationByPerson = new Map();
+    for (const conversation of rows) {
+      const person = peopleByConversation.get(conversation.id);
+      if (person?.id) conversationByPerson.set(person.id, conversation);
     }
-
-    root.innerHTML = rows.map(conversation => {
+    const friendIds = new Set();
+    const friendItems = (friendRows || []).map(row => row.person).filter(person => {
+      if (!person?.id || person.id === currentUserId || friendIds.has(person.id)) return false;
+      friendIds.add(person.id); return true;
+    }).map(person => {
+      const conversation = conversationByPerson.get(person.id);
+      const last = conversation ? latestByConversation.get(conversation.id) : null;
+      const preview = last ? (last.sender_id === currentUserId ? "You: " : "") + (last.content || "Attachment") : "Start a conversation";
+      const online = onlineUserIds.has(person.id);
+      return '<button class="chat-list-item murmur-friend-chat' + (conversation && activeConversationId === conversation.id ? ' active' : '') + '" type="button" ' +
+        (conversation ? 'data-conversation="' + esc(conversation.id) + '"' : 'data-chat-user="' + esc(person.id) + '"') +
+        ' aria-label="Message ' + esc(person.display_name || person.username || "friend") + '">' +
+        avatarMarkup(person, "Friend profile picture") +
+        '<span class="chat-list-copy"><strong>' + esc(person.display_name || (person.username ? "@" + person.username : "Friend")) + '</strong><small>' + esc(preview) + '</small></span>' +
+        '<span class="murmur-presence ' + (online ? 'is-online' : 'is-offline') + '"><i></i>' + (online ? 'Online' : 'Offline') + '</span></button>';
+    });
+    const otherItems = rows.filter(conversation => {
+      const person = peopleByConversation.get(conversation.id);
+      return !person?.id || !friendIds.has(person.id);
+    }).map(conversation => {
       const person = peopleByConversation.get(conversation.id) || {};
       const name = person.display_name || (person.username ? "@" + person.username : "Murmur user");
       const last = latestByConversation.get(conversation.id);
-      const preview = last ? (last.sender_id === currentUserId ? "You: " : "") + last.content : "Start a conversation";
-      const selected = activeConversationId === conversation.id ? " active" : "";
-      return '<button class="chat-list-item' + selected + '" type="button" data-conversation="' + esc(conversation.id) + '" aria-label="Open chat with ' + esc(name) + '">' +
-        '<span class="avatar">' + esc(String(name).slice(0,1).toUpperCase()) + '</span>' +
-        '<span class="chat-list-copy"><strong>' + esc(name) + '</strong><small>' + esc(preview || "Attachment") + '</small></span>' +
-        '<span class="chat-list-time">' + esc(new Date(conversation.created_at).toLocaleDateString()) + '</span></button>';
-    }).join("");
-
-    root.querySelectorAll("[data-conversation]").forEach(button => {
-      button.addEventListener("click", () => openConversation(button.dataset.conversation));
+      const preview = last ? (last.sender_id === currentUserId ? "You: " : "") + (last.content || "Attachment") : "Start a conversation";
+      const online = person.id && onlineUserIds.has(person.id);
+      return '<button class="chat-list-item' + (activeConversationId === conversation.id ? ' active' : '') + '" type="button" data-conversation="' + esc(conversation.id) + '" aria-label="Open chat with ' + esc(name) + '">' +
+        avatarMarkup(person, "Profile picture") + '<span class="chat-list-copy"><strong>' + esc(name) + '</strong><small>' + esc(preview) + '</small></span>' +
+        '<span class="murmur-presence ' + (online ? 'is-online' : 'is-offline') + '"><i></i>' + (online ? 'Online' : 'Offline') + '</span></button>';
     });
-
+    root.innerHTML = friendItems.concat(otherItems).join("") || '<p class="empty-state">Add friends to see them here and start a chat.</p>';
+    root.querySelectorAll("[data-conversation]").forEach(button => button.addEventListener("click", () => openConversation(button.dataset.conversation)));
+    root.querySelectorAll("[data-chat-user]").forEach(button => button.addEventListener("click", async () => {
+      button.disabled = true;
+      try { await openDirectChat(button.dataset.chatUser); }
+      catch (error) { alert(error.message || "Could not open this chat."); }
+      finally { button.disabled = false; }
+    }));
   } catch (error) {
     fail(root, error);
-    const retry = document.createElement("button");
-    retry.type = "button";
-    retry.className = "btn secondary";
-    retry.textContent = "Try again";
-    retry.addEventListener("click", renderChats, { once: true });
-    root.appendChild(retry);
+    const retry = document.createElement("button"); retry.type = "button"; retry.className = "btn secondary"; retry.textContent = "Try again";
+    retry.addEventListener("click", renderChats, { once: true }); root.appendChild(retry);
   }
 }
 
@@ -548,6 +558,20 @@ export function initSupabaseSocial() {
   });
   el("frSearchIcon")?.addEventListener("click", () => { document.querySelector('.fb-nav [data-view="friends"]')?.click(); document.querySelector('.fr-pill[data-frtab="suggest"]')?.click(); if (el("findBlock")) el("findBlock").hidden = false; if (el("peopleBlock")) el("peopleBlock").hidden = false; el("friendSearch")?.focus({ preventScroll: true }); });
   window.addEventListener("murmur:supabase-user-ready", async () => {
+    const { data: presenceAuth } = await supabase.auth.getUser();
+    const presenceUserId = presenceAuth.user?.id;
+    if (presenceChannel) supabase.removeChannel(presenceChannel);
+    onlineUserIds = new Set();
+    if (presenceUserId) {
+      presenceChannel = supabase.channel("murmur-presence", { config: { presence: { key: presenceUserId } } })
+        .on("presence", { event: "sync" }, () => {
+          onlineUserIds = new Set(Object.keys(presenceChannel?.presenceState?.() || {}));
+          renderChats();
+        })
+        .subscribe(async status => {
+          if (status === "SUBSCRIBED") await presenceChannel.track({ user_id: presenceUserId, online_at: new Date().toISOString() });
+        });
+    }
     if (socialChannel) supabase.removeChannel(socialChannel);
     socialChannel = supabase.channel("murmur-social-updates")
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, renderAlerts)
@@ -561,7 +585,8 @@ export function initSupabaseSocial() {
   window.addEventListener("murmur:supabase-signed-out", () => {
     if (socialChannel) supabase.removeChannel(socialChannel);
     if (messageChannel) supabase.removeChannel(messageChannel);
-    socialChannel = null; messageChannel = null;
+    if (presenceChannel) supabase.removeChannel(presenceChannel);
+    socialChannel = null; messageChannel = null; presenceChannel = null; onlineUserIds = new Set();
   });
   window.addEventListener("murmur:view-changed", event => {
     const view = event.detail?.view;
