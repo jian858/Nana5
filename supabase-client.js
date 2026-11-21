@@ -42,3 +42,102 @@ export function getPublicConfig() {
 
 // Expose the same configured client to the legacy classic-script modules.
 window.murmurSupabase = supabase;
+
+
+/* First-party Murmur account API. All credentials and sessions belong to Supabase Auth. */
+async function murmurSupabaseSignUp({ email, password, profile = {} }) {
+  const { data, error } = await supabase.auth.signUp({
+    email: String(email || "").trim().toLowerCase(),
+    password,
+    options: {
+      data: {
+        full_name: String(profile.name || profile.display_name || "").trim(),
+        username: String(profile.username || "").replace(/^@/, "").trim().toLowerCase(),
+        avatar_url: profile.photo || profile.avatar_url || ""
+      },
+      emailRedirectTo: window.location.origin + "/"
+    }
+  });
+  if (error) throw error;
+  if (data.user && data.session) {
+    const saved = await murmurSupabaseSaveProfile(data.user, profile);
+    if (saved.error) throw saved.error;
+  }
+  return data;
+}
+
+async function murmurSupabaseSignIn(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: String(email || "").trim().toLowerCase(), password
+  });
+  if (error) throw error;
+  return data;
+}
+
+async function murmurSupabaseGoogleSignIn() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.origin + "/", queryParams: { prompt: "select_account" } }
+  });
+  if (error) throw error;
+  return data;
+}
+
+async function murmurSupabaseSaveProfile(user, profile = {}) {
+  if (!user?.id) throw new Error("A signed-in Murmur account is required.");
+  const interests = Array.isArray(profile.interests) ? profile.interests : [];
+  const username = String(profile.username || "").replace(/^@/, "").trim().toLowerCase();
+  const payload = {
+    id: user.id,
+    display_name: String(profile.name || profile.display_name || user.user_metadata?.full_name || "").trim(),
+    bio: String(profile.bio || "").slice(0, 240),
+    school: String(profile.school || "").slice(0, 100),
+    location: String(profile.location || "").slice(0, 100),
+    work: String(profile.work || "").slice(0, 100),
+    hometown: String(profile.hometown || "").slice(0, 100),
+    phone: String(profile.phone || "").slice(0, 30),
+    birthday: profile.birthday || null,
+    gender: String(profile.gender || "").slice(0, 40),
+    role: String(profile.role || "").slice(0, 80),
+    interests,
+    avatar_url: profile.photo || profile.avatar_url || null,
+    cover_url: profile.cover || profile.cover_url || null,
+    updated_at: new Date().toISOString()
+  };
+  if (username) payload.username = username;
+  const { data, error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" }).select().single();
+  return { data, error };
+}
+
+async function murmurSupabaseGetProfile(userId) {
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function murmurSupabaseResetPassword(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(
+    String(email || "").trim().toLowerCase(),
+    { redirectTo: window.location.origin + "/?password-reset=1" }
+  );
+  if (error) throw error;
+}
+
+async function murmurSupabaseUpdatePassword(password) {
+  const { data, error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+  return data;
+}
+
+window.MurmurSupabaseAuth = Object.freeze({
+  client: supabase,
+  signUp: murmurSupabaseSignUp,
+  signIn: murmurSupabaseSignIn,
+  signInWithGoogle: murmurSupabaseGoogleSignIn,
+  saveProfile: murmurSupabaseSaveProfile,
+  getProfile: murmurSupabaseGetProfile,
+  resetPassword: murmurSupabaseResetPassword,
+  updatePassword: murmurSupabaseUpdatePassword,
+  signOut: () => supabase.auth.signOut(),
+  onAuthStateChange: callback => supabase.auth.onAuthStateChange(callback)
+});
