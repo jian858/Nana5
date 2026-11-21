@@ -7,6 +7,14 @@ let socialChannel = null;
 let messageChannel = null;
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fail = (container, error) => { if (container) container.innerHTML = '<p class="empty-state">' + esc(error.message || "Could not load this section.") + '</p>'; };
+const avatarMarkup = (person, label = "View profile") => {
+  const name = person?.display_name || person?.username || "Murmur user";
+  const initial = esc(name.slice(0, 1).toUpperCase());
+  const image = person?.avatar_url
+    ? '<img src="' + esc(person.avatar_url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove();this.parentElement.textContent=\'' + initial + '\'">'
+    : initial;
+  return '<span class="avatar" role="img" aria-label="' + esc(label) + '" style="display:inline-flex;align-items:center;justify-content:center;overflow:hidden;border-radius:50%;flex:0 0 auto">' + image + '</span>';
+};
 
 async function renderFriends() {
   const list = el("friendsList");
@@ -16,7 +24,7 @@ async function renderFriends() {
     const rows = await friendships.people("accepted");
     if (list) list.innerHTML = rows.length ? rows.map(row => {
       const p = row.person || {};
-      return '<article class="friend-row"><span class="avatar">' + esc((p.display_name || "?").slice(0,1).toUpperCase()) + '</span><div><strong>' + esc(p.display_name || "Murmur user") + '</strong><small>@' + esc(p.username || "") + '</small></div><button class="btn secondary" type="button" data-chat-user="' + esc(p.id) + '">Message</button></article>';
+      return '<article class="friend-row">' + avatarMarkup(p, "Friend profile picture") + '<div><strong>' + esc(p.display_name || "Murmur user") + '</strong><small>@' + esc(p.username || "") + '</small></div><button class="btn secondary" type="button" data-chat-user="' + esc(p.id) + '">Message</button></article>';
     }).join("") : '<p class="empty-state">Your friends will appear here.</p>';
     list?.querySelectorAll("[data-chat-user]").forEach(button => button.addEventListener("click", async () => {
       button.disabled = true;
@@ -38,7 +46,7 @@ async function renderFriends() {
     if (reqList) reqList.innerHTML = incoming.map(row => {
       const person = requesterById.get(row.requester_id) || {};
       const name = person.display_name || (person.username ? "@" + person.username : "Someone");
-      return '<div class="friend-row"><span class="avatar">' + esc(String(name).slice(0,1).toUpperCase()) + '</span><div><strong>' + esc(name) + '</strong><small>Friend request</small></div><button class="btn primary" data-accept="' + esc(row.requester_id) + '">Accept</button></div>';
+      return '<div class="friend-row">' + avatarMarkup(person, "Friend request profile picture") + '<div><strong>' + esc(name) + '</strong><small>Friend request</small></div><button class="btn primary" data-accept="' + esc(row.requester_id) + '">Accept</button></div>';
     }).join("");
     reqList?.querySelectorAll("[data-accept]").forEach(button => button.addEventListener("click", async () => {
       try { await friendships.setStatus(button.dataset.accept, "accepted"); await renderFriends(); }
@@ -103,7 +111,7 @@ async function searchPeople() {
     const currentUserId = sessionData?.session?.user?.id;
     const matches = (data || []).filter(person => person.id !== currentUserId);
     target.innerHTML = matches.map(person =>
-      '<div class="friend-row"><button class="avatar" type="button" data-open-profile="' + esc(person.id) + '" aria-label="View profile">' + esc((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</button><div><button class="people-profile-name" type="button" data-open-profile="' + esc(person.id) + '">' + esc(person.display_name || "Murmur user") + '</button><small>@' + esc(person.username || "") + '</small></div><div class="friend-actions"><button class="btn secondary" type="button" data-chat-user="' + esc(person.id) + '">Message</button><button class="btn secondary" type="button" data-request="' + esc(person.id) + '">Add friend</button></div></div>'
+      '<div class="friend-row"><button class="avatar" type="button" data-open-profile="' + esc(person.id) + '" aria-label="View profile" style="padding:0;overflow:hidden;border-radius:50%;flex:0 0 auto">' + (person.avatar_url ? '<img src="' + esc(person.avatar_url) + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.remove();this.parentElement.textContent=\'' + esc((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '\'">' : esc((person.display_name || person.username || "?").slice(0,1).toUpperCase())) + '</button><div><button class="people-profile-name" type="button" data-open-profile="' + esc(person.id) + '">' + esc(person.display_name || "Murmur user") + '</button><small>@' + esc(person.username || "") + '</small></div><div class="friend-actions"><button class="btn secondary" type="button" data-chat-user="' + esc(person.id) + '">Message</button><button class="btn secondary" type="button" data-request="' + esc(person.id) + '">Add friend</button></div></div>'
     ).join("") || '<p class="empty-state">No account found. Try another name or username.</p>';
     target.querySelectorAll("[data-chat-user]").forEach(action => action.addEventListener("click", async () => {
       action.disabled = true;
