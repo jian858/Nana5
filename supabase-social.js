@@ -327,16 +327,7 @@ async function renderChats() {
     root.querySelectorAll("[data-conversation]").forEach(button => {
       button.addEventListener("click", () => openConversation(button.dataset.conversation));
     });
-    const search = el("chatSearch");
-    if (search && !search.dataset.bound) {
-      search.dataset.bound = "true";
-      search.addEventListener("input", () => {
-        const query = search.value.trim().toLocaleLowerCase();
-        root.querySelectorAll("[data-conversation]").forEach(button => {
-          button.hidden = !button.textContent.toLocaleLowerCase().includes(query);
-        });
-      });
-    }
+
     if (search?.value) search.dispatchEvent(new Event("input"));
   } catch (error) {
     fail(root, error);
@@ -445,8 +436,6 @@ export function initSupabaseSocial() {
   el("friendSearchBtn")?.addEventListener("click", searchPeople);
   el("friendSearch")?.addEventListener("keydown", event => { if (event.key === "Enter") searchPeople(); });
   el("sendBtn")?.addEventListener("click", sendChatMessage);
-  el("newChatBtn")?.addEventListener("click", () => { el("chatSearch")?.focus(); el("chatSearch")?.scrollIntoView({behavior:"smooth",block:"center"}); });
-  el("chatSearchBtn")?.addEventListener("click", () => { const input=el("chatSearch"); if(input){ input.hidden=false; input.focus(); } });
   el("chatSettingsBtn")?.addEventListener("click", () => {
     const menu=document.createElement("div"); menu.className="chat-settings-popover";
     menu.innerHTML='<strong>Message settings</strong><p>Search your conversations or manage blocked people in Settings.</p><button type="button" class="btn secondary" data-chat-settings-close>Close</button>';
