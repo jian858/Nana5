@@ -82,7 +82,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "identities") {
-      return reply(410, { error: "Legacy Firebase identity links are retained privately for audit and are not exposed by the Supabase-only admin API." });
+      return reply(410, { error: "The legacy identity view has been retired. Use the Supabase UUID and Murmur public ID in the Users section." });
     }
 
     if (action === "users") {
@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
       const search = typeof body.q === "string" ? body.q.trim().slice(0, 80) : "";
       const status = ["all","active","suspended"].includes(body.status) ? body.status : "all";
       let usersQuery = db.from("profiles")
-        .select("id,username,display_name,bio,avatar_url,created_at,is_suspended,suspension_reason", { count: "exact" });
+        .select("id,public_id,username,display_name,bio,avatar_url,created_at,is_suspended,suspension_reason", { count: "exact" });
       if (search) {
         if (/^[0-9a-f-]{36}$/i.test(search)) usersQuery = usersQuery.eq("id", search);
         else {
@@ -229,6 +229,61 @@ Deno.serve(async (req: Request) => {
       if (error) throw error;
       await audit(db, user.id, "delete_announcement", null, "", { announcement_id: id });
       return reply(200, { ok: true });
+    }
+
+    if (action === "visitor_analytics") {
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
+      const [
+        { count: uniqueVisitors, error: devicesError },
+        { count: totalVisits, error: visitsError },
+        { count: uniqueToday, error: todayDevicesError },
+        { count: visitsToday, error: todayVisitsError },
+        { data: eventRows, error: eventRowsError },
+        { data: phoneDevices, error: phoneDevicesError },
+      ] = await Promise.all([
+        db.from("admin_murmur_visitor_devices").select("visitor_id", { count: "exact", head: true }),
+        db.from("admin_murmur_visitor_events").select("id", { count: "exact", head: true }),
+        db.from("admin_murmur_visitor_devices").select("visitor_id", { count: "exact", head: true })
+          .gte("first_seen_at", todayStart.toISOString()),
+        db.from("admin_murmur_visitor_events").select("id", { count: "exact", head: true })
+          .gte("visited_at", todayStart.toISOString()),
+        db.from("admin_murmur_visitor_events").select("id,visitor_id,page_path,visited_at")
+          .order("visited_at", { ascending: false }).limit(5000),
+        db.from("admin_murmur_phone_accounts").select("*")
+          .order("last_seen_at", { ascending: false }).limit(100),
+      ]);
+      for (const error of [devicesError, visitsError, todayDevicesError, todayVisitsError, eventRowsError, phoneDevicesError]) {
+        if (error) throw error;
+      }
+
+      const dailyMap = new Map<string, { visits: number; visitors: Set<string> }>();
+      const pageMap = new Map<string, number>();
+      for (const event of eventRows || []) {
+        const day = new Date(event.visited_at).toISOString().slice(0, 10);
+        if (!dailyMap.has(day)) dailyMap.set(day, { visits: 0, visitors: new Set<string>() });
+        const dayData = dailyMap.get(day)!;
+        dayData.visits += 1;
+        dayData.visitors.add(event.visitor_id);
+        pageMap.set(event.page_path, (pageMap.get(event.page_path) || 0) + 1);
+      }
+      const daily = Array.from(dailyMap.entries())
+        .map(([date, value]) => ({ date, visits: value.visits, visitors: value.visitors.size }))
+        .sort((left, right) => right.date.localeCompare(left.date)).slice(0, 30);
+      const pages = Array.from(pageMap.entries())
+        .map(([path, visits]) => ({ path, visits }))
+        .sort((left, right) => right.visits - left.visits).slice(0, 50);
+      return reply(200, {
+        unique_visitors: uniqueVisitors || 0,
+        total_visits: totalVisits || 0,
+        unique_visitors_today: uniqueToday || 0,
+        visits_today_sample: visitsToday || 0,
+        sample_limited: (totalVisits || 0) > (eventRows || []).length,
+        daily,
+        pages,
+        recent: (eventRows || []).slice(0, 50),
+        phone_devices: phoneDevices || [],
+      });
     }
 
     if (action === "errors") {
