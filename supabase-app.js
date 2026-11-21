@@ -184,7 +184,13 @@ async function login() {
   $("loginBtn").disabled = true;
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "email_not_confirmed" || /email not confirmed/i.test(error.message || "")) {
+        const resend = $("resendConfirmationBtn");
+        if (resend) resend.hidden = false;
+      }
+      throw error;
+    }
     await enterApp(data.user);
   } catch (error) { showError(error.message); }
   finally { $("loginBtn").disabled = false; }
@@ -193,7 +199,7 @@ async function login() {
 function openSignup() {
   const overlay = document.createElement("div");
   overlay.className = "murmur-auth-modal";
-  overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="murmur-signup-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="murmur-signup-title">Create your Murmur account</h2><label>Full name<input name="name" maxlength="80" autocomplete="name" required></label><label>Username<input name="username" maxlength="30" pattern="[A-Za-z0-9_.]+" autocomplete="username" required></label><label>Email<input name="email" type="email" maxlength="254" autocomplete="email" required></label><label>Password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><p class="murmur-modal-error" role="alert"></p><button type="button" class="btn primary murmur-signup-submit">Create account</button></section>';
+  overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="murmur-signup-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="murmur-signup-title">Create your Murmur account</h2><label>Full name<input name="name" maxlength="80" autocomplete="name" required></label><label>Username<input name="username" maxlength="30" pattern="[A-Za-z0-9_.]+" autocomplete="username" required></label><label>Email<input name="email" type="email" maxlength="254" autocomplete="email" required></label><label>Password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><p class="murmur-modal-error" role="alert"></p><button type="button" class="btn primary murmur-signup-submit">Create account</button><button type="button" class="btn secondary murmur-resend-confirmation" hidden>Resend confirmation email</button></section>';
   document.body.appendChild(overlay);
   const close = () => overlay.remove();
   overlay.querySelector(".murmur-modal-close").addEventListener("click", close);
@@ -222,10 +228,32 @@ function openSignup() {
         close();
         await enterApp(data.user);
       } else {
-        errorBox.textContent = "Account created. Check your email to confirm it, then sign in.";
+        errorBox.textContent = "Account created. Check your inbox and spam folder for the Murmur confirmation email. Confirm your address before signing in.";
+        const resend = form.querySelector(".murmur-resend-confirmation");
+        if (resend) resend.hidden = false;
       }
     } catch (error) { errorBox.textContent = error.message; }
     finally { button.disabled = false; }
+  });
+  const resendButton = overlay.querySelector(".murmur-resend-confirmation");
+  resendButton?.addEventListener("click", async () => {
+    const email = overlay.querySelector('[name="email"]').value.trim().toLowerCase();
+    const errorBox = overlay.querySelector(".murmur-modal-error");
+    if (!email) { errorBox.textContent = "Enter your email address first."; return; }
+    resendButton.disabled = true;
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: location.origin + "/" }
+      });
+      if (error) throw error;
+      errorBox.textContent = "If confirmation is still required, a new email has been requested. Check your inbox and spam folder.";
+    } catch (error) {
+      errorBox.textContent = error.message;
+    } finally {
+      resendButton.disabled = false;
+    }
   });
 }
 
@@ -237,6 +265,35 @@ async function resetPassword() {
     if (error) throw error;
     showError("If an account exists for that email, a password reset link has been sent.");
   } catch (error) { showError(error.message); }
+}
+
+async function resendSignupConfirmation() {
+  const email = $("email")?.value.trim().toLowerCase();
+  if (!email) return showError("Enter your email address first.");
+  const button = $("resendConfirmationBtn");
+  if (button) button.disabled = true;
+  try {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: location.origin + "/" }
+    });
+    if (error) throw error;
+    showError("If confirmation is still required, a new email has been requested. Check your inbox and spam folder.");
+  } catch (error) {
+    showError(error.message);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function showAuthRedirectError() {
+  const params = new URLSearchParams(location.search);
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const code = params.get("error_code") || hash.get("error_code");
+  const description = params.get("error_description") || hash.get("error_description");
+  if (!code && !description) return;
+  showError(description ? decodeURIComponent(description.replace(/\+/g, " ")) : "Authentication could not be completed. Please try again.");
 }
 
 async function createPost() {
@@ -302,6 +359,7 @@ function wireAuth() {
   $("password")?.addEventListener("keydown", event => { if (event.key === "Enter") login(); });
   $("createBtn")?.addEventListener("click", openSignup);
   $("resetBtn")?.addEventListener("click", resetPassword);
+  $("resendConfirmationBtn")?.addEventListener("click", resendSignupConfirmation);
   $("googleCreateBtn")?.addEventListener("click", async () => {
     showError("");
     const { error } = await supabase.auth.signInWithOAuth({
@@ -325,6 +383,7 @@ async function completePasswordResetIfNeeded() {
 async function boot() {
   wireAuth();
   wireNavigation();
+  showAuthRedirectError();
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
   if (data.session?.user) await enterApp(data.session.user);
