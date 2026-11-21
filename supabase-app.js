@@ -155,46 +155,79 @@ function showAccountRestriction(restriction) {
   overlay.querySelector("button").addEventListener("click", () => overlay.remove());
 }
 
+let enteringUserId = null;
+let enterAppTask = null;
+let enteredUserId = null;
+
 async function enterApp(user) {
+  if (!user?.id) throw new Error("Supabase did not return a valid user session.");
+  if (enteredUserId === user.id && appPanel && !appPanel.hidden) return;
+  if (enterAppTask && enteringUserId === user.id) return enterAppTask;
+  enteringUserId = user.id;
   currentUser = user;
-  try {
-    const restriction = await accountRestrictions.current();
-    if (restriction) {
-      showAccountRestriction(restriction);
-      await supabase.auth.signOut();
-      return;
+  enterAppTask = (async () => {
+    try {
+      const restriction = await accountRestrictions.current();
+      if (restriction) {
+        showAccountRestriction(restriction);
+        await supabase.auth.signOut();
+        return;
+      }
+      currentProfile = await loadProfile(user);
+      showApp();
+      paintIdentity();
+      enteredUserId = user.id;
+      await renderFeed();
+      watchFeed();
+      window.dispatchEvent(new CustomEvent("murmur:supabase-user-ready"));
+    } catch (error) {
+      enteredUserId = null;
+      console.error("[Murmur profile]", error);
+      showError(error.message || "Your account was verified, but Murmur could not load your profile.");
+      showAuth();
+    } finally {
+      enterAppTask = null;
+      enteringUserId = null;
     }
-    currentProfile = await loadProfile(user);
-    showApp();
-    paintIdentity();
-    await renderFeed();
-    watchFeed();
-    window.dispatchEvent(new CustomEvent("murmur:supabase-user-ready"));
-  } catch (error) {
-    console.error("[Murmur profile]", error);
-    showError(error.message);
-    showAuth();
-  }
+  })();
+  return enterAppTask;
 }
 
+let loginInProgress = false;
 async function login() {
+  if (loginInProgress) return;
   showError("");
   const email = $("email")?.value.trim().toLowerCase();
   const password = $("password")?.value || "";
   if (!email || !password) return showError("Enter your email address and password.");
-  $("loginBtn").disabled = true;
+  loginInProgress = true;
+  const button = $("loginBtn");
+  if (button) button.disabled = true;
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       if (error.code === "email_not_confirmed" || /email not confirmed/i.test(error.message || "")) {
         const resend = $("resendConfirmationBtn");
         if (resend) resend.hidden = false;
+        throw new Error("Please confirm your email address using the link we sent before signing in.");
+      }
+      if (error.status === 400 || error.code === "invalid_credentials") {
+        throw new Error("Email or password is incorrect. Check both fields and try again.");
+      }
+      if (/fetch|network|timeout/i.test(error.message || "")) {
+        throw new Error("Cannot reach Supabase right now. Check your internet connection and try again.");
       }
       throw error;
     }
+    if (!data?.user) throw new Error("Supabase did not return a user. Please try signing in again.");
     await enterApp(data.user);
-  } catch (error) { showError(error.message); }
-  finally { $("loginBtn").disabled = false; }
+  } catch (error) {
+    console.error("[Murmur login]", error);
+    showError(error.message || "Sign-in failed. Please try again.");
+  } finally {
+    loginInProgress = false;
+    if (button) button.disabled = false;
+  }
 }
 
 function openSignup() {
@@ -588,14 +621,16 @@ function wireAuth() {
   $("createBtn")?.addEventListener("click", openSignup);
   $("resetBtn")?.addEventListener("click", resetPassword);
   $("resendConfirmationBtn")?.addEventListener("click", resendSignupConfirmation);
-  $("googleCreateBtn")?.addEventListener("click", async () => {
-    showError("");
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: location.origin + "/", queryParams: { prompt: "select_account" } }
-    });
-    if (error) showError(error.message);
-  });
+  const googleButton = $("googleCreateBtn");
+  if (googleButton) {
+    // Supabase Auth logs confirmed Google is not enabled for this project.
+    // Do not send users into a guaranteed 400 OAuth failure until provider credentials are configured.
+    googleButton.disabled = true;
+    googleButton.setAttribute("aria-disabled", "true");
+    googleButton.title = "Google sign-in is not configured yet. Use your email and password.";
+    const googleLabel = googleButton.querySelector("span:last-child");
+    if (googleLabel) googleLabel.textContent = "Google sign-in unavailable";
+  }
 }
 
 async function completePasswordResetIfNeeded() {
@@ -619,8 +654,8 @@ async function boot() {
   await completePasswordResetIfNeeded();
   const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT" || !session?.user) {
-      currentUser = null; currentProfile = null; if (feedChannel) { supabase.removeChannel(feedChannel); feedChannel = null; } window.dispatchEvent(new CustomEvent("murmur:supabase-signed-out")); showAuth();
-    } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+      currentUser = null; currentProfile = null; enteredUserId = null; if (feedChannel) { supabase.removeChannel(feedChannel); feedChannel = null; } window.dispatchEvent(new CustomEvent("murmur:supabase-signed-out")); showAuth();
+    } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
       queueMicrotask(() => enterApp(session.user));
     }
   });
