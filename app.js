@@ -7,7 +7,7 @@
    Numbers and wording live in SETTINGS above.
    ===================================================================== */
 const monitoredFirebaseMethods = new Set([
-  'createUserWithEmailAndPassword','signInWithEmailAndPassword','sendPasswordResetEmail',
+  'createUserWithEmailAndPassword','signInWithEmailAndPassword','signInWithPopup','sendPasswordResetEmail',
   'reauthenticateWithCredential','verifyBeforeUpdateEmail','deleteUser','signOut','set','get','push','update','remove',
   'uploadBytesResumable','getDownloadURL','deleteObject'
 ]);
@@ -60,7 +60,7 @@ const monitoredFirebase = new Proxy(window.__fb, {
     };
   }
 });
-const { initializeApp, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, sendPasswordResetEmail, reauthenticateWithCredential, verifyBeforeUpdateEmail, EmailAuthProvider, deleteUser, signOut, onAuthStateChanged, getDatabase, ref, set, get, push, update, remove, onValue, query, orderByChild, equalTo, limitToLast, serverTimestamp, getStorage, storageRef, uploadBytesResumable, getDownloadURL, deleteObject } = monitoredFirebase;
+const { initializeApp, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, setPersistence, browserLocalPersistence, browserSessionPersistence, sendPasswordResetEmail, reauthenticateWithCredential, verifyBeforeUpdateEmail, EmailAuthProvider, deleteUser, signOut, onAuthStateChanged, getDatabase, ref, set, get, push, update, remove, onValue, query, orderByChild, equalTo, limitToLast, serverTimestamp, getStorage, storageRef, uploadBytesResumable, getDownloadURL, deleteObject } = monitoredFirebase;
 
 const firebaseConfig = window.MURMUR_FIREBASE;   // edit in SETTINGS
 
