@@ -88,7 +88,7 @@ async function renderStories() {
       ...story,
       signedMediaUrl: story.media_path ? await storage.url("murmur-stories", story.media_path) : null
     })));
-    const storyMarkup = '<div class="story-heading"><strong>Stories</strong><button type="button" class="btn secondary" data-add-story>Share a story</button></div>' + (displayRows.length ? displayRows.map(s => '<article class="story-card">' + (s.signedMediaUrl ? (s.media_type === "video" ? '<video controls playsinline preload="metadata" src="' + esc(s.signedMediaUrl) + '"></video>' : '<img loading="lazy" src="' + esc(s.signedMediaUrl) + '" alt="Story media">') : '') + '<strong>' + esc(s.content || "Story") + '</strong><small>' + esc(new Date(s.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No active stories.</p>');
+    const storyMarkup = '<div class="story-heading"><strong>Stories</strong><button type="button" class="btn secondary" data-add-story>Share a story</button></div>' + (displayRows.length ? displayRows.map(s => '<article class="story-card">' + (s.signedMediaUrl ? (s.media_type === "video" ? '<video controls playsinline preload="metadata" src="' + esc(s.signedMediaUrl) + '"></video>' : '<img loading="lazy" src="' + esc(s.signedMediaUrl) + '" alt="Story media">') : '') + '<strong>' + esc(s.content || "Story") + '</strong><small>' + esc(new Date(s.created_at).toLocaleString()) + '</small></article>').join("") : '');
     roots.forEach(root => { root.innerHTML = storyMarkup; });
     roots.forEach(root => root.querySelector("[data-add-story]")?.addEventListener("click", () => {
       const picker = document.createElement("input");
@@ -290,7 +290,7 @@ async function renderChats() {
     const currentUserId = authData.user?.id;
     if (!currentUserId) throw new Error("Sign in again to view your chats.");
     if (!rows.length) {
-      root.innerHTML = '<p class="empty-state">No conversations yet. Find someone and choose Message to start a chat.</p>';
+      root.innerHTML = "";
       return;
     }
 
