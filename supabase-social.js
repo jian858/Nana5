@@ -1,6 +1,6 @@
 /* Supabase-only social features for Murmur. */
 import { supabase } from "./supabase-client.js";
-import { friendships, stories, reels, userNotes, conversations, messages, storage } from "./supabase-data.js";
+import { friendships, stories, reels, userNotes, conversations, messages, storage } from "./supabase-data.js?v=20261122-1";
 
 const el = id => document.getElementById(id);
 let socialChannel = null;
@@ -221,13 +221,12 @@ async function renderNotes() {
         if (!content) { errorBox.textContent = "Write something before saving."; input.focus(); return; }
         save.disabled = true;
         try {
-          if (latest) { await userNotes.remove(latest.id); }
-          await userNotes.create({ content });
+          await userNotes.replaceMine({ content });
           close(); await renderNotes();
         } catch (error) { errorBox.textContent = error.message || "Could not save your note."; save.disabled = false; }
       });
       overlay.querySelector("[data-delete-current]")?.addEventListener("click", async () => {
-        try { await userNotes.remove(latest.id); close(); await renderNotes(); }
+        try { await userNotes.removeMine(); close(); await renderNotes(); }
         catch (error) { errorBox.textContent = error.message || "Could not delete your note."; }
       });
       input.focus();
