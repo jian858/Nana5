@@ -26,7 +26,7 @@ Last updated: 2026-11-21
 - Applied migration `20261121130809_harden_public_table_privileges_and_profile_rls`: revoked browser-role `TRUNCATE`, `REFERENCES`, and `TRIGGER` on all public tables; set the same restrictions for future tables created by `postgres`; revoked anonymous access to account restriction/appeal tables; optimized profile insert/update policies with `(select auth.uid())`.
 
 ## Important remaining work — do not deploy as finished
-- Historical Firebase-named database objects and identity records remain for audit/migration history. The inactive Firebase client modules have been removed, three old Firebase Edge Function endpoints are retired, the error logger now accepts Supabase sessions only, and the active admin API no longer exposes Firebase identity links. Preserve the existing 2 legacy identity links and 3 device-account links until a deliberate migration/archive plan is approved; do not delete them as part of routine cleanup.
+- Historical Firebase-named database objects and identity records remain for audit/migration history. The inactive Firebase client modules have been removed, four legacy Edge Function endpoints are retired, the error logger now accepts Supabase sessions only, and the active admin API no longer exposes Firebase identity links. Preserve the existing 2 legacy identity links and 3 device-account links until a deliberate migration/archive plan is approved; do not delete them as part of routine cleanup.
 - The Supabase UI is an initial working slice, not a complete recreation of every previous screen. Remaining UI work includes full messaging attachments/voice, read receipts/typing, comments/reactions/saved posts, richer story views, richer reels controls, block/report flows, admin tools and device/visitor administration.
 - Confirm Supabase Auth email-confirmation settings and Google OAuth provider credentials/redirect URLs in the dashboard.
 - Validate RLS and Storage policies with separate test accounts; run the documented two-user and anonymous tests.
@@ -80,7 +80,7 @@ Last updated: 2026-11-21
 
 - Audited every HTML entry point and the import graph of the active modules. The main app loads only `supabase-client.js`, `supabase-runtime.js`, `visitor-tracking.js`, `supabase-app.js`, and `pwa.js`; the separate invite page loads `invite.js`. Active Supabase modules import only the Supabase client/data/social modules.
 - Removed 28 inactive JavaScript modules that were not referenced by any HTML entry point or active-module import, including the old Firebase app, Google auth, registration and login modules. Their history remains recoverable through Git.
-- Replaced the deployed `murmur-posts`, `murmur-identity`, and `murmur-admin` Firebase endpoints with retired 410 responses and enabled Supabase JWT verification at the Edge gateway. Old Firebase tokens can no longer use these endpoints.
+- Replaced the deployed `murmur-posts`, `murmur-identity`, and `murmur-admin` Firebase endpoints, plus the unused password-reset account-enumeration endpoint, with retired 410 responses and enabled Supabase JWT verification at the Edge gateway. Old Firebase tokens can no longer use these endpoints.
 - Reworked `murmur-error-log` to verify optional sessions through Supabase Auth only. New authenticated error records use a `supabase:<uuid>` actor key in the legacy `firebase_uid` database column; anonymous error reporting remains rate-limited. Existing 115 error-log rows were preserved.
 - The active `murmur-admin-supabase` endpoint now returns 410 for the historical Firebase identity lookup action. The 2 historical identity links and 3 visitor-device account links remain private and unchanged.
 - Verified the Supabase Auth account/profile counts: one existing test account and one profile. No test users were created or deleted.
@@ -96,3 +96,12 @@ Last updated: 2026-11-21
 - Performance advisor: remaining findings are unused-index notices. Do not drop these indexes based on the current short/no-user activity window; collect longer-term usage evidence first.
 - Health advisor returned no findings.
 - Full two-user browser RLS tests, Google OAuth/email delivery checks, private-media policy migration, and live Vercel deployment verification remain outstanding. Do not call the app launch-ready until those pass.
+
+
+## Firebase identity RPC retirement — 2026-11-21
+
+- Applied migration `20261121132000_retire_firebase_identity_rpcs`.
+- Dropped the unused server-only Firebase identity RPCs: both `admin_ensure_firebase_link` overloads, `admin_set_firebase_email`, `admin_find_firebase_link_by_email`, `admin_list_firebase_identity_links`, and `admin_link_firebase_device`.
+- The deployed Firebase callers were already replaced with retired endpoints; a dependency scan found no other database functions referencing these RPCs.
+- No rows were deleted. The private historical `firebase_user_links` and `murmur_device_accounts` records remain preserved and inaccessible to browser roles.
+- Retired `murmur-password-reset-check` because the live client uses Supabase Auth's native `resetPasswordForEmail` flow; the old endpoint distinguished unknown and active email addresses and was not part of the current app.
