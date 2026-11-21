@@ -41,11 +41,21 @@ function openMenuSwitchAccount() {
 function openCustomerSupport(mode = 'question') {
   if (!meUid()) { showToast('Please sign in to contact support.'); return; }
   const back = document.createElement('div');
-  back.className = 'modal-back top';
-  back.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="supportTitle" style="max-height:90vh;overflow:auto">
-    <h3 id="supportTitle">${mode === 'report' ? 'Report a problem' : 'Customer support'}</h3>
-    <p>Tell the Murmur support team what happened. Never include your password or verification codes.</p>
-    <form id="murmurSupportForm">
+  back.className = 'modal-back top support-modal-back';
+  back.innerHTML = `<div class="modal-card support-modal-card" role="dialog" aria-modal="true" aria-labelledby="supportTitle">
+    <div class="support-modal-head">
+      <div>
+        <span class="support-eyebrow">MURMUR HELP</span>
+        <h3 id="supportTitle">${mode === 'report' ? 'Report a problem' : 'Customer support'}</h3>
+      </div>
+      <button class="support-close" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="support-tabs" role="tablist" aria-label="Help options">
+      <button type="button" role="tab" data-support-tab="report" aria-selected="${mode === 'report'}" class="${mode === 'report' ? 'active' : ''}">Report a problem</button>
+      <button type="button" role="tab" data-support-tab="question" aria-selected="${mode !== 'report'}" class="${mode !== 'report' ? 'active' : ''}">Customer support</button>
+    </div>
+    <p class="support-intro">Tell us what happened and our team can review your request. Never include your password or verification codes.</p>
+    <form id="murmurSupportForm" class="support-form">
       <label class="field"><span>What do you need help with?</span>
         <select name="category" required>
           <option value="Account">Account and login</option>
@@ -60,12 +70,24 @@ function openCustomerSupport(mode = 'question') {
       <label class="field"><span>Describe the issue</span>
         <textarea name="details" rows="5" minlength="10" maxlength="1500" required placeholder="Explain what happened and what you expected..."></textarea>
       </label>
-      <div class="cookie-actions"><button class="btn ghost" type="button" data-cancel>Cancel</button><button class="btn primary" type="submit">Send to support</button></div>
+      <div class="support-form-actions"><button class="btn ghost" type="button" data-cancel>Cancel</button><button class="btn primary" type="submit">${mode === 'report' ? 'Submit report' : 'Send to support'}</button></div>
       <p class="support-status" role="status" aria-live="polite"></p>
     </form>
   </div>`;
   document.body.appendChild(back);
   back.querySelector('[data-cancel]').addEventListener('click', () => back.remove());
+  back.querySelector('.support-close').addEventListener('click', () => back.remove());
+  back.querySelectorAll('[data-support-tab]').forEach(tab => tab.addEventListener('click', () => {
+    if (back.querySelector('[type="submit"]').disabled) return;
+    mode = tab.dataset.supportTab;
+    back.querySelectorAll('[data-support-tab]').forEach(item => {
+      const active = item === tab;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-selected', String(active));
+    });
+    back.querySelector('#supportTitle').textContent = mode === 'report' ? 'Report a problem' : 'Customer support';
+    back.querySelector('[type="submit"]').textContent = mode === 'report' ? 'Submit report' : 'Send to support';
+  }));
   back.addEventListener('click', event => { if (event.target === back) back.remove(); });
   back.querySelector('#murmurSupportForm').addEventListener('submit', async event => {
     event.preventDefault();
