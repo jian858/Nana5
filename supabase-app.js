@@ -699,24 +699,21 @@ function openSignup() {
       });
       if (error) throw error;
       if (data.session && data.user) {
-        await loadProfile(data.user);
         close();
         await enterApp(data.user);
+        if (enteredUserId === data.user.id && appPanel && !appPanel.hidden) {
+          const notice = document.createElement("div");
+          notice.setAttribute("role", "status");
+          notice.setAttribute("aria-live", "polite");
+          notice.textContent = "Your account was created successfully.";
+          notice.style.cssText = "position:fixed;z-index:10050;top:calc(env(safe-area-inset-top,0px) + 16px);left:50%;transform:translateX(-50%);width:min(calc(100% - 32px),420px);padding:14px 18px;border-radius:14px;background:#087f62;color:#fff;text-align:center;font-weight:700;box-shadow:0 8px 28px #0003";
+          document.body.appendChild(notice);
+          window.setTimeout(() => notice.remove(), 4500);
+        }
       } else {
-        errorBox.textContent = "Your account has been created. Check your email (including spam) and confirm your address before logging in. Your profile details are saved with your account.";
-        button.hidden = true;
-        const resend = document.createElement("button");
-        resend.type = "button"; resend.className = "btn secondary murmur-signup-resend"; resend.textContent = "Resend confirmation email";
-        overlay.querySelector(".murmur-signup-panel[data-signup-panel='profile'] .murmur-signup-actions").appendChild(resend);
-        resend.addEventListener("click", async () => {
-          resend.disabled = true;
-          try {
-            const { error: resendError } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: location.origin + "/" } });
-            if (resendError) throw resendError;
-            errorBox.textContent = "If confirmation is still required, a new email has been requested.";
-          } catch (err) { errorBox.textContent = err.message || "Could not resend confirmation email."; }
-          finally { resend.disabled = false; }
-        });
+        errorBox.textContent = "Your account was created, but Supabase did not start a login session. Check that Email → Confirm email is turned off in your Supabase Auth settings, then try again.";
+        button.disabled = false;
+        button.textContent = "Try again";
       }
     } catch (error) {
       const message = String(error?.message || "Could not create your account. Please try again.");
