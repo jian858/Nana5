@@ -200,12 +200,13 @@ async function renderAlerts() {
   const root = el("alertsList");
   if (!root) return;
   try {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
+    const { data: sessionData, error: userError } = await supabase.auth.getSession();
     if (userError) throw userError;
-    if (!userData.user) throw new Error("Sign in again to view notifications.");
+    const currentUser = sessionData?.session?.user;
+    if (!currentUser) throw new Error("Sign in again to view notifications.");
     const [{ data, error }, { data: announcements, error: announcementError }] = await Promise.all([
       supabase.from("notifications").select("id,kind,content,read_at,created_at")
-        .eq("recipient_id", userData.user.id).order("created_at", { ascending: false }).limit(50),
+        .eq("recipient_id", currentUser.id).order("created_at", { ascending: false }).limit(50),
       supabase.from("announcements").select("id,title,body,kind,published_at")
         .lte("published_at", new Date().toISOString())
         .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
@@ -238,7 +239,7 @@ async function renderAlerts() {
       try {
         const { error: updateError } = await supabase.from("notifications")
           .update({ read_at: new Date().toISOString() })
-          .eq("id", button.dataset.markAlert).eq("recipient_id", userData.user.id);
+          .eq("id", button.dataset.markAlert).eq("recipient_id", currentUser.id);
         if (updateError) throw updateError;
         await renderAlerts();
       } catch (error) { alert(error.message || "Could not mark notification as read."); button.disabled = false; }
