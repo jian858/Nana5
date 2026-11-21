@@ -2022,3 +2022,35 @@ html[data-theme="dark"] .murmur-menu-pane .menu-add-account:hover{background:#26
   .alerts-heading{padding-top:12px;padding-bottom:14px}
   .alerts-row,.notice.alerts-row{min-height:66px;padding:10px;gap:9px}
 }
+
+
+/* ---------- Performance: lighter rendering on mobile ---------- */
+@media (max-width: 780px) {
+  .panel,
+  .topbar,
+  .composer,
+  .card,
+  .reg-topbar,
+  .reg-footer,
+  .legal-top {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* Keep off-screen feed cards from consuming layout and paint work. */
+.posts > .post {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 420px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
