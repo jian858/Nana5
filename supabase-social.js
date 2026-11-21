@@ -46,7 +46,7 @@ async function renderFriends() {
     if (reqList) reqList.innerHTML = incoming.map(row => {
       const person = requesterById.get(row.requester_id) || {};
       const name = person.display_name || (person.username ? "@" + person.username : "Someone");
-      return '<div class="friend-row">' + avatarMarkup(person, "Friend request profile picture") + '<div><strong>' + esc(name) + '</strong><small>Friend request</small></div><button class="btn primary" data-accept="' + esc(row.requester_id) + '">Accept</button></div>';
+      return '<div class="friend-row"><button type="button" class="friend-request-profile" data-open-profile="' + esc(row.requester_id) + '" aria-label="View ' + esc(name) + ' profile" style="border:0;background:transparent;padding:0;cursor:pointer">' + avatarMarkup(person, "Open profile") + '</button><div><button type="button" class="people-profile-name" data-open-profile="' + esc(row.requester_id) + '">' + esc(name) + '</button><small>@' + esc(person.username || "") + ' · Friend request</small></div><button class="btn primary" type="button" data-accept="' + esc(row.requester_id) + '">Accept</button></div>';
     }).join("");
     reqList?.querySelectorAll("[data-accept]").forEach(button => button.addEventListener("click", async () => {
       try { await friendships.setStatus(button.dataset.accept, "accepted"); await renderFriends(); }
