@@ -17,6 +17,7 @@ const authError = $("authError");
 let currentUser = null;
 let currentProfile = null;
 let authSubscription = null;
+let pendingPostFile = null;
 
 function showError(message) {
   if (authError) authError.textContent = String(message || "Something went wrong. Please try again.");
@@ -176,12 +177,20 @@ async function resetPassword() {
 
 async function createPost() {
   const content = $("postInput")?.value.trim();
-  if (!content) return;
+  if (!content && !pendingPostFile) return;
   const button = $("postBtn");
   if (button) button.disabled = true;
   try {
-    await posts.create({ content, visibility: "public" });
+    let mediaUrl = null, mediaType = null;
+    if (pendingPostFile) {
+      const uploaded = await storage.uploadMedia(pendingPostFile, "posts");
+      mediaUrl = uploaded.url;
+      mediaType = pendingPostFile.type.startsWith("video/") ? "video" : "image";
+    }
+    await posts.create({ content, visibility: "public", mediaUrl, mediaType });
     $("postInput").value = "";
+    pendingPostFile = null;
+    const status = $("postMediaStatus"); if (status) status.textContent = "";
     if (button) button.hidden = true;
     await renderFeed();
   } catch (error) { alert(error.message); }
@@ -203,6 +212,23 @@ function wireNavigation() {
   if ($("postInput")) $("postInput").removeAttribute("readonly");
   $("postInput")?.addEventListener("input", () => { if ($("postBtn")) $("postBtn").hidden = !$("postInput").value.trim(); });
   $("postBtn")?.addEventListener("click", createPost);
+  const composer = $("postInput")?.closest(".composer");
+  if (composer && !$("postMediaButton")) {
+    const mediaButton = document.createElement("button");
+    mediaButton.type = "button"; mediaButton.id = "postMediaButton"; mediaButton.className = "btn secondary";
+    mediaButton.textContent = "Add photo or video";
+    const status = document.createElement("small"); status.id = "postMediaStatus"; status.setAttribute("aria-live", "polite");
+    const picker = document.createElement("input"); picker.type = "file"; picker.accept = "image/jpeg,image/png,image/webp,image/avif,video/mp4,video/webm"; picker.hidden = true;
+    mediaButton.addEventListener("click", () => picker.click());
+    picker.addEventListener("change", () => {
+      const file = picker.files?.[0] || null;
+      if (file && file.size > 20 * 1024 * 1024) { alert("Choose a file under 20 MB."); picker.value = ""; return; }
+      pendingPostFile = file;
+      status.textContent = file ? "Selected: " + file.name : "";
+      if ($("postBtn")) $("postBtn").hidden = !($("postInput")?.value.trim() || pendingPostFile);
+    });
+    composer.append(mediaButton, picker, status);
+  }
 }
 
 function wireAuth() {
