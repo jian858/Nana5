@@ -142,3 +142,14 @@ Last updated: 2026-11-21
 - Applied migration `2026112113XXXX_rename_error_log_firebase_uid_to_actor_key` (exact applied version is recorded in Supabase migration history).
 - Renamed `public.murmur_error_logs.firebase_uid` to `actor_key` and renamed its supporting index. All 115 existing error records were preserved.
 - Updated the error-log Edge Function and admin API to use `actor_key`; new authenticated records identify users as `supabase:<uuid>`. Historical values remain unchanged and are treated as archived actor references, not active Firebase authentication.
+
+
+## Supabase-only admin and visitor dashboard — 2026-11-21
+
+- Applied migration `20261121133537_supabase_only_admin_views_and_device_ids`.
+- Updated the service-role-only admin views to expose Supabase UUIDs and Murmur public IDs instead of Firebase identifiers. The private historical device-account rows remain preserved.
+- Added the `visitor_analytics` action to `murmur-admin-supabase`: exact unique-device and event counts, today's counts, a 5,000-event sample for daily/page breakdowns, latest visits, and linked device/account summaries.
+- Visitor events now broadcast `visitor-change` to the private `admin:visitors` Realtime channel after successful recording; only enabled Super Admins can receive that channel.
+- Updated the separate `jian858/Admin` workspace to show the Supabase UUID and Murmur public ID, remove the obsolete Firebase identity view and Firebase password-reset tools, display `actor_key` in error logs, and use the Supabase visitor analytics response.
+- Removed the client-side hardcoded admin email check. The server-side Supabase Auth allowlist remains the actual authorization boundary.
+- Password resets are handled by Supabase Auth's native recovery flow; the retired Firebase bulk/single reset controls are no longer shown.
