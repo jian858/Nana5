@@ -4,19 +4,21 @@ This project uses Supabase Auth only. Do not add Firebase authentication or plac
 
 ## Current application values
 
-- App origin: `https://murmurrr.vercel.app`
+- App origin: `https://murmur-app-7jm.pages.dev`
 - Supabase project: `pkadftvqslkykehcqedj`
 - Supabase project URL: `https://pkadftvqslkykehcqedj.supabase.co`
 - Google OAuth callback URI: `https://pkadftvqslkykehcqedj.supabase.co/auth/v1/callback`
-- App redirect after OAuth/email confirmation: `https://murmurrr.vercel.app/`
+- App redirect after OAuth/email confirmation: `https://murmur-app-7jm.pages.dev/`
 
 ## 1. Google OAuth provider
+
+**Current status (2026-11-21): Google provider is disabled in this Supabase project.** The app now disables the Google button until provider credentials are configured. Email/password sign-in remains the supported login method. To enable Google later, complete every step below and then re-enable the button in `supabase-app.js`.
 
 1. Open [Google Cloud Console](https://console.cloud.google.com/).
 2. Create/select the Murmur Google Cloud project and configure the OAuth consent screen.
 3. Create an OAuth Client ID with application type **Web application**.
 4. Add this Authorized JavaScript origin:
-   `https://murmurrr.vercel.app`
+   `https://murmur-app-7jm.pages.dev`
 5. Add this Authorized redirect URI exactly:
    `https://pkadftvqslkykehcqedj.supabase.co/auth/v1/callback`
 6. Copy the Google Client ID and Client Secret.
@@ -29,10 +31,10 @@ This project uses Supabase Auth only. Do not add Firebase authentication or plac
 Open [Supabase Auth URL Configuration](https://supabase.com/dashboard/project/pkadftvqslkykehcqedj/auth/url-configuration).
 
 Set **Site URL** to:
-`https://murmurrr.vercel.app`
+`https://murmur-app-7jm.pages.dev`
 
 Add this exact production Redirect URL:
-`https://murmurrr.vercel.app/`
+`https://murmur-app-7jm.pages.dev/`
 
 For local development only, add the exact local origin used by the developer, such as `http://localhost:3000/`; remove it from production allow-lists if no longer needed. Do not use a broad wildcard for production.
 
@@ -73,7 +75,7 @@ Keep authentication emails short and transactional. Disable click-tracking/link 
 Use a real mailbox that you control and a separate Google account you control.
 
 - [ ] Email signup creates a Supabase Auth user and sends a confirmation email.
-- [ ] Confirmation link opens Murmur at `https://murmurrr.vercel.app/` and the session is established.
+- [ ] Confirmation link opens Murmur at `https://murmur-app-7jm.pages.dev/` and the session is established.
 - [ ] An unconfirmed password login is rejected and exposes the resend-confirmation action.
 - [ ] Resend confirmation returns a generic success message and a new email arrives.
 - [ ] Password recovery email arrives and its link opens Murmur's password-reset flow.
