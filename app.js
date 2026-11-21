@@ -3988,7 +3988,6 @@ onAuthStateChanged(auth, async (user) => {
     const sessionValid = await checkMurmurAuthSession(user);
     if (sessionValid === false) return;
   }
-  await syncMurmurSupabaseIdentity(user);
   if (!user) { endSession(); suspendedInfo = null; document.getElementById('suspendedScreen')?.remove(); }
   renderMenuHeader();
   if (user) {
@@ -4009,6 +4008,16 @@ onAuthStateChanged(auth, async (user) => {
       const accountSnap = await get(ref(db, 'users/' + user.uid));
       const accountProfile = accountSnap.val() || {};
       accountCreatedAt = alertTime(accountProfile.createdAt || accountProfile.accountCreatedAt) || accountCreatedAt || 0;
+      let accountUsername = String(accountProfile.username || '').trim();
+      if (!/^@[A-Za-z0-9._-]{3,20}$/.test(accountUsername)) {
+        accountUsername = '@user' + user.uid.slice(0, 8).toLowerCase();
+        await update(ref(db, 'users/' + user.uid), { username: accountUsername });
+        accountProfile.username = accountUsername;
+      }
+      await syncMurmurSupabaseIdentity(user, {
+        username: accountUsername,
+        name: accountProfile.name || user.displayName || 'Murmur User'
+      });
     } catch (accountError) { console.warn('Could not load account creation time:', accountError); }
     if (!auth.currentUser || auth.currentUser.uid !== user.uid) return;
     startSession(user);
