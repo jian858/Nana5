@@ -70,18 +70,30 @@ async function createPost() {
   if (postAudience.mode === 'specific' && !postAudience.uids.length) { showToast('Choose at least one friend who can see this post.'); return false; }
   if (postLimiter.check()) { showToast(CONFIG.text.tooFastPost); return false; }
   const user = auth.currentUser;
-  if (user && remotePosts) {
+  if (user) {
     try {
-      await push(ref(db, 'posts'), { authorUid: user.uid, authorName: state.currentUser?.name || 'Someone', authorUsername: state.currentUser?.username || '', text, ...postAudienceFields(), ...extras, createdAt: serverTimestamp() });
-      input.value = ''; postExtras = {};
+      const audience = postAudienceFields();
+      const result = await murmurPostsRequest('create', {
+        content: text,
+        visibility: audience.audience,
+        allowedFirebaseUids: Object.keys(audience.allowed || {}),
+        authorName: state.currentUser?.name || 'Someone',
+        authorUsername: state.currentUser?.username || '',
+        metadata: extras
+      });
+      if (!result.post) throw new Error('The post service did not return the saved post.');
+      supabasePosts.unshift(result.post);
+      mergeRemotePosts();
+      input.value = '';
+      postExtras = {};
       return true;
-    } catch (e) { showToast(friendlyError(e, 'Could not post.')); return false; }
+    } catch (e) {
+      showToast(friendlyError(e, 'Could not save your post to Supabase.'));
+      return false;
+    }
   }
-  state.posts.unshift({ id: Date.now(), author: 'me', text, likes: 0, liked: false });
-  input.value = '';
-  saveState();
-  renderPosts();
-  return true;
+  showToast('Sign in before creating a post.');
+  return false;
 }
 
 function openSavedPosts() {
@@ -175,11 +187,29 @@ document.addEventListener('click', async e => {
   const delBtn = e.target.closest('[data-del]');
   const uid = auth.currentUser?.uid;
   try {
-    if (delBtn && remotePosts) { await remove(ref(db, 'posts/' + delBtn.dataset.del)); return; }
+    if (delBtn && remotePosts) {
+      const post = remotePosts.find(p => p.id === delBtn.dataset.del);
+      if (!post) return;
+      if (post.source === 'supabase') {
+        await murmurPostsRequest('delete', { id: post.id });
+        supabasePosts = supabasePosts.filter(item => item.id !== post.id);
+        mergeRemotePosts();
+        showToast('Post permanently deleted.');
+      } else {
+        await remove(ref(db, 'posts/' + delBtn.dataset.del));
+      }
+      return;
+    }
     if (!likeBtn) return;
     if (remotePosts && uid) {
       const post = remotePosts.find(p => p.id === likeBtn.dataset.like);
       if (!post) return;
+      if (post.source === 'supabase') {
+        const result = await murmurPostsRequest('like', { id: post.id });
+        post.likes = result.likes || {};
+        renderPosts();
+        return;
+      }
       const lr = ref(db, `posts/${post.id}/likes/${uid}`);
       const had = !!(post.likes || {})[uid];
       await (had ? remove(lr) : set(lr, true));
