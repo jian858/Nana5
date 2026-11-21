@@ -155,7 +155,7 @@ async function ensureProfile(user) {
     const p = snap.val();
     p.code = await ensureCode(user.uid, p);
     remove(ref(db, 'profiles/' + user.uid + '/code')).catch(() => {});   // older versions put the ID in the public profile
-    await set(ref(db, 'profiles/' + user.uid), { uid: user.uid, name: p.name || '', username: p.username || '', usernameLower: (p.username || '').toLowerCase(), bio: p.bio || '', school: p.school || '', location: p.location || '', interests: p.interests || [], createdAt: p.createdAt || '', photo: p.photo || '', cover: p.cover || '' });
+    await set(ref(db, 'profiles/' + user.uid), { uid: user.uid, name: p.name || '', username: p.username || '', usernameLower: (p.username || '').toLowerCase(), bio: p.bio || '', school: p.school || '', location: p.location || '', work: p.work || '', role: p.role || '', hometown: p.hometown || '', interests: p.interests || [], createdAt: p.createdAt || '', photo: p.photo || p.profilePhoto || '', cover: p.cover || p.coverPhoto || '' });
     if (state.currentUser) { state.currentUser.photo = p.photo || ''; applyOwnPhoto(); }
   } catch (e) { console.warn('Profile sync failed (check Realtime Database rules):', e); }
 }
