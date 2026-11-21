@@ -99,10 +99,61 @@
   });
 
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/service-worker.js")
-        .then(registration => registration.update().catch(() => {}))
-        .catch(error => console.warn("Murmur offline support could not start:", error));
+    const UPDATE_CHECK_MS = 5 * 60 * 1000;
+    let updateRegistration = null;
+    let reloadPending = false;
+    let reloading = false;
+
+    function isSafeToReload() {
+      const active = document.activeElement;
+      const editing = active && (
+        active.matches("input, textarea, select") ||
+        active.isContentEditable
+      );
+      const uploading = !!document.querySelector(
+        'input[type="file"]:not(:disabled):focus, [aria-busy="true"], .uploading, .is-uploading'
+      );
+      return !editing && !uploading;
+    }
+
+    function applyUpdateWhenSafe() {
+      if (!reloadPending || reloading || !isSafeToReload()) return;
+      reloading = true;
+      window.location.reload();
+    }
+
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!reloading) {
+        reloadPending = true;
+        applyUpdateWhenSafe();
+      }
+    });
+
+    window.addEventListener("load", async () => {
+      try {
+        updateRegistration = await navigator.serviceWorker.register("/service-worker.js");
+        await updateRegistration.update();
+
+        // Check periodically while Murmur is open, without repeatedly reloading.
+        window.setInterval(() => {
+          if (document.visibilityState === "visible") {
+            updateRegistration?.update().catch(error =>
+              console.warn("Murmur update check failed:", error)
+            );
+          }
+          applyUpdateWhenSafe();
+        }, UPDATE_CHECK_MS);
+
+        document.addEventListener("focusout", () => {
+          window.setTimeout(applyUpdateWhenSafe, 300);
+        });
+        document.addEventListener("change", () => {
+          window.setTimeout(applyUpdateWhenSafe, 300);
+        });
+        window.addEventListener("pageshow", applyUpdateWhenSafe);
+      } catch (error) {
+        console.warn("Murmur offline support could not start:", error);
+      }
     }, { once: true });
   }
 })();
