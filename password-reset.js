@@ -90,10 +90,8 @@ function openForgotPassword() {
 
       sendBtn.textContent = 'Sending reset link…';
       if (!window.murmurSupabase) throw new Error('Account services are still loading. Please try again.');
-      const { error: resetError } = await window.murmurSupabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/?password-reset=1'
-      });
-      if (resetError) throw resetError;
+      if (!window.MurmurSupabaseAuth?.resetPassword) throw new Error('Supabase account services are still loading. Please try again.');
+      await window.MurmurSupabaseAuth.resetPassword(email);
       successBox.textContent = 'Your Murmur account is eligible. A password reset email has been sent. Check your inbox and spam folder.';
       successBox.hidden = false;
       sendBtn.textContent = 'Send again';
