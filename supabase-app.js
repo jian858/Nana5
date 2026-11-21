@@ -199,7 +199,7 @@ async function login() {
 function openSignup() {
   const overlay = document.createElement("div");
   overlay.className = "murmur-auth-modal";
-  overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="murmur-signup-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="murmur-signup-title">Create your Murmur account</h2><label>Full name<input name="name" maxlength="80" autocomplete="name" required></label><label>Username<input name="username" maxlength="30" pattern="[A-Za-z0-9_.]+" autocomplete="username" required></label><label>Email<input name="email" type="email" maxlength="254" autocomplete="email" required></label><label>Password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><p class="murmur-modal-error" role="alert"></p><button type="button" class="btn primary murmur-signup-submit">Create account</button><button type="button" class="btn secondary murmur-resend-confirmation" hidden>Resend confirmation email</button></section>';
+  overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="murmur-signup-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="murmur-signup-title">Create your Murmur account</h2><label>Full name<input name="name" maxlength="80" autocomplete="name" required></label><label>Username<input name="username" maxlength="24" minlength="3" pattern="[A-Za-z0-9_.]{3,24}" autocomplete="username" autocapitalize="none" spellcheck="false" required></label><label>Email<input name="email" type="email" maxlength="254" autocomplete="email" required></label><label>Password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><p class="murmur-modal-error" role="alert"></p><button type="button" class="btn primary murmur-signup-submit">Create account</button><button type="button" class="btn secondary murmur-resend-confirmation" hidden>Resend confirmation email</button></section>';
   document.body.appendChild(overlay);
   const close = () => overlay.remove();
   overlay.querySelector(".murmur-modal-close").addEventListener("click", close);
@@ -212,8 +212,8 @@ function openSignup() {
     const email = form.querySelector('[name="email"]').value.trim().toLowerCase();
     const password = form.querySelector('[name="password"]').value;
     const errorBox = overlay.querySelector(".murmur-modal-error");
-    if (!name || !/^[a-z0-9_.]{3,30}$/.test(username) || !email || password.length < 8) {
-      errorBox.textContent = "Enter your name, a username (3–30 letters, numbers, dots or underscores), a valid email and a password of at least 8 characters.";
+    if (!name || !/^[a-z0-9_.]{3,24}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 8) {
+      errorBox.textContent = "Enter your name, a valid email, a username with 3–24 letters, numbers, dots or underscores, and a password of at least 8 characters.";
       return;
     }
     button.disabled = true;
@@ -232,9 +232,16 @@ function openSignup() {
         const resend = form.querySelector(".murmur-resend-confirmation");
         if (resend) resend.hidden = false;
       }
-    } catch (error) { errorBox.textContent = error.message; }
-    finally { button.disabled = false; }
+    } catch (error) {
+      const message = String(error?.message || "Could not create your account. Please try again.");
+      errorBox.textContent = /duplicate key|already exists|profiles_username_key|unique constraint/i.test(message)
+        ? "That username is already taken. Choose another username."
+        : message;
+    } finally { button.disabled = false; }
   });
+  overlay.querySelectorAll("input").forEach(input => input.addEventListener("keydown", event => {
+    if (event.key === "Enter") { event.preventDefault(); overlay.querySelector(".murmur-signup-submit")?.click(); }
+  }));
   const resendButton = overlay.querySelector(".murmur-resend-confirmation");
   resendButton?.addEventListener("click", async () => {
     const email = overlay.querySelector('[name="email"]').value.trim().toLowerCase();
@@ -318,21 +325,40 @@ async function createPost() {
   finally { if (button) button.disabled = false; }
 }
 
+function switchView(view, sourceButton = null) {
+  const target = document.querySelector('[data-pane="' + CSS.escape(view) + '"]');
+  if (!target) return false;
+  document.querySelectorAll(".fb-nav [data-view]").forEach(item => {
+    const active = item.dataset.view === view;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-current", active ? "page" : "false");
+  });
+  document.querySelectorAll("[data-pane]").forEach(pane => {
+    const active = pane.dataset.pane === view;
+    pane.classList.toggle("active", active);
+    pane.hidden = !active;
+  });
+  window.dispatchEvent(new CustomEvent("murmur:view-changed", { detail: { view } }));
+  if (view === "home") renderFeed();
+  if (sourceButton?.closest(".fb-nav")) window.scrollTo({ top: 0, behavior: "smooth" });
+  return true;
+}
+
 function wireNavigation() {
-  document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => {
-    const view = button.dataset.view;
-    document.querySelectorAll("[data-view]").forEach(item => item.classList.toggle("active", item === button));
-    document.querySelectorAll("[data-pane]").forEach(pane => pane.classList.toggle("active", pane.dataset.pane === view));
-    if (view === "home") renderFeed();
-  }));
+  document.addEventListener("click", event => {
+    const button = event.target.closest("[data-view]");
+    if (!button) return;
+    if (switchView(button.dataset.view, button)) event.preventDefault();
+  });
   $("menuProfileBtn")?.addEventListener("click", openProfileEditor);
   $("logoutBtn")?.addEventListener("click", async () => {
     const { error } = await supabase.auth.signOut();
     if (error) showError(error.message);
   });
-  $("hdrAdd")?.addEventListener("click", () => $("postInput")?.focus());
+  $("hdrAdd")?.addEventListener("click", () => { switchView("home"); $("postInput")?.focus(); });
+  $("hdrSearch")?.addEventListener("click", () => { switchView("friends"); if ($("findBlock")) $("findBlock").hidden = false; $("friendSearch")?.focus(); });
   if ($("postInput")) $("postInput").removeAttribute("readonly");
-  $("postInput")?.addEventListener("input", () => { if ($("postBtn")) $("postBtn").hidden = !$("postInput").value.trim(); });
+  $("postInput")?.addEventListener("input", () => { if ($("postBtn")) $("postBtn").hidden = !$("postInput").value.trim() && !pendingPostFile; });
   $("postBtn")?.addEventListener("click", createPost);
   const composer = $("postInput")?.closest(".composer");
   if (composer && !$("postMediaButton")) {
@@ -352,7 +378,6 @@ function wireNavigation() {
     composer.append(mediaButton, picker, status);
   }
 }
-
 function wireAuth() {
   initSupabaseSocial();
   $("loginBtn")?.addEventListener("click", login);
