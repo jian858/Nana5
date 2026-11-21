@@ -45,3 +45,45 @@ input,select,textarea{max-width:100%}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}
 }
+
+
+/* Chat recovery: visible conversation controls, readable threads and touch-safe layout. */
+.chat-layout{display:grid;grid-template-columns:minmax(250px,340px) minmax(0,1fr);gap:16px;align-items:stretch}
+.chat-layout .sidebar,.chat-layout .conversation{min-width:0;min-height:560px}
+.chat-list{min-width:0;overflow-y:auto;overscroll-behavior:contain}
+.chat-list-item{width:100%;min-width:0;display:flex;align-items:center;gap:12px;padding:12px 14px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--ink);text-align:left;cursor:pointer}
+.chat-list-item:hover,.chat-list-item.active{background:rgba(18,185,149,.09)}
+.chat-list-item .avatar{width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;border-radius:50%;background:rgba(18,185,149,.14);font-weight:750}
+.chat-list-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
+.chat-list-copy strong,.chat-list-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-list-copy small,.chat-list-time{font-size:.8rem;color:var(--muted)}
+.chat-list-time{flex:0 0 auto}
+.conversation{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.conversation-header{min-width:0;flex:0 0 auto}
+.chat-back{display:none;flex:0 0 40px;width:40px;height:40px;place-items:center;border:0;border-radius:12px;background:var(--surface-soft,#f5f8f7);color:var(--ink);font-size:1.25rem}
+.messages{display:flex;flex:1;min-height:0;flex-direction:column;gap:10px;overflow-y:auto;overflow-x:hidden;padding:16px;overscroll-behavior:contain}
+.message-row{align-self:flex-start;max-width:min(82%,620px);min-width:48px;padding:10px 13px;border:1px solid var(--line);border-radius:16px 16px 16px 5px;background:var(--surface-soft,#f5f8f7);color:var(--ink);overflow-wrap:anywhere}
+.message-row p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.message-row time{display:block;margin-top:5px;font-size:.68rem;color:var(--muted);text-align:right}
+.message-row.mine{align-self:flex-end;border-color:transparent;border-radius:16px 16px 5px 16px;background:var(--acc);color:var(--on)}
+.message-row.mine time{color:rgba(4,38,30,.7)}
+.composer-chat{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;flex:0 0 auto;padding:12px;border-top:1px solid var(--line);padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+.composer-chat input{min-width:0}
+@media(max-width:780px){
+  .chat-layout{display:block;width:100%;min-height:0}
+  .chat-layout .sidebar{display:flex;width:100%;min-height:0;max-height:none}
+  .chat-layout .conversation{display:none}
+  .chat-layout.open .sidebar{display:none}
+  .chat-layout.open .conversation{display:flex;position:fixed;inset:0;z-index:90;width:100%;height:100vh;height:100dvh;min-height:0;max-height:100dvh;border:0;border-radius:0;padding-bottom:env(safe-area-inset-bottom,0px)}
+  .chat-layout.open .chat-back{display:grid}
+  .chat-layout.open .messages{min-height:0;flex:1}
+  .chat-layout.open .conversation-header{padding:10px 12px}
+  .chat-layout.open .composer-chat{padding-inline:12px}
+}
+@media(max-width:380px){
+  .chat-list-item{gap:9px;padding:10px}
+  .chat-list-time{display:none}
+  .message-row{max-width:90%}
+  .composer-chat{grid-template-columns:minmax(0,1fr) auto}
+  .composer-chat #voiceBtn{display:none}
+}
