@@ -51,6 +51,51 @@ async function loadProfile(user) {
   return profile;
 }
 
+function openProfileEditor() {
+  const overlay = document.createElement("div");
+  overlay.className = "murmur-auth-modal";
+  const p = currentProfile || {};
+  overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="profile-edit-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="profile-edit-title">Edit profile</h2><label>Display name<input name="display_name" maxlength="80"></label><label>Username<input name="username" maxlength="24"></label><label>Bio<textarea name="bio" maxlength="240" rows="3"></textarea></label><label>School<input name="school" maxlength="100"></label><label>Location<input name="location" maxlength="100"></label><label>Profile photo<input name="avatar" type="file" accept="image/jpeg,image/png,image/webp,image/avif"></label><p class="murmur-modal-error" role="alert"></p><button type="button" class="btn primary murmur-profile-save">Save profile</button></section>';
+  document.body.appendChild(overlay);
+  const form = overlay.querySelector("section");
+  form.querySelector('[name="display_name"]').value = p.display_name || "";
+  form.querySelector('[name="username"]').value = p.username || "";
+  form.querySelector('[name="bio"]').value = p.bio || "";
+  form.querySelector('[name="school"]').value = p.school || "";
+  form.querySelector('[name="location"]').value = p.location || "";
+  const close = () => overlay.remove();
+  form.querySelector(".murmur-modal-close").addEventListener("click", close);
+  overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+  form.querySelector(".murmur-profile-save").addEventListener("click", async event => {
+    const button = event.currentTarget;
+    const errorBox = form.querySelector(".murmur-modal-error");
+    const username = form.querySelector('[name="username"]').value.trim().replace(/^@/, "").toLowerCase();
+    const display_name = form.querySelector('[name="display_name"]').value.trim();
+    if (!display_name || !/^[a-z0-9_.]{3,24}$/.test(username)) {
+      errorBox.textContent = "Enter a display name and a username with 3–24 letters, numbers, dots or underscores.";
+      return;
+    }
+    button.disabled = true;
+    try {
+      const patch = {
+        display_name, username,
+        bio: form.querySelector('[name="bio"]').value.trim(),
+        school: form.querySelector('[name="school"]').value.trim(),
+        location: form.querySelector('[name="location"]').value.trim()
+      };
+      const avatar = form.querySelector('[name="avatar"]').files?.[0];
+      if (avatar) {
+        if (avatar.size > 10 * 1024 * 1024) throw new Error("Profile photos must be under 10 MB.");
+        patch.avatar_url = (await storage.uploadAvatar(avatar)).url;
+      }
+      currentProfile = await profiles.update(patch);
+      paintIdentity();
+      close();
+    } catch (error) { errorBox.textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+}
+
 function paintIdentity() {
   const name = currentProfile?.display_name || currentUser?.email || "Murmur user";
   const username = currentProfile?.username ? "@" + currentProfile.username : "";
@@ -204,6 +249,7 @@ function wireNavigation() {
     document.querySelectorAll("[data-pane]").forEach(pane => pane.classList.toggle("active", pane.dataset.pane === view));
     if (view === "home") renderFeed();
   }));
+  $("menuProfileBtn")?.addEventListener("click", openProfileEditor);
   $("logoutBtn")?.addEventListener("click", async () => {
     const { error } = await supabase.auth.signOut();
     if (error) showError(error.message);
