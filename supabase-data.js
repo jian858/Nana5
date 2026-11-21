@@ -109,6 +109,26 @@ export const comments = {
   }
 };
 
+export const postLikes = {
+  listForPosts: async (postIds = []) => {
+    const ids = [...new Set(postIds)].filter(Boolean);
+    if (!ids.length) return [];
+    return throwIfError(await supabase.from("post_likes")
+      .select("post_id,user_id").in("post_id", ids));
+  },
+  toggle: async (postId) => {
+    const user = await requireUser();
+    const existing = throwIfError(await supabase.from("post_likes")
+      .select("post_id").eq("post_id", postId).eq("user_id", user.id).maybeSingle());
+    if (existing) {
+      return throwIfError(await supabase.from("post_likes").delete()
+        .eq("post_id", postId).eq("user_id", user.id).select("post_id").maybeSingle());
+    }
+    return throwIfError(await supabase.from("post_likes")
+      .insert({ post_id: postId, user_id: user.id }).select("post_id").single());
+  }
+};
+
 export const conversations = {
   list: async () => {
     const user = await requireUser();
