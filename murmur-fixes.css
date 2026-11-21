@@ -392,3 +392,29 @@ input,select,textarea{max-width:100%}
 }
 .post-pane #postMediaButton,.post-pane #postBtn{align-self:flex-start}
 .post-pane #postMediaStatus{color:var(--muted);font-size:.82rem}
+
+
+/* Header brand lockup: icon paired with the Murmur app name. */
+.fb-logo{display:flex;align-items:center;gap:9px;min-width:0;line-height:1}
+.fb-logo .brand-mark{width:34px;height:34px}
+.fb-logo-name{display:inline-block;font-size:1.55rem;font-weight:850;letter-spacing:-.055em;color:#0fae8a}
+
+/* Notifications: align the heading, filters and cards to one clean column. */
+.alerts-pane{box-sizing:border-box;padding:10px 14px calc(24px + env(safe-area-inset-bottom,0px))}
+.alerts-heading{box-sizing:border-box;min-height:0;padding:14px 0 12px;margin:0;gap:12px}
+.alerts-heading>div{min-width:0}
+.alerts-heading h1{line-height:1.15;margin:2px 0 5px}
+.alerts-heading p{line-height:1.4}
+.alerts-filters{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 13px;margin:0}
+.alerts-filters button{min-height:38px;padding:8px 16px;line-height:1.1}
+.alerts-list{display:flex;flex-direction:column;gap:10px;margin:0;padding:0}
+.alert-row{box-sizing:border-box;min-width:0;margin:0;padding:13px 14px;border-radius:14px;line-height:1.4}
+.alert-row p{margin:6px 0;line-height:1.45;overflow-wrap:anywhere}
+.alert-row small{display:block;line-height:1.35;margin-top:5px}
+.alert-row .btn{margin-top:9px;min-height:36px}
+@media(max-width:420px){
+  .fb-logo .brand-mark{width:31px;height:31px}
+  .fb-logo-name{font-size:1.4rem}
+  .alerts-pane{padding-inline:12px}
+  .alerts-row,.alert-row{padding:11px 12px}
+}
