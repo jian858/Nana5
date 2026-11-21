@@ -345,6 +345,184 @@ function switchView(view, sourceButton = null) {
   return true;
 }
 
+
+function openMenuDialog(title, bodyHtml, onReady) {
+  document.querySelector(".murmur-menu-dialog")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "murmur-auth-modal murmur-menu-dialog";
+  overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-label="' + safeText(title) + '"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2>' + safeText(title) + '</h2><div class="murmur-menu-dialog-body">' + bodyHtml + '</div></section>';
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector(".murmur-modal-close")?.addEventListener("click", close);
+  overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+  onReady?.(overlay, close);
+  return overlay;
+}
+
+function applyMurmurTheme(theme) {
+  const selected = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = selected;
+  try { localStorage.setItem("murmur-theme", selected); } catch {}
+  const button = $("themeBtn");
+  if (button) button.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg> ' + (selected === "dark" ? "Light mode" : "Dark mode");
+}
+try {
+  applyMurmurTheme(localStorage.getItem("murmur-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+} catch { applyMurmurTheme("light"); }
+
+function openAccountSettings() {
+  const email = currentUser?.email || "";
+  const overlay = openMenuDialog("Account settings",
+    '<p>Signed in as <strong>' + safeText(email) + '</strong></p>' +
+    '<label>New email address<input type="email" name="email" autocomplete="email" value="' + safeText(email) + '" maxlength="254"></label>' +
+    '<button class="btn secondary" type="button" data-change-email>Update email</button>' +
+    '<label>New password<input type="password" name="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters"></label>' +
+    '<button class="btn primary" type="button" data-change-password>Update password</button>' +
+    '<p class="murmur-modal-error" role="alert" aria-live="polite"></p>');
+  const errorBox = overlay.querySelector(".murmur-modal-error");
+  overlay.querySelector("[data-change-email]")?.addEventListener("click", async event => {
+    const button = event.currentTarget;
+    const nextEmail = overlay.querySelector('[name="email"]').value.trim().toLowerCase();
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(nextEmail)) { errorBox.textContent = "Enter a valid email address."; return; }
+    button.disabled = true;
+    try {
+      const { error } = await supabase.auth.updateUser({ email: nextEmail });
+      if (error) throw error;
+      errorBox.textContent = "Email update requested. Check your inbox to confirm the change.";
+    } catch (error) { errorBox.textContent = error.message || "Could not update email."; }
+    finally { button.disabled = false; }
+  });
+  overlay.querySelector("[data-change-password]")?.addEventListener("click", async event => {
+    const button = event.currentTarget;
+    const password = overlay.querySelector('[name="password"]').value;
+    if (password.length < 8) { errorBox.textContent = "Use a password with at least 8 characters."; return; }
+    button.disabled = true;
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      overlay.querySelector('[name="password"]').value = "";
+      errorBox.textContent = "Your password was updated.";
+    } catch (error) { errorBox.textContent = error.message || "Could not update password."; }
+    finally { button.disabled = false; }
+  });
+}
+
+async function openBlockedPeople() {
+  const overlay = openMenuDialog("Blocked people", '<p>Loading your blocked accounts…</p>');
+  const body = overlay.querySelector(".murmur-menu-dialog-body");
+  try {
+    const { data, error } = await supabase.from("blocks").select("blocked_id,created_at").order("created_at", { ascending: false });
+    if (error) throw error;
+    if (!data?.length) { body.innerHTML = '<p>You have not blocked anyone.</p>'; return; }
+    const ids = data.map(row => row.blocked_id);
+    const { data: people, error: peopleError } = await supabase.from("murmur_public_profiles").select("id,display_name,username").in("id", ids);
+    if (peopleError) throw peopleError;
+    const byId = new Map((people || []).map(person => [person.id, person]));
+    body.innerHTML = data.map(row => {
+      const person = byId.get(row.blocked_id) || {};
+      return '<div class="murmur-blocked-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line,#ddd)"><span><strong>' + safeText(person.display_name || "Murmur user") + '</strong><small style="display:block;color:var(--muted)"> ' + safeText(person.username ? "@" + person.username : "") + '</small></span><button class="btn secondary" type="button" data-unblock="' + safeText(row.blocked_id) + '">Unblock</button></div>';
+    }).join("");
+    body.addEventListener("click", async event => {
+      const button = event.target.closest("[data-unblock]");
+      if (!button) return;
+      button.disabled = true;
+      try {
+        const { error: removeError } = await supabase.from("blocks").delete().eq("blocked_id", button.dataset.unblock);
+        if (removeError) throw removeError;
+        button.closest(".murmur-blocked-row")?.remove();
+        if (!body.querySelector(".murmur-blocked-row")) body.innerHTML = "<p>You have not blocked anyone.</p>";
+      } catch (removeError) { button.disabled = false; alert(removeError.message || "Could not unblock this account."); }
+    });
+  } catch (error) {
+    body.innerHTML = '<p role="alert">Could not load blocked people: ' + safeText(error.message) + '</p><button class="btn secondary" type="button" data-retry-blocked>Try again</button>';
+    body.querySelector("[data-retry-blocked]")?.addEventListener("click", () => { overlay.remove(); openBlockedPeople(); });
+  }
+}
+
+async function openAppPermissions() {
+  let notification = "Not supported by this browser";
+  if ("Notification" in window) notification = Notification.permission;
+  const overlay = openMenuDialog("App permissions",
+    '<p>Notifications: <strong data-permission-status>' + safeText(notification) + '</strong></p>' +
+    '<p>Allow Murmur notifications in this browser to receive supported alerts.</p>' +
+    '<button class="btn primary" type="button" data-enable-notifications>Enable notifications</button>' +
+    '<p class="murmur-modal-error" role="status" aria-live="polite"></p>');
+  overlay.querySelector("[data-enable-notifications]")?.addEventListener("click", async event => {
+    const button = event.currentTarget;
+    const status = overlay.querySelector("[data-permission-status]");
+    const message = overlay.querySelector(".murmur-modal-error");
+    if (!("Notification" in window)) { message.textContent = "This browser does not support web notifications."; return; }
+    button.disabled = true;
+    try {
+      const permission = await Notification.requestPermission();
+      status.textContent = permission;
+      message.textContent = permission === "granted" ? "Notifications are allowed. Murmur can now request browser notifications." : "Permission was not granted. You can change this in your browser site settings.";
+    } finally { button.disabled = false; }
+  });
+}
+
+function openPerformanceInfo() {
+  const connection = navigator.connection?.effectiveType || "Not reported";
+  const memory = navigator.deviceMemory ? navigator.deviceMemory + " GB" : "Not reported";
+  const cores = navigator.hardwareConcurrency || "Not reported";
+  openMenuDialog("Performance & connection",
+    '<p>Connection: <strong>' + safeText(navigator.onLine ? "Online" : "Offline") + '</strong></p>' +
+    '<p>Network type: <strong>' + safeText(connection) + '</strong></p>' +
+    '<p>Device memory: <strong>' + safeText(memory) + '</strong></p>' +
+    '<p>CPU threads: <strong>' + safeText(cores) + '</strong></p>' +
+    '<p>For best performance, keep Murmur updated and use a stable connection.</p>');
+}
+
+function openDeleteAccountInfo() {
+  openMenuDialog("Delete account",
+    '<p>Account deletion must be securely processed on the server so your authentication account and personal data are removed together.</p><p>This app does not currently expose a verified self-service deletion endpoint. Your account has <strong>not</strong> been deleted.</p><p>Use the Help &amp; support section to submit a deletion request.</p>');
+}
+
+function handleMenuAction(action) {
+  const views = { reels: "reels", friends: "friends", chats: "chats", alerts: "alerts", feeds: "home" };
+  if (views[action]) { switchView(views[action]); return; }
+  if (action === "performance") { openPerformanceInfo(); return; }
+  if (action === "permissions") { openAppPermissions(); return; }
+  if (action === "privacy") { location.href = "/privacy"; return; }
+  if (action === "account-settings") { openAccountSettings(); return; }
+  if (action === "help") {
+    openMenuDialog("Help centre", '<p>For account access, chat, privacy or technical problems, use <strong>Report a problem</strong> so the Murmur team can review the details.</p><button class="btn primary" type="button" data-open-report>Report a problem</button>')
+      .querySelector("[data-open-report]")?.addEventListener("click", openReportDialog);
+    return;
+  }
+  if (action === "report") { openReportDialog(); return; }
+  if (action === "add-account") {
+    openMenuDialog("Add account", '<p>To use another Murmur account on this device, sign out of the current account and sign in with the other account.</p><button class="btn primary" type="button" data-switch-account>Sign out</button>')
+      .querySelector("[data-switch-account]")?.addEventListener("click", async () => { const { error } = await supabase.auth.signOut(); if (error) alert(error.message); });
+    return;
+  }
+  if (action === "saved" || action === "memories") {
+    openMenuDialog(action === "saved" ? "Saved posts" : "Memories", '<p>This section is not available yet. Your account and existing posts have not been changed.</p>');
+  }
+}
+
+function openReportDialog() {
+  const overlay = openMenuDialog("Report a problem",
+    '<label>What happened?<select name="reason"><option value="bug">App button or feature not working</option><option value="chat">Chat or messages</option><option value="account">Account or sign-in</option><option value="privacy">Privacy or safety</option><option value="other">Other</option></select></label>' +
+    '<label>Details<textarea name="details" rows="4" maxlength="2000" placeholder="Describe what happened"></textarea></label>' +
+    '<p class="murmur-modal-error" role="alert"></p><button class="btn primary" type="button" data-submit-report>Send report</button>');
+  overlay.querySelector("[data-submit-report]")?.addEventListener("click", async event => {
+    const button = event.currentTarget;
+    const reason = overlay.querySelector('[name="reason"]').value;
+    const details = overlay.querySelector('[name="details"]').value.trim();
+    const errorBox = overlay.querySelector(".murmur-modal-error");
+    if (!details) { errorBox.textContent = "Describe the problem before sending."; return; }
+    button.disabled = true;
+    try {
+      const { error } = await supabase.from("reports").insert({ reporter_id: currentUser.id, reason, details });
+      if (error) throw error;
+      errorBox.textContent = "Your report was sent. Thank you.";
+      button.hidden = true;
+    } catch (error) { errorBox.textContent = error.message || "Could not send your report."; }
+    finally { button.disabled = false; }
+  });
+}
+
 function wireNavigation() {
   document.addEventListener("click", event => {
     const button = event.target.closest("[data-view]");
@@ -352,6 +530,30 @@ function wireNavigation() {
     if (switchView(button.dataset.view, button)) event.preventDefault();
   });
   $("menuProfileBtn")?.addEventListener("click", openProfileEditor);
+  $("settingsPrivacyToggle")?.addEventListener("click", () => {
+    const button = $("settingsPrivacyToggle");
+    const panel = $("settingsPrivacyContent");
+    const expanded = button.getAttribute("aria-expanded") === "true";
+    button.setAttribute("aria-expanded", String(!expanded));
+    panel.hidden = expanded;
+  });
+  $("helpSupportToggle")?.addEventListener("click", () => {
+    const button = $("helpSupportToggle");
+    const panel = $("helpSupportContent");
+    const expanded = button.getAttribute("aria-expanded") === "true";
+    button.setAttribute("aria-expanded", String(!expanded));
+    panel.hidden = expanded;
+  });
+  document.addEventListener("click", event => {
+    const action = event.target.closest("[data-menu-action]");
+    if (action) { event.preventDefault(); handleMenuAction(action.dataset.menuAction); return; }
+  });
+  $("themeBtn")?.addEventListener("click", () => {
+    applyMurmurTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+  });
+  $("blockedBtn")?.addEventListener("click", openBlockedPeople);
+  $("deleteAccountBtn")?.addEventListener("click", openDeleteAccountInfo);
+
   $("logoutBtn")?.addEventListener("click", async () => {
     const { error } = await supabase.auth.signOut();
     if (error) showError(error.message);
