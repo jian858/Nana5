@@ -2455,10 +2455,23 @@ document.getElementById('postInput').addEventListener('click', openCreatePost);
    NOTES  -  a short line (60 characters) on top of your chats. Every friend sees it in
    their chat list and at the top of your conversation. Saved at notes/<your id>.
    ===================================================================== */
+const NOTE_LIFETIME_MS = 24 * 60 * 60 * 1000;
+function isNoteActive(note) {
+  if (!note || typeof note.text !== 'string' || !note.text.trim()) return false;
+  const createdAt = Number(note.createdAt);
+  return Number.isFinite(createdAt) && createdAt > 0 && Date.now() - createdAt < NOTE_LIFETIME_MS;
+}
 function watchNote(uid) {
   if (noteSubs[uid]) return;
   noteSubs[uid] = onValue(ref(db, 'notes/' + uid), snap => {
-    const v = snap.val(); noteData[uid] = v && typeof v.text === 'string' && v.text ? v : null;
+    const v = snap.val();
+    if (v && typeof v.text === 'string' && v.text.trim() && !isNoteActive(v)) {
+      noteData[uid] = null;
+      // Only the note owner may remove the expired database record.
+      if (uid === meUid()) remove(ref(db, 'notes/' + uid)).catch(() => {});
+    } else {
+      noteData[uid] = isNoteActive(v) ? v : null;
+    }
     renderNoteRow(); renderProfileNote(); if (activeChatUid === uid) renderConversation();
   }, () => {});
 }
@@ -2468,9 +2481,9 @@ function renderNoteRow() {
   if (!me) { row.innerHTML = ''; return; }
   const fr = chatFriends().map(otherOf);
   [me, ...fr.map(o => o.uid)].forEach(watchNote);
-  const mine = noteData[me];
+  const mine = isNoteActive(noteData[me]) ? noteData[me] : null;
   row.innerHTML = `<button type="button" class="note-tile" data-note-edit><span class="note-bubble${mine ? '' : ' empty'}">${mine ? esc(mine.text) : 'Add note'}</span>${avatarHtml(me, state.currentUser?.name || '')}<small>Your note</small></button>`
-    + fr.filter(o => noteData[o.uid]).map(o => `<button type="button" class="note-tile" data-msg="${esc(o.uid)}"><span class="note-bubble">${esc(noteData[o.uid].text)}</span>${avatarHtml(o.uid, o.name)}<small>${esc(o.name.split(' ')[0])}</small></button>`).join('');
+    + fr.filter(o => isNoteActive(noteData[o.uid])).map(o => `<button type="button" class="note-tile" data-msg="${esc(o.uid)}"><span class="note-bubble">${esc(noteData[o.uid].text)}</span>${avatarHtml(o.uid, o.name)}<small>${esc(o.name.split(' ')[0])}</small></button>`).join('');
 }
 function openNoteSheet() {
   const me = meUid(); if (!me || document.querySelector('.note-sheet')) return;
@@ -3267,7 +3280,7 @@ function openProfileMenu() {
 }
 function renderProfileNote() {
   const b = profileOverlay && profileOverlay.querySelector('[data-p-note]'); if (!b) return;
-  const self = profileUid === meUid(), n = noteData[profileUid];
+  const self = profileUid === meUid(), n = isNoteActive(noteData[profileUid]) ? noteData[profileUid] : null;
   b.hidden = !self && !n; b.textContent = n ? n.text : 'Share a note…'; b.classList.toggle('empty', !n); b.disabled = !self;
 }
 function profileRows(d, self) {
