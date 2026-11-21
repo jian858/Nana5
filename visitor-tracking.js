@@ -5,8 +5,6 @@
  */
 (function initMurmurVisitorTracking() {
   "use strict";
-  const endpoint = "https://pkadftvqslkykehcqedj.supabase.co/rest/v1/rpc/record_murmur_visit";
-  const publicKey = "sb_publishable_etoHiUGbJ96MUPzJABL12A_UiTWVxok";
   const storageKey = "murmur_visitor_id_v1";
   const throttleKey = "murmur_visit_throttle_v2";
   let memoryVisitorId = null;
@@ -73,24 +71,13 @@
           controller = new AbortController();
           timeout = setTimeout(() => controller.abort(), 9000);
         }
-        const response = await fetch(endpoint, {
-          method: "POST",
-          mode: "cors",
-          credentials: "omit",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": publicKey,
-            "Prefer": "return=minimal"
-          },
-          body: JSON.stringify({ p_visitor_id: visitorId, p_page_path: cleanPath }),
-          keepalive: true,
-          signal: controller ? controller.signal : undefined
+        const client = window.murmurSupabase;
+        if (!client?.functions) throw new Error("Supabase client is not ready.");
+        const { data, error } = await client.functions.invoke("murmur-visitor-track", {
+          body: { visitor_id: visitorId, page_path: cleanPath }
         });
-        if (timeout) clearTimeout(timeout);
-        if (!response.ok) {
-          const detail = await response.text().catch(() => "");
-          throw new Error("Visitor RPC returned " + response.status + (detail ? ": " + detail.slice(0, 180) : ""));
-        }
+        if (error) throw error;
+        if (!data || typeof data.recorded !== "boolean") throw new Error("Visitor tracking returned an invalid response.");
         markRecorded(cleanPath, Date.now());
         window.dispatchEvent(new CustomEvent("murmur:visitor-recorded", { detail: { path: cleanPath } }));
         return true;
@@ -106,8 +93,10 @@
 
   window.MurmurVisitorTracking = { record: (path, force) => record(path || window.location.pathname, !!force) };
 
-  // Record the initial page as soon as this script runs.
-  record(window.location.pathname, true);
+  // Wait for the shared Supabase module client before recording the first visit.
+  function startTracking() { record(window.location.pathname, true); }
+  if (window.murmurSupabase?.functions) startTracking();
+  else window.addEventListener("murmur:supabase-client-ready", startTracking, { once: true });
 
   // App navigation calls this event even when a view is changed programmatically.
   window.addEventListener("murmur:viewchange", event => {
