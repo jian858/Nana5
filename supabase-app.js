@@ -61,7 +61,12 @@ async function openPublicProfile(userId) {
   pane.className = "pane murmur-profile-pane";
   pane.dataset.pane = "profile";
   pane.innerHTML = '<div class="murmur-profile-tab-head"><button type="button" class="murmur-profile-back" aria-label="Back">‹</button><h1>Profile</h1></div><div class="murmur-profile-view-content"><p class="empty-state">Loading profile…</p></div>';
-  main.appendChild(pane);
+  // Keep the site legal footer after dynamically-created profile content.
+  // The footer is a direct child of main-content, so appendChild would place
+  // the new profile pane after it and make the footer appear above the profile.
+  const legalFooter = main.querySelector(":scope > footer.legal-links");
+  if (legalFooter) main.insertBefore(pane, legalFooter);
+  else main.appendChild(pane);
   switchView("profile");
   const content = pane.querySelector(".murmur-profile-view-content");
   const close = () => { pane.remove(); switchView(previousView === "profile" ? "home" : previousView); };
