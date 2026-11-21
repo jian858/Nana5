@@ -688,7 +688,7 @@ function openForgotPasswordPage() {
     const email = form.elements.email.value.trim().toLowerCase();
     const button = form.querySelector("button[type=submit]");
     const status = overlay.querySelector(".murmur-recovery-status");
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       status.textContent = "Enter a valid email address.";
       form.elements.email.focus();
       return;
