@@ -4392,18 +4392,36 @@ setTimeout(finishStartup, SPLASH_MS);
       const now = Date.now();
       const previous = JSON.parse(sessionStorage.getItem(throttleKey) || "{}");
       if (!force && previous.path === cleanPath && now - Number(previous.at || 0) < 15000) return;
-      sessionStorage.setItem(throttleKey, JSON.stringify({ path: cleanPath, at: now }));
-      await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": publicKey
-        },
-        body: JSON.stringify({ p_visitor_id: visitorId, p_page_path: cleanPath }),
-        keepalive: true
-      });
-    } catch (_) {
-      // Analytics must never interrupt Murmur if the network is unavailable.
+      // Use the Supabase publishable key for both gateway and PostgREST authorization.
+      // Do not mark this page as recorded until Supabase confirms the insert.
+      let lastError = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": publicKey,
+              "Authorization": "Bearer " + publicKey,
+              "Prefer": "return=minimal"
+            },
+            body: JSON.stringify({ p_visitor_id: visitorId, p_page_path: cleanPath }),
+            keepalive: true
+          });
+          if (!response.ok) {
+            const detail = await response.text().catch(() => "");
+            throw new Error("Visitor tracking failed (" + response.status + "): " + detail.slice(0, 240));
+          }
+          sessionStorage.setItem(throttleKey, JSON.stringify({ path: cleanPath, at: Date.now() }));
+          return;
+        } catch (error) {
+          lastError = error;
+          if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 350 * (attempt + 1)));
+        }
+      }
+      console.warn("[Murmur visitor tracking]", lastError);
+    } catch (error) {
+      console.warn("[Murmur visitor tracking]", error);
     }
   }
 
