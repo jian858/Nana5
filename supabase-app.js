@@ -677,6 +677,7 @@ function openForgotPasswordPage() {
         <button class="btn primary" type="submit">Send reset link</button>
       </form>
       <p class="murmur-recovery-status" role="status" aria-live="polite"></p>
+      <div class="murmur-recovery-search" hidden role="status" aria-live="polite"><span class="murmur-recovery-spinner" aria-hidden="true"></span><span>Searching for your account in Murmur…</span></div>
       <p class="murmur-recovery-countdown" role="timer" aria-live="off"></p>
       <p class="murmur-recovery-footnote">If your account is suspended or terminated, changing your password will not restore access. Permanently deleted accounts cannot be recovered.</p>
     </main>`;
@@ -694,18 +695,26 @@ function openForgotPasswordPage() {
       form.elements.email.focus();
       return;
     }
+    const searchState = overlay.querySelector(".murmur-recovery-search");
+    const countdown = overlay.querySelector(".murmur-recovery-countdown");
     button.disabled = true;
-    button.textContent = "Sending link…";
-    status.textContent = "Contacting Murmur securely to send your reset link…";
+    button.textContent = "Searching…";
+    status.textContent = "";
+    countdown.textContent = "";
+    searchState.hidden = false;
     try {
+      // Supabase performs the account lookup and reset request server-side.
+      // Keep the result neutral so the form cannot be used to enumerate registered emails.
       const { error } = await withAuthTimeout(supabase.auth.resetPasswordForEmail(email, {
         redirectTo: location.origin + "/?password-reset=1"
-      }), "Sending the password reset link", 20000);
+      }), "Checking your Murmur account", 20000);
       if (error) throw error;
-      status.textContent = "If an account is registered with that email, a reset link has been requested. Check your inbox and spam folder.";
+      searchState.hidden = true;
+      status.textContent = "Search complete. If this email belongs to an eligible Murmur account, a reset link has been requested. Check your inbox and spam folder.";
       button.dataset.cooldown = "60";
       button.textContent = "Send another link";
     } catch (error) {
+      searchState.hidden = true;
       const message = String(error.message || "");
       const rateLimit = /rate limit|too many requests|over_email_send_rate_limit/i.test(message);
       const waitMatch = message.match(/after\s+(\d+)\s+seconds?/i);
