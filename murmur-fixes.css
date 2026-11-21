@@ -854,3 +854,28 @@ input,select,textarea{max-width:100%}
   overflow:hidden;text-overflow:ellipsis;cursor:pointer;
 }
 .note-saved-preview:hover{border-color:var(--accent,#14c8a0)}
+
+
+/* Create Note — shared Chat/Profile text-note editor and preview. */
+.note-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.note-avatar-button{display:flex;flex-direction:column;align-items:center;gap:7px;min-width:68px;padding:7px;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.note-action-label{font-size:.78rem;font-weight:700;color:var(--muted,#647477)}
+.note-avatar-circle{display:grid;place-items:center;width:54px;height:54px;overflow:hidden;border:2px solid var(--accent,#14c8a0);border-radius:50%;background:var(--surface,#fff);font-size:1.15rem;font-weight:800}
+.note-avatar-circle img{width:100%;height:100%;object-fit:cover}
+.note-saved-preview{max-width:min(68vw,360px);padding:11px 15px;border:1px solid var(--border,#dfe8e5);border-radius:16px;background:var(--surface,#fff);color:var(--text,#172a2b);font:inherit;font-size:.9rem;line-height:1.45;text-align:left;overflow-wrap:anywhere;cursor:pointer;box-shadow:0 3px 12px rgba(20,50,45,.06)}
+.murmur-note-modal{z-index:10020}
+.murmur-note-modal>section{width:min(100%,460px);padding:24px;border:1px solid var(--border,#e1e9e6);border-radius:22px}
+.murmur-note-modal h2{margin:0 38px 18px 0;font-size:1.35rem;letter-spacing:-.02em}
+.murmur-note-modal label{display:block;margin:0 0 8px;font-size:.88rem;font-weight:750}
+.murmur-note-modal textarea{display:block;width:100%;min-height:132px;resize:vertical;padding:13px 14px;border:1px solid var(--border,#d9e4e0);border-radius:14px;background:var(--input-bg,#fff);color:var(--text,#172a2b);font:inherit;line-height:1.55;outline:none}
+.murmur-note-modal textarea:focus{border-color:var(--accent,#14c8a0);box-shadow:0 0 0 3px rgba(20,200,160,.14)}
+.note-editor-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+.note-editor-footer small{color:var(--muted,#647477);font-variant-numeric:tabular-nums}
+.note-editor-footer button{min-height:42px;padding:0 18px;border-radius:12px}
+.note-delete{display:block;margin:16px 0 0;padding:8px 0;border:0;background:transparent;color:#c33b45;font:inherit;font-weight:700;cursor:pointer}
+.murmur-profile-note{margin:16px 0;padding:14px 16px;border:1px solid var(--border,#e1e9e6);border-radius:16px;background:var(--surface,#fff)}
+.murmur-profile-note-heading{margin-bottom:7px;color:var(--muted,#647477);font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.murmur-profile-note-content{display:block;width:100%;padding:0;border:0;background:transparent;color:var(--text,#172a2b);font:inherit;line-height:1.55;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;cursor:pointer}
+.murmur-profile-note small{display:block;margin-top:9px;color:var(--muted,#647477);font-size:.76rem}
+.murmur-profile-note-empty{margin:14px 0;padding:12px 16px;border:1px dashed var(--accent,#14c8a0);border-radius:14px;background:transparent;color:var(--text,#172a2b);font:inherit;font-weight:700;cursor:pointer}
+@media(max-width:520px){.murmur-note-modal>section{padding:21px 18px}.note-saved-preview{max-width:calc(100vw - 112px)}}
