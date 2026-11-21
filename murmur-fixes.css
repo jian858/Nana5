@@ -334,3 +334,7 @@ input,select,textarea{max-width:100%}
 .note-preview-bubble,.note-hint{display:none!important}
 .note-avatar-button:focus-visible{outline:2px solid var(--accent,#1685e8);outline-offset:3px;border-radius:12px}
 @media(max-width:780px){#noteRow.note-row{flex-basis:72px;min-width:72px}.note-avatar-button{width:72px}.note-action-label{font-size:.69rem}.note-avatar-circle{width:62px;height:62px}}
+
+/* Chat toolbar cleanup: remove search bar and plus/new-message affordance. */
+.chat-layout .chat-search,#chatSearchBtn,#newChatBtn{display:none!important}
+.chat-layout .messages-tools{justify-content:flex-end}
