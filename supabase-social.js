@@ -58,15 +58,38 @@ async function renderFriends() {
 }
 
 export async function openDirectChat(targetUserId) {
+  if (!targetUserId) throw new Error("Choose an account before opening a conversation.");
+  const chatsTab = document.querySelector(".fb-nav [data-view=\"chats\"]") ||
+    document.querySelector('[data-view="chats"]');
+  chatsTab?.click();
+
+  const chatsPane = document.querySelector('[data-pane="chats"]');
+  if (chatsPane && !chatsPane.classList.contains("active")) {
+    document.querySelectorAll("[data-pane]").forEach(pane => {
+      const active = pane === chatsPane;
+      pane.classList.toggle("active", active);
+      pane.hidden = !active;
+    });
+    document.querySelectorAll(".fb-nav [data-view]").forEach(item => {
+      const active = item.dataset.view === "chats";
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-current", active ? "page" : "false");
+    });
+    window.dispatchEvent(new CustomEvent("murmur:view-changed", { detail: { view: "chats" } }));
+  }
+
+  const root = el("messages");
+  if (root) {
+    root.dataset.conversationId = "";
+    root.innerHTML = '<p class="empty-state">Opening conversation…</p>';
+  }
   const { data: conversationId, error } = await supabase.rpc("start_murmur_direct_conversation", {
     p_target_user_id: targetUserId
   });
   if (error) throw error;
-  if (!conversationId) throw new Error("The conversation could not be opened.");
-
-  const chatsTab = document.querySelector('[data-view="chats"]');
-  if (chatsTab) chatsTab.click();
-  await openConversation(conversationId);
+  const resolvedId = typeof conversationId === "string" ? conversationId : conversationId?.id;
+  if (!resolvedId) throw new Error("Murmur did not return a conversation ID. Please try again.");
+  await openConversation(resolvedId);
 }
 
 let peopleSearchRun = 0;
@@ -431,21 +454,27 @@ async function renderConversationMessages(conversationId) {
   }
 }
 
+let conversationOpenRun = 0;
 async function openConversation(id) {
   const root = el("messages");
   if (!root || !id) return;
+  const run = ++conversationOpenRun;
   activeConversationId = id;
   root.dataset.conversationId = id;
+  root.innerHTML = '<p class="empty-state">Loading conversation…</p>';
   document.querySelector(".chat-layout")?.classList.add("open");
   el("chatName") && (el("chatName").textContent = "Loading chat…");
-  el("chatStatus") && (el("chatStatus").textContent = "Murmur conversation");
-  await renderChats();
+  el("chatStatus") && (el("chatStatus").textContent = "Connecting…");
+  // Refresh the sidebar in the background. It must never delay showing the
+  // selected conversation on slower mobile connections.
+  void renderChats();
 
   try {
     const [{ data: authData, error: authError }, members] = await Promise.all([
       supabase.auth.getUser(),
       conversations.members(id)
     ]);
+    if (run !== conversationOpenRun || root.dataset.conversationId !== id) return;
     if (authError) throw authError;
     const otherId = (members || []).find(member => member.user_id !== authData.user?.id)?.user_id;
     if (otherId) {
@@ -453,25 +482,34 @@ async function openConversation(id) {
         .select("id,username,display_name,avatar_url")
         .eq("id", otherId).maybeSingle();
       if (error) throw error;
+      if (run !== conversationOpenRun || root.dataset.conversationId !== id) return;
       activeConversationPerson = person;
     } else {
       activeConversationPerson = null;
     }
-    const name = activeConversationPerson?.display_name || "Conversation";
+    const name = activeConversationPerson?.display_name || activeConversationPerson?.username || "Conversation";
     if (el("chatName")) el("chatName").textContent = name;
     if (el("chatStatus")) el("chatStatus").textContent = activeConversationPerson?.username ? "@" + activeConversationPerson.username : "Private chat";
-    if (el("chatAvatar")) el("chatAvatar").textContent = name.slice(0,1).toUpperCase();
+    if (el("chatAvatar")) {
+      const person = activeConversationPerson;
+      el("chatAvatar").innerHTML = person?.avatar_url
+        ? '<img src="' + esc(person.avatar_url) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.remove()">'
+        : esc(name.slice(0,1).toUpperCase());
+    }
 
     if (messageChannel) supabase.removeChannel(messageChannel);
     messageChannel = supabase.channel("murmur-chat-" + id)
       .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: "conversation_id=eq." + id },
-        () => renderConversationMessages(id))
+        () => { if (root.dataset.conversationId === id) void renderConversationMessages(id); })
       .subscribe();
     await renderConversationMessages(id);
+    if (run !== conversationOpenRun || root.dataset.conversationId !== id) return;
     conversations.markRead(id).catch(error => console.warn("[Murmur chat] Could not update read state:", error));
     el("messageInput")?.focus();
   } catch (error) {
-    fail(root, error);
+    if (run !== conversationOpenRun || root.dataset.conversationId !== id) return;
+    root.innerHTML = '<div class="empty-state" role="alert"><p>This conversation could not be opened.</p><small>' + esc(error.message || "Please check your connection and try again.") + '</small><button type="button" class="btn secondary" data-retry-conversation>Try again</button></div>';
+    root.querySelector("[data-retry-conversation]")?.addEventListener("click", () => openConversation(id), { once: true });
   }
 }
 
