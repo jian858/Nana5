@@ -941,3 +941,13 @@ input,select,textarea{max-width:100%}
 #noteRow .note-action-label{display:block;width:100%;max-width:180px;min-width:0;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.3;overflow-wrap:anywhere;text-align:center}
 #noteRow .note-avatar-button{min-width:0;max-width:190px}
 @media(max-width:480px){#noteRow .note-action-label{max-width:128px}}
+/* Keep the menu in the page's vertical scroll flow on touch screens. */
+#app .murmur-menu-pane{
+  overflow:visible!important;
+  touch-action:pan-y!important;
+  overscroll-behavior-y:contain;
+  -webkit-overflow-scrolling:touch;
+}
+#app .murmur-menu-pane .menu-accordion-content{
+  touch-action:pan-y;
+}
