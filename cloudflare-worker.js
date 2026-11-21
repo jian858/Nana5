@@ -24,7 +24,7 @@ export default {
     responseHeaders.set("referrer-policy", "strict-origin-when-cross-origin");
     // Always revalidate app shell and code so deployments do not leave stale CSS/JS.
     if (incoming.pathname === "/" || incoming.pathname.endsWith(".html") ||
-        /\\.(css|js|mjs|json|webmanifest)$/.test(incoming.pathname)) {
+        /\.(css|js|mjs|json|webmanifest)$/.test(incoming.pathname)) {
       responseHeaders.set("cache-control", "no-store, max-age=0");
     }
     return new Response(upstream.body, {
