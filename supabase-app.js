@@ -293,7 +293,7 @@ function showAuthRedirectError() {
   const code = params.get("error_code") || hash.get("error_code");
   const description = params.get("error_description") || hash.get("error_description");
   if (!code && !description) return;
-  showError(description ? decodeURIComponent(description.replace(/\+/g, " ")) : "Authentication could not be completed. Please try again.");
+  showError(description || "Authentication could not be completed. Please try again.");
 }
 
 async function createPost() {
