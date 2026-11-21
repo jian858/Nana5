@@ -694,19 +694,21 @@ function openForgotPasswordPage() {
       return;
     }
     button.disabled = true;
-    button.textContent = "Checking account…";
-    status.textContent = "Looking up your account and requesting a secure reset link…";
+    button.textContent = "Sending link…";
+    status.textContent = "Contacting Murmur securely to send your reset link…";
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await withAuthTimeout(supabase.auth.resetPasswordForEmail(email, {
         redirectTo: location.origin + "/?password-reset=1"
-      });
+      }), "Sending the password reset link", 20000);
       if (error) throw error;
       status.textContent = "If an account is registered with that email, a reset link has been sent. Check your inbox and spam folder.";
       button.textContent = "Send another link";
     } catch (error) {
       status.textContent = /rate limit|too many requests/i.test(String(error.message || ""))
         ? "Too many attempts. Please wait a few minutes before trying again."
-        : "We could not request a reset link right now. Please check your connection and try again.";
+        : /taking too long|timeout/i.test(String(error.message || ""))
+          ? "The server is taking too long to respond. Your request was not confirmed. Check your connection, then try again."
+          : "We could not request a reset link right now. Please check your connection and try again.";
       button.textContent = "Try again";
     } finally {
       button.disabled = false;
