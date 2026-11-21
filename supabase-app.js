@@ -751,9 +751,21 @@ async function boot() {
   wireAuth();
   wireNavigation();
   showAuthRedirectError();
-  const { data, error } = await supabase.auth.getSession();
-  if (error) throw error;
-  if (data.session?.user) await enterApp(data.session.user);
+  let session = null;
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    session = data.session;
+  } catch (error) {
+    const staleSession = error?.status === 400 ||
+      /invalid refresh token|refresh token.*(not found|invalid|already used)|refresh_token_not_found/i.test(String(error?.message || ""));
+    if (!staleSession) throw error;
+    // A revoked/expired saved refresh token must not trap the app on startup.
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    showAuth();
+    showError("Your saved sign-in session expired. Please sign in again.");
+  }
+  if (session?.user) await enterApp(session.user);
   else showAuth();
   await completePasswordResetIfNeeded();
   const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
