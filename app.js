@@ -1859,7 +1859,7 @@ const LEGAL_PAGES = {
     <h3>Information created as you use Murmur</h3>
     <p>Your posts, stories, comments, likes, friend connections, chats, reactions and notifications are stored in Firebase Realtime Database so they can sync between your devices and friends. Photos and videos you upload may be stored in Firebase Storage. Limited interface preferences and cached app state are kept in your browser storage.</p>
     <h3>Technical information</h3>
-    <p>Our service providers record sign-in information such as your account ID and when you created your account and last signed in. They also process technical data such as your IP address and browser or device type so the service can run and stay secure.</p>
+    <p>Our service providers record sign-in information such as your account ID and when you created your account and last signed in. They also process technical data such as your IP address and browser or device type so the service can run and stay secure. Murmur also creates a random first-party visitor ID in your browser and records page paths and visit timestamps when you open the site or move between app sections. This works even if you do not register or log in. The visitor ID is pseudonymous; Murmur does not use it to identify your real name and this visitor tracker does not collect your IP address, password, email address or device fingerprint. Authorized administrators can view visitor statistics and recent anonymous visit records for service analytics and improvement.</p>
 
     <h2>2. How we use your information</h2>
     <ul>
