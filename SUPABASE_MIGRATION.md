@@ -1,37 +1,46 @@
-# Murmur — Supabase-first migration status
+# Murmur — Supabase-only migration status
 
 Last updated: 2026-11-21
 
 ## Target architecture
-- Supabase Auth is the only account identity provider (email/password and Google OAuth).
-- `auth.users.id` is the canonical Murmur user ID.
-- `public.profiles.id` is the same UUID and is created by the Auth trigger.
-- Public profile fields live in `public.profiles`; private credentials stay in Supabase Auth.
-- Firebase Authentication and Firebase Realtime Database must not be used for new account creation, sign-in, password reset, or profile writes.
+- Supabase Auth is the only identity provider (email/password and Google OAuth).
+- `auth.users.id` is the canonical internal user UUID.
+- `public.profiles.id` matches the Auth UUID.
+- Every profile receives a unique 16-character `public_id`; it is a public lookup identifier, not a credential.
+- Supabase Postgres + RLS is the only application database.
+- Supabase Realtime provides live updates.
+- Supabase Storage is the only media storage provider.
+- The browser uses only the Supabase project URL and publishable key. Never expose a service-role key.
 
-## Completed in this staging pass
-- Supabase browser client is initialized from the public project URL and publishable key only.
-- Added a shared `window.MurmurSupabaseAuth` API for Supabase email signup/sign-in, Google OAuth, profile save/read, password reset, password update, sign-out, and auth-state subscription.
-- Updated the database identity helper so RLS resolves the current user directly from `auth.uid()`; Firebase token-to-user mapping is no longer used by the new database policy helper.
-- Added case-insensitive username uniqueness.
-- Recreated the Auth-user profile trigger and own-profile RLS policies.
+## Completed in this pass
+- Removed the Firebase SDK file, Firebase project config file, Firebase Realtime Database rules file, and Firebase script imports from the live `index.html`.
+- Replaced the live startup path with `supabase-app.js`; it no longer loads the Firebase-era classic-script modules.
+- Added `supabase-runtime.js` and `supabase-social.js` as the shared Supabase application/data entry points.
+- Supabase email/password sign-in, signup, Google OAuth initiation, sign-out, password reset, and password reset completion use Supabase Auth.
+- Signup stores full name and username in Supabase Auth metadata; the database trigger creates the profile.
+- Added and applied a database migration for a unique 16-character profile public ID. Existing Supabase Auth users were not deleted.
+- Verified the existing profile has a 16-character public ID.
+- Added Supabase Storage buckets for avatars, posts, stories and reels, with public-read and owner-folder upload/update/delete policies.
+- Enabled Supabase Realtime publication for posts, notifications, stories and reels; messages were already enabled.
+- Live app functions now use Supabase for the home feed, friend requests, conversation creation, messages, stories, reels, notes and notifications.
+- Updated public Privacy and Cookie pages to describe Supabase rather than Firebase.
 
-## Not launch-ready yet
-The current feature layer still contains Firebase Realtime Database and Firebase Storage calls for feed listeners, chats, friends, stories, notifications, account restrictions, media uploads, and profile editing. Changing only the login provider would leave those features unauthenticated or partially broken. The app must remain offline/private until these modules are moved to the matching Supabase tables and Storage buckets and tested under RLS.
+## Important remaining work — do not deploy as finished
+- The old Firebase-era feature source files still exist in the repository as inactive legacy code. They are not loaded by the live index, but must be replaced or retired after each corresponding Supabase feature is fully migrated.
+- The new Supabase UI is an initial working slice, not a complete recreation of every previous screen. Remaining UI work includes full profile editing, message attachments/voice, message read receipts/typing, comments/reactions/saved posts, story media and views, richer reels controls, block/report flows, admin tools and device/visitor administration.
+- Confirm Supabase Auth email-confirmation settings and Google OAuth provider credentials/redirect URLs in the dashboard.
+- Validate every RLS policy and Storage policy with separate test accounts; the security advisor currently reports RLS-enabled private/admin tables with no direct policies (some are intentionally service-only) and warns that the anonymous visitor RPC is SECURITY DEFINER.
+- Enable leaked-password protection in Supabase Auth settings.
+- Verify the Supabase Realtime subscriptions and media uploads in a browser on both desktop and mobile.
+- Test signup, login, Google OAuth, password reset, refresh/reopen session, posts, friend requests, chat, stories, reels, notes and notifications before public deployment.
 
-## Remaining migration work
-1. Replace Firebase auth/session initialization in `app.js` with Supabase session restoration and Supabase auth-state events.
-2. Wire the registration, login, Google sign-in, logout, password-reset completion, account deletion, and email-change screens to `window.MurmurSupabaseAuth`.
-3. Move profile reads/writes and image uploads to Supabase profiles/Storage.
-4. Move feed, friends, chats, stories, reels, notes, notifications, blocks, reports, and moderation actions to their Supabase tables/RPCs; remove Firebase listeners and Firebase-token Edge Function calls.
-5. Review and test every RLS policy with separate anonymous, authenticated, and admin test accounts.
-6. Test email confirmation, password recovery, Google OAuth, refresh/reopen session, profile editing, and deletion before deployment.
-
-## Required dashboard setup
-- Supabase Authentication → URL Configuration: set the production Site URL and add the exact Murmur preview/production callback URLs.
-- Supabase Authentication → Providers → Google: enable Google and configure the OAuth Client ID and Client Secret. Keep the secret in Supabase dashboard only; never commit it to GitHub or frontend code.
-- Confirm email SMTP and reset/confirmation templates use Murmur branding.
-- Existing Firebase passwords cannot be copied as plaintext. Since Murmur has no live users, create fresh test accounts in Supabase for validation.
+## Current database setup
+- Profile ID: UUID linked to Supabase Auth.
+- Public account ID: unique 16-character lowercase hex string.
+- Storage buckets: `murmur-avatars`, `murmur-posts`, `murmur-stories`, `murmur-reels`.
+- Realtime publication: `posts`, `notifications`, `stories`, `reels`, and existing `messages`.
 
 ## Safety
-Do not deploy this unfinished migration publicly. Do not put a service-role key in browser code. Only the Supabase publishable key belongs in the frontend.
+- Do not delete the existing Supabase test account.
+- Do not place a service-role key in any frontend or Admin file.
+- Do not deploy this migration as complete until the remaining feature screens and RLS tests pass.
