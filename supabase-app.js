@@ -431,9 +431,20 @@ async function login() {
       }
       throw error;
     }
-    if (!data?.user) throw new Error("No matching account was returned. Check your email and password.");
+    if (!data?.user || !data?.session?.access_token || !data?.session?.refresh_token) {
+      throw new Error("Supabase did not return a complete sign-in session. Please try again.");
+    }
+    setLoginLoading(true, "Account found. Securing your sign-in session…");
+    // Explicitly persist the session returned by password sign-in before any
+    // database/RLS request. This prevents the account check racing session storage.
+    const { data: savedSession, error: sessionError } = await supabase.auth.setSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token
+    });
+    if (sessionError) throw sessionError;
+    if (!savedSession?.session?.user?.id) throw new Error("Your sign-in session could not be saved. Please try again.");
     setLoginLoading(true, "Account found. Checking your account and loading your profile…");
-    await enterApp(data.user);
+    await enterApp(savedSession.session.user);
   } catch (error) {
     console.error("[Murmur login]", error);
     // Supabase can establish the session even if a later client-side step
