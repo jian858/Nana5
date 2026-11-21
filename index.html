@@ -243,7 +243,7 @@
   <div id="app" hidden>
     <div class="fb-head">
       <header class="topbar">
-        <div class="fb-logo">Murmur</div>
+        <div class="fb-logo" aria-label="Murmur home"><span class="brand-mark" aria-hidden="true"></span><span class="fb-logo-name">Murmur</span></div>
         <div class="fb-actions">
           <button type="button" id="hdrAdd" aria-label="New post"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
           <button type="button" id="hdrSearch" aria-label="Find friends"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
@@ -372,9 +372,6 @@
         <div class="alerts-filters" role="tablist" aria-label="Filter notifications">
           <button type="button" class="active" data-alert-filter="all" role="tab" aria-selected="true">All</button>
           <button type="button" data-alert-filter="unread" role="tab" aria-selected="false">Unread</button>
-          <button type="button" data-alert-filter="announcements" role="tab" aria-selected="false">Murmur</button>
-          <button type="button" data-alert-filter="people" role="tab" aria-selected="false">People</button>
-          <button type="button" data-alert-filter="activity" role="tab" aria-selected="false">Activity</button>
         </div>
         <div class="alerts-list" id="alertsList"></div>
       </section>
