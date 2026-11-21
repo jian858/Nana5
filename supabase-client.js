@@ -42,6 +42,7 @@ export function getPublicConfig() {
 
 // Expose the same configured client to the legacy classic-script modules.
 window.murmurSupabase = supabase;
+window.dispatchEvent(new Event("murmur:supabase-client-ready"));
 
 
 /* First-party Murmur account API. All credentials and sessions belong to Supabase Auth. */
