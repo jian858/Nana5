@@ -398,7 +398,10 @@ export const storage = {
     return { path: data.path, url: signedData.signedUrl, isPublic: false, expiresIn: 3600 };
   },
   uploadAvatar: async (file) => storage.upload(file, { bucket: "murmur-avatars", folder: "profiles" }),
-  uploadMedia: async (file, folder = "posts") => storage.upload(file, { bucket: "murmur-media", folder }),
+  uploadMedia: async (file, folder = "posts") => {
+    const bucket = ["posts", "stories", "reels"].includes(folder) ? "murmur-" + folder : "murmur-posts";
+    return storage.upload(file, { bucket, folder });
+  },
   url: async (bucket, path, expiresIn = 3600) => {
     if (bucket === "murmur-avatars") {
       const { data } = supabase.storage.from(bucket).getPublicUrl(path);
