@@ -41,18 +41,17 @@ Deno.serve(async (req: Request) => {
     const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
     let user: { id: string; email?: string } | null = null;
 
-    if (token) {
-      const { data, error } = await db.auth.getUser(token);
-      if (error || !data.user) return reply(401, { error: "The Supabase session is invalid or expired." });
-      user = { id: data.user.id, email: data.user.email };
-    }
+    if (!token) return reply(401, { error: "A signed-in Supabase account is required." });
+    const { data, error } = await db.auth.getUser(token);
+    if (error || !data.user) return reply(401, { error: "The Supabase session is invalid or expired." });
+    user = { id: data.user.id, email: data.user.email };
 
     if (req.method === "POST") {
-      if (!await limit(db, "murmur-error-ip:" + ip, user ? 60 : 5)) {
+      if (!await limit(db, "murmur-error-ip:" + ip, 60)) {
         return reply(429, { error: "Error log limit reached. Try again in five minutes." }, { "Retry-After": "300" });
       }
-      const actorKey = user ? "supabase:" + user.id : "anonymous";
-      if (user && !await limit(db, "murmur-error-user:" + user.id, 20)) {
+      const actorKey = "supabase:" + user.id;
+      if (!await limit(db, "murmur-error-user:" + user.id, 20)) {
         return reply(429, { error: "Error log limit reached. Try again in five minutes." }, { "Retry-After": "300" });
       }
       const body = await req.json().catch(() => ({}));
@@ -81,7 +80,7 @@ Deno.serve(async (req: Request) => {
         stack: clean(body.stack, 1400) || null,
       });
       if (error) throw error;
-      return reply(201, { ok: true, identity: user ? "supabase" : "anonymous" });
+      return reply(201, { ok: true, identity: "supabase" });
     }
 
     if (!user) return reply(401, { error: "Sign in with your Supabase admin account." });
