@@ -389,6 +389,17 @@ let enteringUserId = null;
 let enterAppTask = null;
 let enteredUserId = null;
 
+// Prevent auth and profile screens from spinning forever on stalled requests.
+function withAuthTimeout(promise, label, milliseconds = 20000) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(label + " is taking too long. Check your connection and try again.")), milliseconds);
+    })
+  ]).finally(() => clearTimeout(timer));
+}
+
 async function enterApp(user) {
   if (!user?.id) throw new Error("Supabase did not return a valid user session.");
   if (enteredUserId === user.id && appPanel && !appPanel.hidden) return;
@@ -399,7 +410,7 @@ async function enterApp(user) {
   enterAppTask = (async () => {
     try {
       setLoginLoading(true, "Checking your account access…");
-      const restriction = await accountRestrictions.current();
+      const restriction = await withAuthTimeout(accountRestrictions.current(), 'Account access check');
       if (restriction) {
         showAccountRestriction(restriction);
         await supabase.auth.signOut();
@@ -407,7 +418,7 @@ async function enterApp(user) {
       }
       enterStage = "loading your profile";
       setLoginLoading(true, "Account found. Loading your Murmur profile…");
-      currentProfile = await loadProfile(user);
+      currentProfile = await withAuthTimeout(loadProfile(user), 'Profile loading');
 
       // Authentication and profile loading are complete. Do not send a valid
       // signed-in user back to the login form because a non-critical UI module
@@ -764,11 +775,11 @@ async function resendSignupConfirmation() {
   const button = $("resendConfirmationBtn");
   if (button) button.disabled = true;
   try {
-    const { error } = await supabase.auth.resend({
+    const { error } = await withAuthTimeout(supabase.auth.resend({
       type: "signup",
       email,
       options: { emailRedirectTo: location.origin + "/" }
-    });
+    }), 'Resending the confirmation email');
     if (error) throw error;
     showError("If confirmation is still required, a new email has been requested. Check your inbox and spam folder.");
   } catch (error) {
