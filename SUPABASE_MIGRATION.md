@@ -81,7 +81,7 @@ Last updated: 2026-11-21
 - Audited every HTML entry point and the import graph of the active modules. The main app loads only `supabase-client.js`, `supabase-runtime.js`, `visitor-tracking.js`, `supabase-app.js`, and `pwa.js`; the separate invite page loads `invite.js`. Active Supabase modules import only the Supabase client/data/social modules.
 - Removed 28 inactive JavaScript modules that were not referenced by any HTML entry point or active-module import, including the old Firebase app, Google auth, registration and login modules. Their history remains recoverable through Git.
 - Replaced the deployed `murmur-posts`, `murmur-identity`, and `murmur-admin` Firebase endpoints, plus the unused password-reset account-enumeration endpoint, with retired 410 responses and enabled Supabase JWT verification at the Edge gateway. Old Firebase tokens can no longer use these endpoints.
-- Reworked `murmur-error-log` to verify optional sessions through Supabase Auth only. New authenticated error records use a `supabase:<uuid>` actor key in the legacy `firebase_uid` database column; anonymous error reporting remains rate-limited. Existing 115 error-log rows were preserved.
+- Reworked `murmur-error-log` to require a verified Supabase JWT at the Edge gateway and verify the user with Supabase Auth. New error records use a `supabase:<uuid>` actor key in the legacy `firebase_uid` database column. Existing 115 error-log rows were preserved.
 - The active `murmur-admin-supabase` endpoint now returns 410 for the historical Firebase identity lookup action. The 2 historical identity links and 3 visitor-device account links remain private and unchanged.
 - Verified the Supabase Auth account/profile counts: one existing test account and one profile. No test users were created or deleted.
 - The Supabase organization is on the Free plan. Supabase's current password-security documentation states that leaked-password protection requires Pro or above; this cannot be enabled on the current plan.
@@ -105,3 +105,12 @@ Last updated: 2026-11-21
 - The deployed Firebase callers were already replaced with retired endpoints; a dependency scan found no other database functions referencing these RPCs.
 - No rows were deleted. The private historical `firebase_user_links` and `murmur_device_accounts` records remain preserved and inaccessible to browser roles.
 - Retired `murmur-password-reset-check` because the live client uses Supabase Auth's native `resetPasswordForEmail` flow; the old endpoint distinguished unknown and active email addresses and was not part of the current app.
+
+
+## Final legacy-table and Edge Function cleanup — 2026-11-21
+
+- Applied migration `20261121132234_drop_legacy_murmur_posts_table`.
+- Dropped `public.murmur_posts` only after confirming it had zero rows, no foreign-key dependents, no referencing views/triggers/functions, no browser grants, and no active client or Edge Function callers. Its old post endpoint was already retired.
+- Retired the unused `murmur-public-announcements` Edge Function. The live client reads published announcements directly from Supabase under the existing RLS policy.
+- Changed `murmur-error-log` to require Supabase JWT verification at the Edge gateway; anonymous error logging is no longer accepted. Admin log access still requires an enabled Supabase Super Admin.
+- The remaining public anonymous write path is the narrow, rate-limited visitor RPC; public Edge Functions are no longer used for ordinary app data reads.
