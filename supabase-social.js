@@ -68,6 +68,7 @@ async function searchPeople() {
   const term = (input?.value || "").trim().replace(/^@+/, "");
   if (!target) return;
   const run = ++peopleSearchRun;
+  if (el("peopleBlock")) el("peopleBlock").hidden = false;
   if (!term) {
     target.innerHTML = '<p class="empty-state">Type a name or username to find people.</p>';
     return;
@@ -509,17 +510,9 @@ export function initSupabaseSocial() {
     renderAlerts();
   }));
 
-  let peopleSearchTimer = null;
   el("friendSearchBtn")?.addEventListener("click", searchPeople);
-  el("friendSearch")?.addEventListener("input", () => {
-    clearTimeout(peopleSearchTimer);
-    peopleSearchTimer = setTimeout(searchPeople, 250);
-  });
   el("friendSearch")?.addEventListener("keydown", event => {
-    if (event.key === "Enter") {
-      clearTimeout(peopleSearchTimer);
-      searchPeople();
-    }
+    if (event.key === "Enter") { event.preventDefault(); searchPeople(); }
   });
   el("sendBtn")?.addEventListener("click", sendChatMessage);
   el("chatSettingsBtn")?.addEventListener("click", () => {
@@ -547,7 +540,7 @@ export function initSupabaseSocial() {
     }, { once: true });
     picker.click();
   });
-  el("frSearchIcon")?.addEventListener("click", () => { el("findBlock") && (el("findBlock").hidden = false); el("friendSearch")?.focus(); });
+  el("frSearchIcon")?.addEventListener("click", () => { document.querySelector('.fb-nav [data-view="friends"]')?.click(); document.querySelector('.fr-pill[data-frtab="suggest"]')?.click(); if (el("findBlock")) el("findBlock").hidden = false; if (el("peopleBlock")) el("peopleBlock").hidden = false; el("friendSearch")?.focus({ preventScroll: true }); });
   window.addEventListener("murmur:supabase-user-ready", async () => {
     if (socialChannel) supabase.removeChannel(socialChannel);
     socialChannel = supabase.channel("murmur-social-updates")
