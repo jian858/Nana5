@@ -202,8 +202,8 @@ async function renderNotes() {
       '<span class="note-action-label">Create note</span>' +
       '<span class="note-avatar-circle">' + (avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="">' : '<span>' + esc(name.slice(0,1).toUpperCase()) + '</span>') +
       '</span></button>' +
-      (latest ? '<span class="note-saved-preview" title="' + esc(latest.content) + '">' + esc(latest.content) + '</span>' : '');
-    root.querySelector("[data-add-note]")?.addEventListener("click", () => {
+      (latest ? '<button type="button" class="note-saved-preview" data-add-note title="Edit or delete your note" aria-label="Edit or delete your note">' + esc(latest.content) + '</button>' : '');
+    root.querySelectorAll("[data-add-note]").forEach(noteButton => noteButton.addEventListener("click", () => {
       const overlay = document.createElement("div");
       overlay.className = "murmur-auth-modal murmur-note-modal";
       overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="note-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="note-title">' + (latest ? 'Edit your note' : 'Create a note') + '</h2><label for="note-content">Your note</label><textarea id="note-content" maxlength="500" rows="5" placeholder="What’s on your mind?">' + esc(latest?.content || "") + '</textarea><div class="note-editor-footer"><small data-note-count>0 / 500</small><button type="button" class="btn primary" data-save-note>Save note</button></div>' + (latest ? '<button type="button" class="note-delete" data-delete-current>Delete note</button>' : '') + '<p class="murmur-modal-error" role="alert"></p></section>';
@@ -231,7 +231,7 @@ async function renderNotes() {
         catch (error) { errorBox.textContent = error.message || "Could not delete your note."; }
       });
       input.focus();
-    });
+    }));
   } catch (error) { fail(root, error); }
 }
 
