@@ -132,7 +132,8 @@ async function renderFeed() {
     }).join("");
   } catch (error) {
     console.error("[Murmur feed]", error);
-    root.innerHTML = '<p class="empty-state">Could not load posts. Check your Supabase connection and table permissions.</p>';
+    root.innerHTML = '<div class="empty-state" role="alert"><p>Posts could not be loaded.</p><small>' + safeText(error?.message || "Please try again.") + '</small><button class="btn secondary" type="button" data-retry-feed>Try again</button></div>';
+    root.querySelector("[data-retry-feed]")?.addEventListener("click", renderFeed, { once: true });
   }
 }
 
