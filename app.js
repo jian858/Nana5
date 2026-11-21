@@ -78,6 +78,17 @@ const MURMUR_SUPABASE_URL = 'https://pkadftvqslkykehcqedj.supabase.co';
 const MURMUR_SUPABASE_KEY = 'sb_publishable_etoHiUGbJ96MUPzJABL12A_UiTWVxok';
 const MURMUR_IDENTITY_URL = MURMUR_SUPABASE_URL + '/functions/v1/murmur-identity';
 window.MURMUR_IDS = window.MURMUR_IDS || { firebaseUid: null, supabaseId: null, status: 'not-signed-in' };
+function getMurmurDeviceToken() {
+  try {
+    const key = 'murmur_visitor_id_v1';
+    let id = localStorage.getItem(key);
+    if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+      id = crypto.randomUUID();
+      localStorage.setItem(key, id);
+    }
+    return id;
+  } catch { return null; }
+}
 async function syncMurmurSupabaseIdentity(user, profile = {}) {
   if (!user) {
     window.MURMUR_IDS = { firebaseUid: null, supabaseId: null, status: 'not-signed-in' };
@@ -94,7 +105,7 @@ async function syncMurmurSupabaseIdentity(user, profile = {}) {
         'apikey': MURMUR_SUPABASE_KEY,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ username: profile.username || '', displayName: profile.name || profile.displayName || '' })
+      body: JSON.stringify({ username: profile.username || '', displayName: profile.name || profile.displayName || '', visitorId: getMurmurDeviceToken() })
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || 'Supabase identity request failed (' + response.status + ')');
