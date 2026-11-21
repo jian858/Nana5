@@ -248,6 +248,7 @@ function openDeleteAccount() {
     ok.disabled = true; ok.textContent = 'Deleting...';
     try {
       await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, pw.value));
+      await murmurPostsRequest('delete-all');
       const mine = await get(query(ref(db, 'posts'), orderByChild('authorUid'), equalTo(user.uid)));
       const wipe = {};
       Object.keys(mine.val() || {}).forEach(id => { wipe['posts/' + id] = null; });
