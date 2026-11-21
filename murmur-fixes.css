@@ -433,3 +433,30 @@ input,select,textarea{max-width:100%}
   justify-content:flex-start;
 }
 .pane[data-pane="home"] > .post-entry span{flex:1;min-width:0}
+
+
+/* Compact brand badge with the Murmur name inside the logo. */
+.fb-head .fb-logo{display:inline-flex;align-items:center;justify-content:center;min-width:112px;min-height:38px;padding:5px 13px;border-radius:12px;background:#0fae8a;color:#fff;line-height:1;box-sizing:border-box}
+.fb-head .fb-logo-name{display:block;color:#fff;font-size:1.25rem;font-weight:850;letter-spacing:-.045em;white-space:nowrap}
+/* Tighter notification rhythm. */
+.alerts-heading{padding:10px 0 8px;gap:10px}
+.alerts-heading h1{margin:1px 0 4px}
+.alerts-heading p{margin:3px 0;line-height:1.3}
+.alerts-filters{padding:3px 0 10px;gap:7px}
+.alerts-list{gap:8px}
+.alert-row{padding:12px 13px;line-height:1.35}
+.alert-row p{margin:4px 0;line-height:1.4}
+.alert-row small{margin-top:3px}
+.alert-row .btn{margin-top:7px}
+@media(max-width:420px){
+ .fb-head .fb-logo{min-width:104px;min-height:36px;padding:5px 11px}
+ .fb-head .fb-logo-name{font-size:1.18rem}
+ .alerts-pane{padding-top:6px}
+ .alerts-heading{padding:8px 0 7px}
+ .alerts-list{gap:7px}
+ .alert-row{padding:10px 11px}
+}
+@media(prefers-reduced-motion:no-preference){
+ .alerts-list .alert-row{animation:alert-arrive .16s ease-out both}
+ @keyframes alert-arrive{from{opacity:.65;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+}
