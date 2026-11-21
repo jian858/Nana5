@@ -78,7 +78,7 @@ const MURMUR_SUPABASE_URL = 'https://pkadftvqslkykehcqedj.supabase.co';
 const MURMUR_SUPABASE_KEY = 'sb_publishable_etoHiUGbJ96MUPzJABL12A_UiTWVxok';
 const MURMUR_IDENTITY_URL = MURMUR_SUPABASE_URL + '/functions/v1/murmur-identity';
 window.MURMUR_IDS = window.MURMUR_IDS || { firebaseUid: null, supabaseId: null, status: 'not-signed-in' };
-async function syncMurmurSupabaseIdentity(user) {
+async function syncMurmurSupabaseIdentity(user, profile = {}) {
   if (!user) {
     window.MURMUR_IDS = { firebaseUid: null, supabaseId: null, status: 'not-signed-in' };
     return window.MURMUR_IDS;
@@ -94,7 +94,7 @@ async function syncMurmurSupabaseIdentity(user) {
         'apikey': MURMUR_SUPABASE_KEY,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({})
+      body: JSON.stringify({ username: profile.username || '', displayName: profile.name || profile.displayName || '' })
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || 'Supabase identity request failed (' + response.status + ')');
@@ -1464,7 +1464,7 @@ function openRegisterWizard() {
       }
       // Create/link the independent Supabase UUID immediately after Firebase creates the account.
       // The Firebase account remains valid if Supabase is temporarily unavailable; the status is surfaced below.
-      const identityLink = await syncMurmurSupabaseIdentity(userCredential.user);
+      const identityLink = await syncMurmurSupabaseIdentity(userCredential.user, userProfile);
       try {
         await saveProfileToRealtimeDatabase(uid, userProfile);
         await ensureProfile(userCredential.user);
