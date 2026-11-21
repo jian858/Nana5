@@ -9,6 +9,7 @@ function setView(view) {
   animateRows();
   leaveView(view);
   state.activeView = view;
+  window.dispatchEvent(new CustomEvent('murmur:viewchange', { detail: { view } }));
   saveState();
   renderAll();
   window.scrollTo(0, 0);
