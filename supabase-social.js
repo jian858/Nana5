@@ -78,10 +78,23 @@ async function renderStories() {
   try {
     const rows = await stories.list();
     root.innerHTML = '<div class="story-heading"><strong>Stories</strong> <button type="button" class="btn secondary" data-add-story>Share a story</button></div>' + (rows.length ? rows.map(s => '<article class="story-card"><strong>' + esc(s.content || "Story") + '</strong><small>' + esc(new Date(s.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No active stories.</p>');
-    root.querySelector("[data-add-story]")?.addEventListener("click", async () => {
-      const content = prompt("Write your story (up to 2,000 characters):");
-      if (!content?.trim()) return;
-      try { await stories.create({ content }); await renderStories(); } catch (error) { alert(error.message); }
+    root.querySelector("[data-add-story]")?.addEventListener("click", () => {
+      const picker = document.createElement("input");
+      picker.type = "file"; picker.accept = "image/jpeg,image/png,image/webp,image/avif,video/mp4,video/webm"; picker.hidden = true;
+      document.body.appendChild(picker);
+      picker.addEventListener("change", async () => {
+        const file = picker.files?.[0] || null; picker.remove();
+        const content = prompt("Add a caption to your story (optional, up to 2,000 characters):") || "";
+        if (!file && !content.trim()) return;
+        if (file && file.size > 20 * 1024 * 1024) return alert("Choose a story file under 20 MB.");
+        try {
+          let mediaUrl = null;
+          if (file) mediaUrl = (await storage.uploadMedia(file, "stories")).url;
+          await stories.create({ content, mediaUrl });
+          await renderStories();
+        } catch (error) { alert(error.message); }
+      }, { once: true });
+      picker.click();
     });
   } catch (error) { fail(root, error); }
 }
