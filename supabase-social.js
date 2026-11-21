@@ -14,8 +14,25 @@ async function renderFriends() {
     const rows = await friendships.people("accepted");
     if (list) list.innerHTML = rows.length ? rows.map(row => {
       const p = row.person || {};
-      return '<article class="friend-row"><span class="avatar">' + esc((p.display_name || "?").slice(0,1).toUpperCase()) + '</span><div><strong>' + esc(p.display_name || "Murmur user") + '</strong><small>@' + esc(p.username || "") + '</small></div></article>';
+      return '<article class="friend-row"><span class="avatar">' + esc((p.display_name || "?").slice(0,1).toUpperCase()) + '</span><div><strong>' + esc(p.display_name || "Murmur user") + '</strong><small>@' + esc(p.username || "") + '</small></div><button class="btn secondary" type="button" data-chat-user="' + esc(p.id) + '">Message</button></article>';
     }).join("") : '<p class="empty-state">Your friends will appear here.</p>';
+    list?.querySelectorAll("[data-chat-user]").forEach(button => button.addEventListener("click", async () => {
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+        const { data: conversation, error: conversationError } = await supabase.from("conversations")
+          .insert({ created_by: userData.user.id }).select("id").single();
+        if (conversationError) throw conversationError;
+        const { error: membersError } = await supabase.from("conversation_members").insert([
+          { conversation_id: conversation.id, user_id: userData.user.id },
+          { conversation_id: conversation.id, user_id: button.dataset.chatUser }
+        ]);
+        if (membersError) throw membersError;
+        document.querySelector('[data-view="chats"]')?.click();
+        await renderChats();
+        await openConversation(conversation.id);
+      } catch (error) { alert(error.message); }
+    }));
     if (search) search.innerHTML = "";
     const incoming = await friendships.incoming();
     const reqList = el("reqList");
