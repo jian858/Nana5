@@ -356,7 +356,7 @@ function renderPosts() {
 function renderMenuHeader() {
   const cu = state.currentUser || {};
   document.getElementById('menuAvatar').textContent = initials(cu.name || '?');
-  document.getElementById('menuName').textContent = cu.name || 'Your name';
+  document.getElementById('menuName').textContent = cu.name || 'Your profile';
   document.getElementById('menuUser').textContent = cu.username || '';
   applyOwnPhoto();
 }
