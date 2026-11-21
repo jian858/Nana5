@@ -233,7 +233,7 @@ Deno.serve(async (req: Request) => {
 
     if (action === "errors") {
       const { data, error, count } = await db.from("murmur_error_logs")
-        .select("id,firebase_uid,kind,message,code,source,line,column_number,page,stack,fingerprint,created_at", { count: "exact" })
+        .select("id,actor_key,kind,message,code,source,line,column_number,page,stack,fingerprint,created_at", { count: "exact" })
         .order("created_at", { ascending: false }).limit(200);
       if (error) throw error;
       return reply(200, { errors: data || [], total: count || 0 });
