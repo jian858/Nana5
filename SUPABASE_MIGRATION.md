@@ -194,3 +194,12 @@ Last updated: 2026-11-21
 - The public-profile directory is synchronized by a private-schema trigger function; no client role can write to that table.
 - Profile search, friend lists, and feed author lookup now use the safe directory table. Owner profile reads/updates continue using `public.profiles`.
 - Verification confirmed the public directory has no anonymous SELECT grant, authenticated users have SELECT only, and the profile read policy is owner-scoped.
+
+
+## Direct messaging without a friendship requirement — 2026-11-21
+
+- Applied migration `20261121135440_allow_direct_chats_without_friendship`.
+- Added `public.start_murmur_direct_conversation(uuid)` as a SECURITY INVOKER RPC with an empty search path. It reuses an existing two-person conversation or creates one atomically.
+- Only authenticated users can execute the RPC. Existing `conversation_members` INSERT RLS checks enforce that the target is not blocked; a blocked insert rolls back the entire RPC transaction.
+- Updated friend and people-search results to show a Message action alongside Add friend. The UI calls the RPC, so users can start a direct chat without first becoming friends.
+- This is statically and privilege-verified; full two-account browser verification still requires a second Supabase Auth test account.
