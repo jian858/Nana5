@@ -153,9 +153,22 @@ async function openPublicProfile(userId) {
 
 function openProfileEditor() {
   const overlay = document.createElement("div");
-  overlay.className = "murmur-auth-modal";
+  overlay.className = "murmur-auth-modal murmur-profile-edit-modal";
   const p = currentProfile || {};
-  overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="profile-edit-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="profile-edit-title">Edit profile</h2><label>Display name<input name="display_name" maxlength="80"></label><label>Username<input name="username" maxlength="24"></label><label>Bio<textarea name="bio" maxlength="240" rows="3"></textarea></label><label>School<input name="school" maxlength="100"></label><label>Location<input name="location" maxlength="100"></label><label>Profile photo<input name="avatar" type="file" accept="image/jpeg,image/png,image/webp,image/avif"></label><p class="murmur-modal-error" role="alert"></p><button type="button" class="btn primary murmur-profile-save">Save profile</button></section>';
+  const initial = (p.display_name || currentUser?.email || "M").slice(0,1).toUpperCase();
+  const photo = p.avatar_url
+    ? '<img class="murmur-edit-avatar-image" src="' + safeText(p.avatar_url) + '" alt="Current profile photo">'
+    : '<span class="murmur-edit-avatar-fallback">' + safeText(initial) + '</span>';
+  overlay.innerHTML = '<section class="murmur-profile-edit-card" role="dialog" aria-modal="true" aria-labelledby="profile-edit-title">' +
+    '<button type="button" class="murmur-modal-close" aria-label="Close">×</button>' +
+    '<header class="murmur-profile-edit-heading"><span class="murmur-profile-edit-eyebrow">YOUR PROFILE</span><h2 id="profile-edit-title">Edit profile</h2><p>Update how people see you on Murmur.</p></header>' +
+    '<div class="murmur-edit-photo-row"><div class="murmur-edit-avatar" id="murmurEditAvatar">' + photo + '</div><div class="murmur-edit-photo-copy"><strong>Profile photo</strong><span>Choose an image from your device</span><button type="button" class="btn secondary murmur-choose-photo" id="murmurChoosePhoto">Choose photo</button><small class="murmur-edit-photo-name" id="murmurPhotoName">JPG, PNG, WebP or AVIF · up to 5 MB</small></div><input name="avatar" type="file" accept="image/jpeg,image/png,image/webp,image/avif" hidden></div>' +
+    '<div class="murmur-profile-edit-fields"><label>Display name<input name="display_name" maxlength="80" autocomplete="name" placeholder="Your name"></label>' +
+    '<label>Username<input name="username" maxlength="24" autocomplete="username" placeholder="your.username"></label>' +
+    '<label class="murmur-edit-bio-field">Bio<textarea name="bio" maxlength="240" rows="3" placeholder="Tell people a little about yourself"></textarea><small class="murmur-edit-field-hint">Up to 240 characters</small></label>' +
+    '<label>School <span class="murmur-edit-optional">Optional</span><input name="school" maxlength="100" placeholder="Your school"></label>' +
+    '<label>Location <span class="murmur-edit-optional">Optional</span><input name="location" maxlength="100" placeholder="Your city or area"></label></div>' +
+    '<p class="murmur-modal-error" role="alert" aria-live="polite"></p><button type="button" class="btn primary murmur-profile-save">Save changes</button></section>';
   document.body.appendChild(overlay);
   const form = overlay.querySelector("section");
   form.querySelector('[name="display_name"]').value = p.display_name || "";
@@ -163,12 +176,28 @@ function openProfileEditor() {
   form.querySelector('[name="bio"]').value = p.bio || "";
   form.querySelector('[name="school"]').value = p.school || "";
   form.querySelector('[name="location"]').value = p.location || "";
-  const close = () => overlay.remove();
+  const photoInput = form.querySelector('[name="avatar"]');
+  const photoName = form.querySelector("#murmurPhotoName");
+  let previewUrl = null;
+  form.querySelector("#murmurChoosePhoto").addEventListener("click", () => photoInput.click());
+  photoInput.addEventListener("change", () => {
+    const file = photoInput.files?.[0];
+    if (!file) return;
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+    if (!allowed.includes(file.type)) { photoInput.value = ""; photoName.textContent = "Choose a JPG, PNG, WebP or AVIF image."; return; }
+    if (file.size > 5 * 1024 * 1024) { photoInput.value = ""; photoName.textContent = "Photo must be 5 MB or smaller."; return; }
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = URL.createObjectURL(file);
+    form.querySelector("#murmurEditAvatar").innerHTML = '<img class="murmur-edit-avatar-image" src="' + previewUrl + '" alt="Selected profile photo preview">';
+    photoName.textContent = file.name;
+  });
+  const close = () => { if (previewUrl) URL.revokeObjectURL(previewUrl); overlay.remove(); };
   form.querySelector(".murmur-modal-close").addEventListener("click", close);
   overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
   form.querySelector(".murmur-profile-save").addEventListener("click", async event => {
     const button = event.currentTarget;
     const errorBox = form.querySelector(".murmur-modal-error");
+    errorBox.textContent = "";
     const username = form.querySelector('[name="username"]').value.trim().replace(/^@/, "").toLowerCase();
     const display_name = form.querySelector('[name="display_name"]').value.trim();
     if (!display_name || !/^[a-z0-9_.]{3,24}$/.test(username)) {
@@ -176,6 +205,7 @@ function openProfileEditor() {
       return;
     }
     button.disabled = true;
+    button.textContent = "Saving…";
     try {
       const patch = {
         display_name, username,
@@ -183,16 +213,18 @@ function openProfileEditor() {
         school: form.querySelector('[name="school"]').value.trim(),
         location: form.querySelector('[name="location"]').value.trim()
       };
-      const avatar = form.querySelector('[name="avatar"]').files?.[0];
-      if (avatar) {
-        if (avatar.size > 10 * 1024 * 1024) throw new Error("Profile photos must be under 10 MB.");
-        patch.avatar_url = (await storage.uploadAvatar(avatar)).url;
-      }
+      const avatar = photoInput.files?.[0];
+      if (avatar) patch.avatar_url = (await storage.uploadAvatar(avatar)).url;
       currentProfile = await profiles.update(patch);
       paintIdentity();
       close();
-    } catch (error) { errorBox.textContent = error.message; }
-    finally { button.disabled = false; }
+      if (document.querySelector(".murmur-profile-pane.active")) openPublicProfile(currentUser.id);
+    } catch (error) {
+      errorBox.textContent = error.message || "Could not save your profile. Please try again.";
+    } finally {
+      button.disabled = false;
+      button.textContent = "Save changes";
+    }
   });
 }
 
@@ -201,8 +233,11 @@ function paintIdentity() {
   const username = currentProfile?.username ? "@" + currentProfile.username : "";
   if ($("menuName")) $("menuName").textContent = name;
   if ($("menuUser")) $("menuUser").textContent = username;
-  if ($("composerAvatar")) $("composerAvatar").textContent = name.slice(0, 1).toUpperCase();
-  if ($("menuAvatar")) $("menuAvatar").textContent = name.slice(0, 1).toUpperCase();
+  const avatarMarkup = currentProfile?.avatar_url
+    ? '<img src="' + safeText(currentProfile.avatar_url) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
+    : safeText(name.slice(0, 1).toUpperCase());
+  if ($("composerAvatar")) $("composerAvatar").innerHTML = avatarMarkup;
+  if ($("menuAvatar")) $("menuAvatar").innerHTML = avatarMarkup;
 }
 
 async function renderPostComments(postId, panel) {
