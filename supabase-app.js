@@ -1027,27 +1027,141 @@ async function openBlockedPeople() {
 }
 
 async function openAppPermissions() {
-  let notification = "Not supported by this browser";
-  if ("Notification" in window) notification = Notification.permission;
   const overlay = openMenuDialog("App permissions",
-    '<p>Notifications: <strong data-permission-status>' + safeText(notification) + '</strong></p>' +
-    '<p>Allow Murmur notifications in this browser to receive supported alerts.</p>' +
-    '<button class="btn primary" type="button" data-enable-notifications>Enable notifications</button>' +
-    '<p class="murmur-modal-error" role="status" aria-live="polite"></p>');
-  overlay.querySelector("[data-enable-notifications]")?.addEventListener("click", async event => {
-    const button = event.currentTarget;
-    const status = overlay.querySelector("[data-permission-status]");
-    const message = overlay.querySelector(".murmur-modal-error");
-    if (!("Notification" in window)) { message.textContent = "This browser does not support web notifications."; return; }
-    button.disabled = true;
-    try {
-      const permission = await Notification.requestPermission();
-      status.textContent = permission;
-      message.textContent = permission === "granted" ? "Notifications are allowed. Murmur can now request browser notifications." : "Permission was not granted. You can change this in your browser site settings.";
-    } finally { button.disabled = false; }
-  });
-}
+    '<p>Control what Murmur can access. Your browser or device will ask before granting access. Murmur only requests a permission when you choose its action.</p>' +
+    '<div class="murmur-permission-list" data-permission-list></div>' +
+    '<input type="file" data-permission-file-picker accept="image/*,video/*,application/pdf" multiple hidden>' +
+    '<p class="murmur-modal-error" role="status" aria-live="polite"></p>' +
+    '<p class="murmur-permission-note">You can revoke permissions later in your browser or device settings. Photos and files are selected individually; contacts are only available through a contact picker where supported.</p>');
+  const list = overlay.querySelector("[data-permission-list]");
+  const message = overlay.querySelector(".murmur-modal-error");
+  const filePicker = overlay.querySelector("[data-permission-file-picker]");
 
+  const definitions = [
+    { key: "notifications", label: "Notifications", detail: "Receive supported Murmur alerts", action: "Enable" },
+    { key: "camera", label: "Camera", detail: "Take profile pictures and photos", action: "Allow camera" },
+    { key: "microphone", label: "Microphone", detail: "Record voice messages and use supported calls", action: "Allow microphone" },
+    { key: "geolocation", label: "Location", detail: "Share your location only when you choose", action: "Allow location" },
+    { key: "files", label: "Photos and files", detail: "Choose the specific files you want to upload", action: "Choose files" },
+    { key: "contacts", label: "Contacts", detail: "Choose individual contacts; no full address-book access", action: "Choose contacts" }
+  ];
+
+  const statusText = value => ({
+    granted: "Allowed",
+    denied: "Blocked",
+    prompt: "Not asked",
+    default: "Not asked",
+    unsupported: "Not supported",
+    selected: "Selected by you",
+    peruse: "Only when used"
+  }[value] || value || "Unknown");
+
+  async function readStatus(definition) {
+    if (definition.key === "notifications") {
+      if (!("Notification" in window)) return "unsupported";
+      return Notification.permission === "default" ? "prompt" : Notification.permission;
+    }
+    if (definition.key === "files") return "peruse";
+    if (definition.key === "contacts") return ("contacts" in navigator && navigator.contacts?.select) ? "peruse" : "unsupported";
+    if (!navigator.permissions?.query) return "peruse";
+    try {
+      const permission = await navigator.permissions.query({ name: definition.key });
+      return permission.state;
+    } catch (_) {
+      return "peruse";
+    }
+  }
+
+  async function refreshStatuses() {
+    const statuses = await Promise.all(definitions.map(readStatus));
+    list.innerHTML = definitions.map((definition, index) => {
+      const state = statuses[index];
+      const isUnsupported = state === "unsupported";
+      const actionLabel = state === "granted" && ["notifications", "camera", "microphone", "geolocation"].includes(definition.key)
+        ? "Allowed" : definition.action;
+      return '<div class="murmur-permission-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line,#ddd)">' +
+        '<div style="min-width:0;flex:1"><strong>' + safeText(definition.label) + '</strong>' +
+        '<small style="display:block;color:var(--muted);margin-top:3px">' + safeText(definition.detail) + '</small>' +
+        '<small style="display:block;margin-top:5px">Status: <strong data-permission-status="' + safeText(definition.key) + '">' + safeText(statusText(state)) + '</strong></small></div>' +
+        '<button class="btn secondary" type="button" data-permission-action="' + safeText(definition.key) + '"' +
+        (isUnsupported ? " disabled" : "") + (actionLabel === "Allowed" ? " disabled" : "") + '>' + safeText(actionLabel) + '</button></div>';
+    }).join("");
+  }
+
+  async function requestDevicePermission(kind) {
+    if (!window.isSecureContext) throw new Error("Device permissions require HTTPS. Open Murmur using its secure HTTPS address.");
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera and microphone access are not supported in this browser.");
+    const constraints = kind === "camera" ? { video: true } : { audio: true };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    stream.getTracks().forEach(track => track.stop());
+  }
+
+  function requestLocationPermission() {
+    if (!window.isSecureContext) return Promise.reject(new Error("Location access requires HTTPS."));
+    if (!navigator.geolocation) return Promise.reject(new Error("Location access is not supported by this browser."));
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        () => resolve(),
+        error => reject(new Error(error.code === 1 ? "Location permission was denied. You can change it in your browser's site settings." : error.code === 3 ? "The location request timed out. Try again." : "Your device could not determine your location.")),
+        { enableHighAccuracy: false, timeout: 12000, maximumAge: 0 }
+      );
+    });
+  }
+
+  async function requestContacts() {
+    if (!navigator.contacts?.select) throw new Error("Contact picker is not supported on this browser or device.");
+    // The user chooses exactly which contacts to share. Murmur does not save or transmit this selection here.
+    await navigator.contacts.select(["name", "email", "tel"], { multiple: true });
+  }
+
+  filePicker.addEventListener("change", () => {
+    const count = filePicker.files?.length || 0;
+    message.textContent = count
+      ? count + " file(s) selected. Nothing was uploaded. Choose files again when using an upload feature."
+      : "No files were selected.";
+    filePicker.value = "";
+  });
+
+  list.addEventListener("click", async event => {
+    const button = event.target.closest("[data-permission-action]");
+    if (!button || button.disabled) return;
+    const kind = button.dataset.permissionAction;
+    button.disabled = true;
+    message.textContent = "Waiting for your choice…";
+    try {
+      if (kind === "notifications") {
+        if (!("Notification" in window)) throw new Error("Notifications are not supported by this browser.");
+        if (!window.isSecureContext) throw new Error("Notifications require HTTPS.");
+        const permission = await Notification.requestPermission();
+        message.textContent = permission === "granted"
+          ? "Notifications are allowed. Murmur can now send supported browser notifications."
+          : permission === "denied"
+            ? "Notifications were blocked. Change this in your browser's site settings."
+            : "No permission was granted. You can decide later.";
+      } else if (kind === "camera" || kind === "microphone") {
+        await requestDevicePermission(kind);
+        message.textContent = kind === "camera"
+          ? "Camera access was granted. The camera was immediately stopped; Murmur did not take a photo."
+          : "Microphone access was granted. The microphone was immediately stopped; Murmur did not record audio.";
+      } else if (kind === "geolocation") {
+        await requestLocationPermission();
+        message.textContent = "Location access was granted. Murmur did not save or share your coordinates.";
+      } else if (kind === "files") {
+        message.textContent = "Choose the files you want to make available. Selecting files here will not upload them.";
+        filePicker.click();
+      } else if (kind === "contacts") {
+        await requestContacts();
+        message.textContent = "Contact selection completed. Murmur did not save or transmit the selected contacts.";
+      }
+    } catch (error) {
+      message.textContent = error?.message || "Permission could not be requested. Check your device or browser settings.";
+    } finally {
+      await refreshStatuses();
+    }
+  });
+
+  await refreshStatuses();
+}
 function openPerformanceInfo() {
   const connection = navigator.connection?.effectiveType || "Not reported";
   const memory = navigator.deviceMemory ? navigator.deviceMemory + " GB" : "Not reported";
