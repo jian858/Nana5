@@ -194,7 +194,110 @@ function openAppPermissions() {
   });
   refresh();
 }
-function handleMenuAction(action) {
+
+/* ---------- Live performance and connection diagnostics ---------- */
+function openPerformanceDiagnostics() {
+  if (document.querySelector('.murmur-diagnostics-screen')) return;
+  const screen = document.createElement('div');
+  screen.className = 'screen-legal np-screen murmur-diagnostics-screen';
+  screen.setAttribute('role', 'dialog');
+  screen.setAttribute('aria-modal', 'true');
+  screen.setAttribute('aria-label', 'Performance and connection');
+  screen.innerHTML = `
+    <header class="permissions-head"><button type="button" data-close aria-label="Back">←</button><strong>Performance &amp; connection</strong><span></span></header>
+    <main class="permissions-body murmur-diagnostics-body">
+      <p class="permissions-intro">Live readings from this browser while this screen is open.</p>
+      <section class="murmur-diagnostics-grid">
+        <article class="murmur-diagnostic-card"><small>Device level</small><strong data-device-level>Checking…</strong><span data-device-detail>Estimating device capability</span></article>
+        <article class="murmur-diagnostic-card"><small>Frame rate</small><strong><span data-fps>—</span> FPS</strong><span data-fps-detail>Measuring animation smoothness</span></article>
+        <article class="murmur-diagnostic-card"><small>Signal estimate</small><strong><span data-signal>—</span><small>/100</small></strong><span data-signal-detail>Checking connection information</span></article>
+        <article class="murmur-diagnostic-card"><small>Network</small><strong data-network>Checking…</strong><span data-network-detail>Browser connection status</span></article>
+      </section>
+      <p class="murmur-diagnostics-note">The FPS value is measured while this screen is visible. Signal estimate is calculated from browser-reported network speed and latency; it is not the phone’s actual cellular signal strength.</p>
+      <button class="permissions-refresh" data-refresh type="button">Run test again</button>
+    </main>`;
+  document.body.appendChild(screen);
+  let rafId = 0, active = true;
+  const $ = selector => screen.querySelector(selector);
+  const deviceMemory = Number(navigator.deviceMemory) || 0;
+  const cores = Number(navigator.hardwareConcurrency) || 0;
+  let deviceLevel = 'Medium';
+  if ((deviceMemory && deviceMemory <= 2) || (cores && cores <= 4)) deviceLevel = 'Low';
+  else if (deviceMemory >= 6 && cores >= 8) deviceLevel = 'High';
+  $('[data-device-level]').textContent = deviceLevel;
+  $('[data-device-detail]').textContent = [
+    cores ? cores + ' CPU cores' : 'CPU details hidden',
+    deviceMemory ? deviceMemory + ' GB memory estimate' : 'Memory details hidden'
+  ].join(' · ');
+  function updateNetwork() {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    $('[data-network]').textContent = navigator.onLine ? 'Online' : 'Offline';
+    if (!navigator.onLine) {
+      $('[data-signal]').textContent = '0';
+      $('[data-signal-detail]').textContent = 'No network connection detected';
+      $('[data-network-detail]').textContent = 'Device is offline';
+      return;
+    }
+    if (!connection || (!Number.isFinite(connection.rtt) && !Number.isFinite(connection.downlink))) {
+      $('[data-signal]').textContent = 'N/A';
+      $('[data-signal-detail]').textContent = 'Browser does not provide signal metrics';
+      $('[data-network-detail]').textContent = 'Online · detailed speed unavailable';
+      return;
+    }
+    const rtt = Number(connection.rtt);
+    const downlink = Number(connection.downlink);
+    let score = 55;
+    if (Number.isFinite(rtt) && rtt > 0) score += Math.max(-35, Math.min(25, (180 - rtt) / 5));
+    if (Number.isFinite(downlink) && downlink > 0) score += Math.max(-20, Math.min(20, (downlink - 2) * 5));
+    score = Math.round(Math.max(0, Math.min(100, score)));
+    $('[data-signal]').textContent = String(score);
+    $('[data-signal-detail]').textContent = score >= 75 ? 'Good estimated connection' : score >= 45 ? 'Fair estimated connection' : 'Weak estimated connection';
+    const parts = [];
+    if (connection.effectiveType) parts.push(connection.effectiveType.toUpperCase());
+    if (Number.isFinite(downlink) && downlink > 0) parts.push(downlink + ' Mbps');
+    if (Number.isFinite(rtt) && rtt > 0) parts.push(rtt + ' ms latency');
+    $('[data-network-detail]').textContent = parts.join(' · ') || 'Connection details unavailable';
+  }
+  function measureFps() {
+    if (!active) return;
+    const started = performance.now();
+    let frames = 0;
+    function tick(now) {
+      if (!active) return;
+      frames++;
+      if (now - started >= 1200) {
+        const fps = Math.round(frames * 1000 / (now - started));
+        $('[data-fps]').textContent = String(fps);
+        $('[data-fps-detail]').textContent = fps >= 50 ? 'Smooth rendering' : fps >= 30 ? 'Moderate rendering' : 'Low frame rate detected';
+        if (active) rafId = requestAnimationFrame(measureFps);
+      } else {
+        rafId = requestAnimationFrame(tick);
+      }
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+  function runTest() {
+    cancelAnimationFrame(rafId);
+    $('[data-fps]').textContent = '…';
+    $('[data-fps-detail]').textContent = 'Measuring for about 1 second';
+    updateNetwork();
+    measureFps();
+  }
+  const close = () => {
+    active = false;
+    cancelAnimationFrame(rafId);
+    window.removeEventListener('online', updateNetwork);
+    window.removeEventListener('offline', updateNetwork);
+    screen.remove();
+  };
+  $('[data-close]').addEventListener('click', close);
+  screen.addEventListener('click', event => { if (event.target === screen) close(); });
+  $('[data-refresh]').addEventListener('click', runTest);
+  window.addEventListener('online', updateNetwork);
+  window.addEventListener('offline', updateNetwork);
+  runTest();
+}
+\nfunction handleMenuAction(action) {
   switch(action) {
     case 'reels': setView('reels'); break;
     case 'friends': setView('friends'); break;
@@ -206,7 +309,7 @@ function handleMenuAction(action) {
     case 'privacy': openLegal('privacy'); break;
     case 'add-account': openMenuSwitchAccount(); break;
     case 'account-settings': openEditProfile(); break;
-    case 'permissions': openAppPermissions(); break;
+    case 'permissions': openAppPermissions(); break;\n    case 'performance': openPerformanceDiagnostics(); break;
     case 'help': openCustomerSupport('question'); break;
     case 'report': openCustomerSupport('report'); break;
     default: break;
