@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - "murmur/**"
+      - "chore/**"
 
 permissions:
   contents: read
@@ -30,6 +31,9 @@ jobs:
             echo "Checking $file"
             node --check --input-type=module < "$file"
           done < <(find . -type f -name '*.js' -not -path './.git/*' -print0)
+
+      - name: Validate HTML IDs and local assets
+        run: node scripts/validate-html.mjs
 
       - name: Validate JSON files
         shell: bash

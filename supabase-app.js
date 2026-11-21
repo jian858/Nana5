@@ -90,7 +90,7 @@ async function openPublicProfile(userId) {
   try {
     const [{ data: person, error: profileError }, { data: rows, error: postsError }] = await Promise.all([
       supabase.from("murmur_public_profiles").select("id,username,display_name,bio,avatar_url,created_at").eq("id", userId).maybeSingle(),
-      supabase.from("posts").select("id,author_id,content,media_path,media_type,created_at").eq("author_id", userId).order("created_at", { ascending: false }).limit(30)
+      supabase.from("posts").select("id,author_id,content,media_url,media_path,media_type,created_at").eq("author_id", userId).order("created_at", { ascending: false }).limit(30)
     ]);
     if (profileError) throw profileError;
     if (postsError) throw postsError;
@@ -102,10 +102,10 @@ async function openPublicProfile(userId) {
     const latestNote = profileNotes[0] || null;
     const postRows = await Promise.all((rows || []).map(async post => ({
       ...post,
-      mediaUrl: post.media_path ? await storage.url("murmur-posts", post.media_path).catch(() => null) : null
+      mediaUrl: post.media_path ? await storage.url("murmur-posts", post.media_path).catch(() => post.media_url || null) : (post.media_url || null)
     })));
-    const avatar = person.avatar_url ? '<img class="murmur-profile-avatar-image" src="' + safeText(person.avatar_url) + '" alt="">' : '<span class="murmur-profile-avatar-fallback">' + safeText((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</span>';
-    content.innerHTML = '<div class="murmur-profile-cover"></div><div class="murmur-profile-summary"><div class="murmur-profile-avatar">' + avatar + '</div><div class="murmur-profile-title"><h2 id="profile-view-title">' + safeText(person.display_name || "Murmur user") + '</h2><p>@' + safeText(person.username || "") + '</p></div>' +
+    const avatar = person.avatar_url ? '<button type="button" class="murmur-profile-avatar murmur-profile-avatar-open" aria-label="View profile picture"><img class="murmur-profile-avatar-image" src="' + safeText(person.avatar_url) + '" alt=""></button>' : '<div class="murmur-profile-avatar"><span class="murmur-profile-avatar-fallback">' + safeText((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</span></div>';
+    content.innerHTML = '<div class="murmur-profile-cover"></div><div class="murmur-profile-summary">' + avatar + '<div class="murmur-profile-title"><h2 id="profile-view-title">' + safeText(person.display_name || "Murmur user") + '</h2><p>@' + safeText(person.username || "") + '</p></div>' +
       (isMe ? '<button type="button" class="btn secondary murmur-profile-edit">Edit profile</button>' : '') +
       '</div>' +
       (latestNote ? '<section class="murmur-profile-note" aria-label="Your note"><div class="murmur-profile-note-heading">Your note</div><button type="button" class="murmur-profile-note-content" data-edit-profile-note>' + safeText(latestNote.content) + '</button><small>Tap your note to edit or delete it</small></section>' : (isMe ? '<button type="button" class="murmur-profile-note-empty" data-edit-profile-note>Add a note</button>' : '')) +
@@ -113,6 +113,20 @@ async function openPublicProfile(userId) {
       (postRows.length ? postRows.map(post => '<article class="murmur-profile-post">' + (post.content ? '<p>' + safeText(post.content) + '</p>' : '') +
         (post.mediaUrl ? (post.media_type === "video" ? '<video controls playsinline preload="metadata" src="' + safeText(post.mediaUrl) + '"></video>' : '<img loading="lazy" src="' + safeText(post.mediaUrl) + '" alt="Post photo">') : '') +
         '<small>' + safeText(new Date(post.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No posts yet.</p>') + '</div>';
+    content.querySelector(".murmur-profile-avatar-open")?.addEventListener("click", event => {
+      const source = event.currentTarget.querySelector("img")?.src;
+      if (!source) return;
+      const viewer = document.createElement("div");
+      viewer.className = "murmur-photo-viewer";
+      viewer.innerHTML = '<button type="button" class="murmur-photo-viewer-close" aria-label="Close picture">×</button><img alt="Profile picture">';
+      viewer.querySelector("img").src = source;
+      const dismiss = () => { viewer.remove(); document.removeEventListener("keydown", onKey); };
+      const onKey = keyEvent => { if (keyEvent.key === "Escape") dismiss(); };
+      viewer.addEventListener("click", clickEvent => { if (clickEvent.target === viewer || clickEvent.target.closest(".murmur-photo-viewer-close")) dismiss(); });
+      document.addEventListener("keydown", onKey);
+      document.body.appendChild(viewer);
+      viewer.querySelector(".murmur-photo-viewer-close").focus();
+    });
     content.querySelector(".murmur-profile-edit")?.addEventListener("click", () => { close(); openProfileEditor(); });
     content.querySelector("[data-edit-profile-note]")?.addEventListener("click", () => {
       const overlay = document.createElement("div");
@@ -292,7 +306,11 @@ async function renderPostComments(postId, panel) {
 async function renderFeed() {
   const root = $("posts");
   if (!root) return;
-  root.innerHTML = '<p class="empty-state">Loading posts…</p>';
+  // Keep the current feed visible during background refreshes. Only show the
+  // initial loading state when there are no posts rendered yet.
+  if (!root.querySelector("[data-post-id]")) {
+    root.innerHTML = '<p class="empty-state">Loading posts…</p>';
+  }
   try {
     const rows = await posts.feed(0);
     if (!rows.length) {
@@ -339,10 +357,33 @@ async function renderFeed() {
         '<div class="murmur-post-comments" data-comments hidden></div></article>';
     }).join("");
 
-    root.querySelectorAll("[data-like-post]").forEach(button => button.addEventListener("click", async () => {
+    root.querySelectorAll("[data-like-post]").forEach(button => button.addEventListener("click", async event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (button.disabled) return;
+      const card = button.closest("[data-post-id]");
+      const count = card?.querySelector("[data-like-count]");
+      const wasLiked = button.getAttribute("aria-pressed") === "true";
+      const nextLiked = !wasLiked;
+      const previousCount = Number(count?.textContent || 0);
+      // Update this post immediately. A Like must never replace or reload the feed.
+      button.setAttribute("aria-pressed", String(nextLiked));
+      button.classList.toggle("is-liked", nextLiked);
+      button.textContent = nextLiked ? "Liked" : "Like";
+      if (count) count.textContent = String(Math.max(0, previousCount + (nextLiked ? 1 : -1)));
       button.disabled = true;
-      try { await postLikes.toggle(button.dataset.likePost); await renderFeed(); }
-      catch (error) { alert(error.message || "Could not update your like."); button.disabled = false; }
+      try {
+        await postLikes.toggle(button.dataset.likePost);
+      } catch (error) {
+        // Roll back only this button if the database rejects the change.
+        button.setAttribute("aria-pressed", String(wasLiked));
+        button.classList.toggle("is-liked", wasLiked);
+        button.textContent = wasLiked ? "Liked" : "Like";
+        if (count) count.textContent = String(previousCount);
+        alert(error.message || "Could not update your like. Please try again.");
+      } finally {
+        button.disabled = false;
+      }
     }));
     root.querySelectorAll("[data-open-comments]").forEach(button => button.addEventListener("click", async () => {
       const card = button.closest("[data-post-id]");
@@ -370,9 +411,22 @@ let feedChannel = null;
 function watchFeed() {
   if (feedChannel) supabase.removeChannel(feedChannel);
   feedChannel = supabase.channel("murmur-public-posts")
-    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => renderFeed())
-    .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => renderFeed())
-    .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => renderFeed())
+    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, payload => {
+      // Keep existing post cards in place for row updates. Like actions
+      // update their own button and count locally; inserts/deletes can refresh
+      // the feed without making a Like trigger a full feed reload.
+      if (payload.eventType === "UPDATE") {
+        // Do not rebuild the feed for row updates. Like counters are often
+        // maintained by a database trigger, and the Like handler already
+        // updates this viewer's button and count immediately.
+        return;
+      }
+      void renderFeed();
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => {
+      // Comment updates should refresh counts without flashing a full-page loader.
+      void renderFeed();
+    })
     .subscribe();
 }
 
