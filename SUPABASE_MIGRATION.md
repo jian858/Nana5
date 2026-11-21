@@ -231,3 +231,11 @@ Last updated: 2026-11-21
 - Hardened conversation membership and block-check helpers to perform their internal membership lookups without recursively re-entering caller RLS policies. The caller's Supabase Auth UUID and block status remain enforced.
 - Verified authenticated-role SELECT checks on `profiles`, `posts`, `post_audience`, `conversation_members`, `conversations`, `messages`, `murmur_public_profiles`, and `notifications` no longer raise the prior recursion errors.
 - Verification used a synthetic authenticated UUID because the database currently has no rows in `conversation_members`; full two-account conversation and post-audience isolation tests remain required before launch.
+
+
+## Mobile feed, chat and notification recovery — 2026-11-21
+- Updated `supabase-app.js` so feed failures show the actual Supabase error and an in-place retry action instead of a generic connection message.
+- Updated `supabase-social.js` so chat-list failures include a retry action and duplicate admin announcements with identical title, body and publication time render once.
+- Confirmed the six main navigation buttons map to existing panes; the screenshots showed the active state changing, while the underlying feed/chat requests were failing. The database policy repairs address those content failures.
+- Updated `cloudflare-worker.js` so the static-asset cache rule matches CSS, JS, MJS, JSON and web-manifest file extensions.
+- The Cloudflare Worker currently proxies the Vercel origin; Vercel production deployment status still requires team authorization to inspect.
