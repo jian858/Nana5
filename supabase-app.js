@@ -153,6 +153,12 @@ function showAccountRestriction(restriction) {
 async function enterApp(user) {
   currentUser = user;
   try {
+    const restriction = await accountRestrictions.current();
+    if (restriction) {
+      showAccountRestriction(restriction);
+      await supabase.auth.signOut();
+      return;
+    }
     currentProfile = await loadProfile(user);
     showApp();
     paintIdentity();
