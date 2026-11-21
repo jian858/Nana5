@@ -262,3 +262,13 @@ Last updated: 2026-11-21
 - Verified the migration is recorded, all three chat tables are in `supabase_realtime`, authenticated chat RPC/helper privileges are present, and a synthetic authenticated-role check can read only its own full profile and the permitted public directory without RLS errors.
 - The ten RLS-enabled tables without policies remain intentionally inaccessible to browser roles: five are in the private schema and five are admin/worker-only public tables. Verification found no `anon` or `authenticated` table grants on those ten tables; do not add permissive policies just to silence the informational advisor.
 - Full two-account chat delivery, block enforcement and mobile browser interaction still require a second test account and a real browser session before launch.
+
+
+## Settings, menu and chat module repair — 2026-11-21
+- Fixed a literal escaped newline in `supabase-social.js` that made the ES module invalid JavaScript and prevented chat/social initialization.
+- Added click handlers for the Settings & Privacy and Help & Support accordion controls.
+- Wired menu destinations to the existing app views and added working actions for theme switching, account email/password updates, blocked-account listing/unblocking, browser notification permission, performance information, and problem reports.
+- Added explicit in-app explanations for menu features that do not yet have a backend implementation; account deletion is not falsely reported as complete.
+- Updated module cache-busting versions so Cloudflare Pages does not keep loading the previous broken JavaScript.
+- GitHub source-validation and Supabase-only architecture workflows passed for the repaired source before the final cache-version bump; the final commit triggers them again.
+- Full authenticated browser testing still requires a signed-in test account; no account credentials were created or changed during this repair.
