@@ -114,15 +114,19 @@ Deno.serve(async (req: Request) => {
       const userId = typeof body.user_id === "string" ? body.user_id : "";
       const suspended = body.suspended === true;
       const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : "";
+      const reasonCode = typeof body.reason_code === "string" ? body.reason_code : "";
+      const allowedReasonCodes = ["spam","harassment","hate_speech","impersonation","fraud","sexual_content","violence","child_safety","repeated_violations","other"];
       const hours = body.duration_hours == null || body.duration_hours === "" ? null : Number(body.duration_hours);
       if (!userId || userId === user.id) return reply(400, { error: "Choose a valid user. You cannot suspend your own admin account." });
       if (suspended && !reason) return reply(400, { error: "A suspension reason is required." });
-      if (suspended && hours !== null && (!Number.isFinite(hours) || hours <= 0 || hours > 8760)) {
-        return reply(400, { error: "Suspension duration must be between 1 and 8760 hours, or blank for indefinite." });
+      if (suspended && !allowedReasonCodes.includes(reasonCode)) return reply(400, { error: "Choose one of the ten approved restriction reasons." });
+      if (suspended && (!Number.isFinite(hours) || hours <= 0 || hours > 8760)) {
+        return reply(400, { error: "Choose a suspension duration between 1 and 8760 hours." });
       }
       const { data, error } = await db.rpc("admin_set_account_status", {
         p_admin_id: user.id, p_user_id: userId, p_suspended: suspended,
         p_reason: reason || null, p_duration_hours: suspended ? hours : null,
+        p_reason_code: suspended ? reasonCode : "other",
       });
       if (error) {
         if (error.code === "P0002") return reply(404, { error: "User profile not found." });
@@ -135,13 +139,16 @@ Deno.serve(async (req: Request) => {
     if (action === "schedule_delete") {
       const userId = typeof body.user_id === "string" ? body.user_id : "";
       const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : "";
+      const reasonCode = typeof body.reason_code === "string" ? body.reason_code : "";
+      const allowedReasonCodes = ["spam","harassment","hate_speech","impersonation","fraud","sexual_content","violence","child_safety","repeated_violations","other"];
       const deleteAt = typeof body.delete_at === "string" ? new Date(body.delete_at) : null;
       if (!userId || userId === user.id) return reply(400, { error: "Choose a valid user." });
-      if (!reason || !deleteAt || !Number.isFinite(deleteAt.getTime()) || deleteAt.getTime() <= Date.now()) {
-        return reply(400, { error: "A reason and future deletion date are required." });
+      if (!reason || !allowedReasonCodes.includes(reasonCode) || !deleteAt || !Number.isFinite(deleteAt.getTime()) || deleteAt.getTime() <= Date.now()) {
+        return reply(400, { error: "Choose a valid reason and a future deletion date." });
       }
       const { data, error } = await db.rpc("admin_schedule_account_deletion", {
-        p_admin_id: user.id, p_user_id: userId, p_reason: reason, p_delete_at: deleteAt.toISOString(),
+        p_admin_id: user.id, p_user_id: userId, p_reason: reason,
+        p_delete_at: deleteAt.toISOString(), p_reason_code: reasonCode,
       });
       if (error) {
         if (error.code === "P0002") return reply(404, { error: "User profile not found." });
