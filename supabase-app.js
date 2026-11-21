@@ -51,6 +51,43 @@ async function loadProfile(user) {
   return profile;
 }
 
+async function openPublicProfile(userId) {
+  if (!userId) return;
+  const overlay = document.createElement("div");
+  overlay.className = "murmur-auth-modal murmur-profile-view";
+  overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="profile-view-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><div class="murmur-profile-view-content"><p class="empty-state">Loading profile…</p></div></section>';
+  document.body.appendChild(overlay);
+  const section = overlay.querySelector("section");
+  const content = overlay.querySelector(".murmur-profile-view-content");
+  const close = () => overlay.remove();
+  section.querySelector(".murmur-modal-close").addEventListener("click", close);
+  overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+  try {
+    const [{ data: person, error: profileError }, { data: rows, error: postsError }] = await Promise.all([
+      supabase.from("murmur_public_profiles").select("id,username,display_name,bio,avatar_url,created_at").eq("id", userId).maybeSingle(),
+      supabase.from("posts").select("id,author_id,content,media_path,media_type,created_at").eq("author_id", userId).order("created_at", { ascending: false }).limit(30)
+    ]);
+    if (profileError) throw profileError;
+    if (postsError) throw postsError;
+    if (!person) throw new Error("This profile is unavailable.");
+    const isMe = currentUser?.id === userId;
+    const postRows = await Promise.all((rows || []).map(async post => ({
+      ...post,
+      mediaUrl: post.media_path ? await storage.url("murmur-posts", post.media_path).catch(() => null) : null
+    })));
+    const avatar = person.avatar_url ? '<img class="murmur-profile-avatar-image" src="' + safeText(person.avatar_url) + '" alt="">' : '<span class="murmur-profile-avatar-fallback">' + safeText((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</span>';
+    content.innerHTML = '<div class="murmur-profile-cover"></div><div class="murmur-profile-summary"><div class="murmur-profile-avatar">' + avatar + '</div><div class="murmur-profile-title"><h2 id="profile-view-title">' + safeText(person.display_name || "Murmur user") + '</h2><p>@' + safeText(person.username || "") + '</p></div>' +
+      (isMe ? '<button type="button" class="btn secondary murmur-profile-edit">Edit profile</button>' : '') +
+      '</div><p class="murmur-profile-bio">' + safeText(person.bio || "No bio yet.") + '</p><div class="murmur-profile-stats"><strong>' + postRows.length + '</strong> posts</div><h3 class="murmur-profile-post-heading">Posts</h3><div class="murmur-profile-posts">' +
+      (postRows.length ? postRows.map(post => '<article class="murmur-profile-post">' + (post.content ? '<p>' + safeText(post.content) + '</p>' : '') +
+        (post.mediaUrl ? (post.media_type === "video" ? '<video controls playsinline preload="metadata" src="' + safeText(post.mediaUrl) + '"></video>' : '<img loading="lazy" src="' + safeText(post.mediaUrl) + '" alt="Post photo">') : '') +
+        '<small>' + safeText(new Date(post.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No posts yet.</p>') + '</div>';
+    content.querySelector(".murmur-profile-edit")?.addEventListener("click", () => { close(); openProfileEditor(); });
+  } catch (error) {
+    content.innerHTML = '<p class="empty-state">Could not load this profile: ' + safeText(error.message) + '</p>';
+  }
+}
+
 function openProfileEditor() {
   const overlay = document.createElement("div");
   overlay.className = "murmur-auth-modal";
@@ -192,7 +229,7 @@ async function renderFeed() {
       const commentCount = commentCounts.get(post.id) || 0;
       const liked = likedByMe.has(post.id);
       return '<article class="post-card" data-post-id="' + safeText(post.id) + '">' +
-        '<header class="post-head"><span class="avatar">' + safeText(author.slice(0,1).toUpperCase()) + '</span><div><strong>' + author + '</strong><small>' + handle + ' · ' + safeText(new Date(post.created_at).toLocaleString()) + '</small></div></header>' +
+        '<header class="post-head" data-open-profile="' + safeText(post.author_id) + '><span class="avatar">' + safeText(author.slice(0,1).toUpperCase()) + '</span><div><strong>' + author + '</strong><small>' + handle + ' · ' + safeText(new Date(post.created_at).toLocaleString()) + '</small></div></header>' +
         (post.content ? '<p class="post-content">' + safeText(post.content) + '</p>' : '') + media +
         '<div class="murmur-post-stats"><span><strong data-like-count>' + likes + '</strong> likes</span><span><strong data-comment-count>' + commentCount + '</strong> comments</span></div>' +
         '<div class="murmur-post-actions"><button type="button" data-like-post="' + safeText(post.id) + '" aria-pressed="' + liked + '" class="' + (liked ? "is-liked" : "") + '">' + (liked ? "Liked" : "Like") + '</button><button type="button" data-open-comments="' + safeText(post.id) + '">Comment</button><button type="button" data-share-post="' + safeText(post.id) + '">Share</button></div>' +
@@ -667,7 +704,9 @@ function wireNavigation() {
     if (!button) return;
     if (switchView(button.dataset.view, button)) event.preventDefault();
   });
-  $("menuProfileBtn")?.addEventListener("click", openProfileEditor);
+  $("menuProfileBtn")?.addEventListener("click", () => openPublicProfile(currentUser?.id));
+  $("composerAvatar")?.addEventListener("click", event => { event.stopPropagation(); openPublicProfile(currentUser?.id); });
+  document.addEventListener("click", event => { const profileTarget = event.target.closest("[data-open-profile]"); if (profileTarget) openPublicProfile(profileTarget.getAttribute("data-open-profile")); });
   $("settingsPrivacyToggle")?.addEventListener("click", () => {
     const button = $("settingsPrivacyToggle");
     const panel = $("settingsPrivacyContent");
