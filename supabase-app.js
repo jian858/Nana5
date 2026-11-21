@@ -241,7 +241,7 @@ async function boot() {
   await completePasswordResetIfNeeded();
   const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT" || !session?.user) {
-      currentUser = null; currentProfile = null; if (feedChannel) { supabase.removeChannel(feedChannel); feedChannel = null; } showAuth();
+      currentUser = null; currentProfile = null; if (feedChannel) { supabase.removeChannel(feedChannel); feedChannel = null; } window.dispatchEvent(new CustomEvent("murmur:supabase-signed-out")); showAuth();
     } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
       queueMicrotask(() => enterApp(session.user));
     }
