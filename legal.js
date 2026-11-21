@@ -154,7 +154,7 @@ function closeLegal(fromHash) {
   if (!stillLocked) document.body.style.overflow = '';
   if (fromHash) return;
   if (legalDirect) {
-    history.replaceState(null, '', location.pathname + location.search);
+    history.replaceState(null, '', '/' + location.search);
     legalDirect = false;
   } else if (LEGAL_HASHES[location.hash]) {
     history.back();
@@ -263,3 +263,17 @@ document.body.appendChild(offlineBar);
 const syncOnline = () => { offlineBar.hidden = navigator.onLine; };
 window.addEventListener('online', syncOnline); window.addEventListener('offline', syncOnline); syncOnline();
 
+
+
+// Support direct legal URLs (/terms, /privacy, /cookies) and in-app hash links.
+function syncLegalLocation() {
+  const pathPages = { '/terms': 'terms', '/privacy': 'privacy', '/cookies': 'cookies' };
+  const page = LEGAL_HASHES[location.hash] || pathPages[location.pathname];
+  if (page) {
+    openLegal(page, !location.hash);
+  } else if (legalOverlay) {
+    closeLegal(true);
+  }
+}
+window.addEventListener('hashchange', syncLegalLocation);
+syncLegalLocation();
