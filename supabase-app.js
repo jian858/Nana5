@@ -339,10 +339,28 @@ async function renderFeed() {
         '<div class="murmur-post-comments" data-comments hidden></div></article>';
     }).join("");
 
-    root.querySelectorAll("[data-like-post]").forEach(button => button.addEventListener("click", async () => {
+    root.querySelectorAll("[data-like-post]").forEach(button => button.addEventListener("click", async event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (button.disabled) return;
+      const card = button.closest("[data-post-id]");
+      const count = card?.querySelector("[data-like-count]");
+      const wasLiked = button.getAttribute("aria-pressed") === "true";
       button.disabled = true;
-      try { await postLikes.toggle(button.dataset.likePost); await renderFeed(); }
-      catch (error) { alert(error.message || "Could not update your like."); button.disabled = false; }
+      button.setAttribute("aria-busy", "true");
+      try {
+        await postLikes.toggle(button.dataset.likePost);
+        const nextLiked = !wasLiked;
+        button.setAttribute("aria-pressed", String(nextLiked));
+        button.classList.toggle("is-liked", nextLiked);
+        button.textContent = nextLiked ? "Liked" : "Like";
+        if (count) count.textContent = String(Math.max(0, Number(count.textContent || 0) + (nextLiked ? 1 : -1)));
+      } catch (error) {
+        alert(error.message || "Could not update your like.");
+      } finally {
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+      }
     }));
     root.querySelectorAll("[data-open-comments]").forEach(button => button.addEventListener("click", async () => {
       const card = button.closest("[data-post-id]");
@@ -371,7 +389,6 @@ function watchFeed() {
   if (feedChannel) supabase.removeChannel(feedChannel);
   feedChannel = supabase.channel("murmur-public-posts")
     .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => renderFeed())
-    .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => renderFeed())
     .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => renderFeed())
     .subscribe();
 }
