@@ -27,7 +27,7 @@ jobs:
             }
           done
 
-          if grep -Ein 'firebase(app|auth|database|storage|functions)|firebaseio\\.com|firebase\\.googleapis\\.com' index.html; then
+          if grep -Ein 'firebase(app|auth|database|storage|functions)|firebaseio\.com|firebase\.googleapis\.com' index.html; then
             echo "Firebase SDK or Firebase service reference found in the live HTML entrypoint."
             exit 1
           fi
@@ -37,7 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           files=(supabase-client.js supabase-runtime.js supabase-data.js supabase-app.js supabase-social.js visitor-tracking.js)
-          if grep -Ein 'firebase(app|auth|database|storage|functions)|firebaseio\\.com|firebase\\.googleapis\\.com|firebase-admin' "${files[@]}"; then
+          if grep -Ein 'firebase(app|auth|database|storage|functions)|firebaseio\.com|firebase\.googleapis\.com|firebase-admin' "${files[@]}"; then
             echo "Firebase reference found in an active application module."
             exit 1
           fi
@@ -63,7 +63,7 @@ jobs:
             exit 1
           fi
           for migration in "${migrations[@]}"; do
-            [[ "$(basename "$migration")" =~ ^[0-9]{14}_[a-z0-9_]+\\.sql$ ]] || {
+            [[ "$(basename "$migration")" =~ ^[0-9]{14}_[a-z0-9_]+\.sql$ ]] || {
               echo "Migration filename must use a 14-digit timestamp and snake_case: $migration"
               exit 1
             }
