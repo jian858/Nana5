@@ -319,3 +319,18 @@ input,select,textarea{max-width:100%}
  .note-avatar-circle{width:64px;height:64px}
  .chat-social-row .chat-stories{padding:0 0 2px}
 }
+
+
+/* Final note layout: clickable Create note label directly above the profile circle. */
+.chat-social-row{align-items:flex-start}
+#noteRow.note-row{position:relative;display:flex!important;flex:0 0 78px;flex-direction:column;align-items:center;gap:4px;min-width:78px;margin:0!important;padding:0!important}
+.note-avatar-button{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;width:78px;padding:0;border:0;background:transparent;color:var(--ink);cursor:pointer}
+.note-action-label{display:block;order:0;padding:3px 7px;border-radius:12px;background:var(--surface,#fff);color:var(--ink);font-size:.72rem;font-weight:650;line-height:1.25;white-space:nowrap;box-shadow:0 1px 5px #00000012}
+.note-avatar-circle{order:1;position:relative;display:grid;place-items:center;width:66px;height:66px;border-radius:50%;overflow:hidden;background:#e8eaed;border:2px solid var(--line)}
+.note-avatar-circle img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.note-avatar-circle>span{font-size:1.5rem;font-weight:650;color:#626b75}
+.note-avatar-circle i{display:none}
+.note-saved-preview{display:block;max-width:78px;margin-top:3px;color:var(--muted);font-size:.68rem;line-height:1.2;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note-preview-bubble,.note-hint{display:none!important}
+.note-avatar-button:focus-visible{outline:2px solid var(--accent,#1685e8);outline-offset:3px;border-radius:12px}
+@media(max-width:780px){#noteRow.note-row{flex-basis:72px;min-width:72px}.note-avatar-button{width:72px}.note-action-label{font-size:.69rem}.note-avatar-circle{width:62px;height:62px}}
