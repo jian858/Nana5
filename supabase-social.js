@@ -80,16 +80,17 @@ async function searchPeople() {
 }
 
 async function renderStories() {
-  const root = el("storiesRow");
-  if (!root) return;
+  const roots = [el("storiesRow"), el("chatStoriesRow")].filter(Boolean);
+  if (!roots.length) return;
   try {
     const rows = await stories.list();
     const displayRows = await Promise.all(rows.map(async story => ({
       ...story,
       signedMediaUrl: story.media_path ? await storage.url("murmur-stories", story.media_path) : null
     })));
-    root.innerHTML = '<div class="story-heading"><strong>Stories</strong> <button type="button" class="btn secondary" data-add-story>Share a story</button></div>' + (displayRows.length ? displayRows.map(s => '<article class="story-card">' + (s.signedMediaUrl ? (s.media_type === "video" ? '<video controls playsinline preload="metadata" src="' + esc(s.signedMediaUrl) + '"></video>' : '<img loading="lazy" src="' + esc(s.signedMediaUrl) + '" alt="Story media">') : '') + '<strong>' + esc(s.content || "Story") + '</strong><small>' + esc(new Date(s.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No active stories.</p>');
-    root.querySelector("[data-add-story]")?.addEventListener("click", () => {
+    const storyMarkup = '<div class="story-heading"><strong>Stories</strong><button type="button" class="btn secondary" data-add-story>Share a story</button></div>' + (displayRows.length ? displayRows.map(s => '<article class="story-card">' + (s.signedMediaUrl ? (s.media_type === "video" ? '<video controls playsinline preload="metadata" src="' + esc(s.signedMediaUrl) + '"></video>' : '<img loading="lazy" src="' + esc(s.signedMediaUrl) + '" alt="Story media">') : '') + '<strong>' + esc(s.content || "Story") + '</strong><small>' + esc(new Date(s.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No active stories.</p>');
+    roots.forEach(root => { root.innerHTML = storyMarkup; });
+    roots.forEach(root => root.querySelector("[data-add-story]")?.addEventListener("click", () => {
       const picker = document.createElement("input");
       picker.type = "file"; picker.accept = "image/jpeg,image/png,image/webp,image/avif,video/mp4,video/webm"; picker.hidden = true;
       document.body.appendChild(picker);
@@ -110,8 +111,8 @@ async function renderStories() {
         } catch (error) { alert(error.message); }
       }, { once: true });
       picker.click();
-    });
-  } catch (error) { fail(root, error); }
+    }));
+  } catch (error) { roots.forEach(root => fail(root, error)); }
 }
 
 async function renderReels() {
@@ -428,6 +429,16 @@ export function initSupabaseSocial() {
   el("friendSearchBtn")?.addEventListener("click", searchPeople);
   el("friendSearch")?.addEventListener("keydown", event => { if (event.key === "Enter") searchPeople(); });
   el("sendBtn")?.addEventListener("click", sendChatMessage);
+  el("newChatBtn")?.addEventListener("click", () => { el("chatSearch")?.focus(); el("chatSearch")?.scrollIntoView({behavior:"smooth",block:"center"}); });
+  el("chatSearchBtn")?.addEventListener("click", () => { const input=el("chatSearch"); if(input){ input.hidden=false; input.focus(); } });
+  el("chatSettingsBtn")?.addEventListener("click", () => {
+    const menu=document.createElement("div"); menu.className="chat-settings-popover";
+    menu.innerHTML='<strong>Message settings</strong><p>Search your conversations or manage blocked people in Settings.</p><button type="button" class="btn secondary" data-chat-settings-close>Close</button>';
+    document.querySelector(".chat-settings-popover")?.remove(); el("chats")?.append(menu);
+    menu.querySelector("[data-chat-settings-close]")?.addEventListener("click",()=>menu.remove());
+  });
+  el("chatSearch")?.addEventListener("focus", () => { el("chatSearch")?.classList.add("is-focused"); });
+  document.querySelector("[data-messages-back]")?.addEventListener("click",()=>window.dispatchEvent(new CustomEvent("murmur:view-changed",{detail:{view:"home"}})));
   el("chatBack")?.addEventListener("click", () => { document.querySelector(".chat-layout")?.classList.remove("open"); });
   el("messageInput")?.addEventListener("keydown", event => { if (event.key === "Enter") sendChatMessage(); });
   el("reelCreateBtn")?.addEventListener("click", () => {
