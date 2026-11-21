@@ -375,7 +375,8 @@ async function sendChatMessage() {
 export function initSupabaseSocial() {
   el("friendSearchBtn")?.addEventListener("click", searchPeople);
   el("friendSearch")?.addEventListener("keydown", event => { if (event.key === "Enter") searchPeople(); });
-  el("sendBtn")?.addEventListener("click", sendChatMessage);\n  el("chatBack")?.addEventListener("click", () => { document.querySelector(".chat-layout")?.classList.remove("open"); });
+  el("sendBtn")?.addEventListener("click", sendChatMessage);
+  el("chatBack")?.addEventListener("click", () => { document.querySelector(".chat-layout")?.classList.remove("open"); });
   el("messageInput")?.addEventListener("keydown", event => { if (event.key === "Enter") sendChatMessage(); });
   el("reelCreateBtn")?.addEventListener("click", () => {
     const picker = document.createElement("input");
