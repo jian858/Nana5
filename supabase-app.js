@@ -393,9 +393,9 @@ function watchFeed() {
   if (feedChannel) supabase.removeChannel(feedChannel);
   feedChannel = supabase.channel("murmur-public-posts")
     .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, payload => {
-      // A like may update a denormalized counter on the posts row. That is
-      // already reflected locally by the Like button, so do not reload the
-      // feed (or replace the post cards) for counter-only realtime updates.
+      // Keep existing post cards in place for row updates. Like actions
+      // update their own button and count locally; inserts/deletes can refresh
+      // the feed without making a Like trigger a full feed reload.
       if (payload.eventType === "UPDATE") {
         // Do not rebuild the feed for row updates. Like counters are often
         // maintained by a database trigger, and the Like handler already
