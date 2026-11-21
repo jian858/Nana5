@@ -879,3 +879,11 @@ input,select,textarea{max-width:100%}
 .murmur-profile-note small{display:block;margin-top:9px;color:var(--muted,#647477);font-size:.76rem}
 .murmur-profile-note-empty{margin:14px 0;padding:12px 16px;border:1px dashed var(--accent,#14c8a0);border-radius:14px;background:transparent;color:var(--text,#172a2b);font:inherit;font-weight:700;cursor:pointer}
 @media(max-width:520px){.murmur-note-modal>section{padding:21px 18px}.note-saved-preview{max-width:calc(100vw - 112px)}}
+
+/* Login account lookup and profile loading state */
+.login-status{display:flex;align-items:center;justify-content:center;gap:11px;margin:14px 0 4px;padding:13px 15px;border:1px solid rgba(20,200,160,.28);border-radius:14px;background:rgba(20,200,160,.08);color:var(--text,#172a2b);font-size:.92rem;font-weight:650;line-height:1.45;text-align:left}
+.login-status[hidden]{display:none}
+.login-spinner{flex:0 0 19px;width:19px;height:19px;border:2.5px solid rgba(20,200,160,.22);border-top-color:#14c8a0;border-radius:50%;animation:murmur-login-spin .75s linear infinite}
+.login-status-text{min-width:0}
+#loginBtn:disabled{opacity:.78;cursor:wait}
+@keyframes murmur-login-spin{to{transform:rotate(360deg)}}
