@@ -223,3 +223,11 @@ Last updated: 2026-11-21
 - The service-role-only RPCs reject attempts to suspend or delete accounts on the administrator allowlist.
 - The separate Admin error reporter now sends queued error events only when it can obtain a Supabase session token; it no longer uses the publishable key as a bearer token or queues anonymous reports against the JWT-protected endpoint.
 - The organization's Free plan has been confirmed. Leaked-password protection requires Pro or above and remains disabled until the plan is upgraded.
+
+
+## Feed and chat RLS recursion repair — 2026-11-21
+- Applied and committed migration `20261121151000_fix_post_and_chat_rls_recursion.sql`.
+- Replaced the recursive posts/post-audience policy cycle with private SECURITY DEFINER predicates that run with `row_security = off`, a fixed empty search path, and authenticated-only execution.
+- Hardened conversation membership and block-check helpers to perform their internal membership lookups without recursively re-entering caller RLS policies. The caller's Supabase Auth UUID and block status remain enforced.
+- Verified authenticated-role SELECT checks on `profiles`, `posts`, `post_audience`, `conversation_members`, `conversations`, `messages`, `murmur_public_profiles`, and `notifications` no longer raise the prior recursion errors.
+- Verification used a synthetic authenticated UUID because the database currently has no rows in `conversation_members`; full two-account conversation and post-audience isolation tests remain required before launch.
