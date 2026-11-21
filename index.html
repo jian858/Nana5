@@ -23,7 +23,7 @@
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
-  <title>Murmur | Chat, Share Posts, Stories and Reels</title>
+  <title>Murmur – Chat, Share Stories and Watch Reels Together</title>
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta name="theme-color" content="#14c8a0" />
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
@@ -32,17 +32,17 @@
   <meta name="application-name" content="Murmur" />
   <meta name="color-scheme" content="light dark" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Murmur is a social app to chat with friends, share posts and stories, discover people, and watch reels together." />
+  <meta name="description" content="Connect with friends on Murmur. Send messages, share posts and stories, discover people, and enjoy reels together in one social app." />
   <meta name="robots" content="index, follow" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Murmur" />
-  <meta property="og:title" content="Murmur – Chat, share and watch together" />
+  <meta property="og:title" content="Murmur – Chat, Share Stories and Watch Reels Together" />
   <meta property="og:description" content="Chat with friends, share posts and stories, discover people, and watch reels together on Murmur." />
   <meta property="og:locale" content="en_PH" />
-  <meta property="og:image" content="https://murmurrr.vercel.app/murmur-icon.svg" />
+  <meta property="og:image" content="https://murmurrr.vercel.app/og-image.png" />
   <meta property="og:image:alt" content="Murmur app logo" />
   <meta property="og:url" content="https://murmurrr.vercel.app/" />
-  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Murmur – Chat, share and watch together" />
   <meta name="twitter:description" content="Chat with friends, share posts and stories, discover people, and watch reels together on Murmur." />
   <meta name="twitter:image" content="https://murmurrr.vercel.app/murmur-icon.svg" />
@@ -225,8 +225,8 @@
             <button class="btn primary" id="loginBtn" type="button">Log in</button>
             <button class="btn secondary" id="createBtn" type="button">Create new account</button>
             <div class="tiny"><button id="resetBtn" type="button">Forgot password?</button></div>
-            <div class="tiny legal-links"><a href="#terms">Terms</a> · <a href="#privacy">Privacy Policy</a> · <a href="#cookies">Cookie Policy</a></div>
-            <div class="tiny app-version">Murmur · Version 1</div>
+            <div class="tiny legal-links"><a href="/terms">Terms</a> · <a href="/privacy">Privacy Policy</a> · <a href="/cookies">Cookie Policy</a></div>
+            <div class="tiny app-version">Murmur · Social app</div>
           </div>
         </div>
       </div>
@@ -322,9 +322,9 @@
             <div class="conversation-header">
               <button class="chat-back" id="chatBack" type="button" aria-label="Back to chats">←</button>
               <div class="meta">
-                <span class="avatar-wrap"><div class="avatar" id="chatAvatar">A</div><span class="active-dot off" id="chatDot" hidden></span></span>
+                <span class="avatar-wrap"><div class="avatar" id="chatAvatar">?</div><span class="active-dot off" id="chatDot" hidden></span></span>
                 <div>
-                  <strong id="chatName">Ava</strong><br />
+                  <strong id="chatName">No chat selected</strong><br />
                   <small id="chatStatus">online</small>
                 </div>
               </div>
@@ -356,7 +356,7 @@
       <section class="pane murmur-menu-pane" data-pane="menu">
         <div class="murmur-menu-heading"><button class="menu-back" type="button" data-view="home" aria-label="Back to home">‹</button><h1>Menu</h1><button class="menu-sort" type="button" id="menuSortBtn" aria-label="Sort menu items" title="Sort menu items"><svg class="ic" aria-hidden="true"><use href="#i-sort"/></svg></button><button class="menu-search" type="button" id="menuSearchBtn" aria-label="Search Murmur"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></button></div>
         <div class="menu-search-panel" id="menuSearchPanel" hidden><label class="menu-search-field"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><input id="menuSearchInput" type="search" placeholder="Search menu" autocomplete="off" aria-label="Search menu items" /></label><button class="menu-search-close" id="menuSearchClose" type="button">Cancel</button></div>
-        <button class="menu-profile-card" id="menuProfileBtn" type="button" aria-label="Open your profile"><span class="avatar menu-profile-avatar" id="menuAvatar" aria-hidden="true">M</span><span class="menu-profile-details"><strong id="menuName">Your name</strong><span id="menuUser"></span></span><svg class="ic menu-profile-chevron" aria-hidden="true"><use href="#i-chev"/></svg></button>
+        <button class="menu-profile-card" id="menuProfileBtn" type="button" aria-label="Open your profile"><span class="avatar menu-profile-avatar" id="menuAvatar" aria-hidden="true">M</span><span class="menu-profile-details"><strong id="menuName">Your profile</strong><span id="menuUser"></span></span><svg class="ic menu-profile-chevron" aria-hidden="true"><use href="#i-chev"/></svg></button>
         <div class="murmur-menu-grid" aria-label="Murmur menu">
           <button class="murmur-menu-item" type="button" data-menu-action="reels"><svg class="ic menu-tile-icon" aria-hidden="true"><use href="#i-video"/></svg><span>Reels</span></button>
           <button class="murmur-menu-item" type="button" data-menu-action="friends"><svg class="ic menu-tile-icon" aria-hidden="true"><use href="#i-user"/></svg><span>Friends</span></button>
@@ -380,13 +380,13 @@
           <div class="menu-accordion-content" id="helpSupportContent" hidden>
             <button class="menu-row" type="button" data-menu-action="help"><svg class="ic" aria-hidden="true"><use href="#i-comment"/></svg> Help centre</button>
             <button class="menu-row" type="button" data-menu-action="report"><svg class="ic" aria-hidden="true"><use href="#i-note"/></svg> Report a problem</button>
-            <a class="menu-row menu-link-row" href="#terms"><svg class="ic" aria-hidden="true"><use href="#i-doc"/></svg> Terms of service</a>
+            <a class="menu-row menu-link-row" href="/terms"><svg class="ic" aria-hidden="true"><use href="#i-doc"/></svg> Terms of service</a>
           </div>
         </div>
         <button class="menu-add-account" type="button" data-menu-action="add-account"><svg class="ic menu-section-icon" aria-hidden="true"><use href="#i-tag"/></svg> <span>Add account</span></button>
         <button class="menu-row menu-logout" id="logoutBtn" type="button">Log out <span>↪</span></button>
       </section>
-      <footer class="legal-links"><a href="#terms">Terms</a> · <a href="#privacy">Privacy Policy</a> · <a href="#cookies">Cookie Policy</a> · © Murmur · <span class="app-version">Version 1</span></footer>
+      <footer class="legal-links"><a href="/terms">Terms</a> · <a href="/privacy">Privacy Policy</a> · <a href="/cookies">Cookie Policy</a> · © Murmur · <span class="app-version">Social app</span></footer>
     </main>
   </div>
 
