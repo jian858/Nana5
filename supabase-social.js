@@ -133,7 +133,17 @@ async function renderAlerts() {
       .eq("recipient_id", userData.user.id)
       .order("created_at", { ascending: false }).limit(50);
     if (error) throw error;
-    root.innerHTML = (data || []).map(n => '<article class="alert-row"><strong>' + esc(n.kind || "Alert") + '</strong><p>' + esc(n.content) + '</p><small>' + esc(new Date(n.created_at).toLocaleString()) + '</small></article>').join("") || '<p class="empty-state">You are all caught up.</p>';
+    root.innerHTML = (data || []).map(n => '<article class="alert-row" data-alert-id="' + esc(n.id) + '"><strong>' + esc(n.kind || "Alert") + '</strong><p>' + esc(n.content) + '</p><small>' + esc(new Date(n.created_at).toLocaleString()) + (n.read_at ? ' · Read' : ' · Unread') + '</small>' + (!n.read_at ? '<button class="btn secondary" type="button" data-mark-alert="' + esc(n.id) + '">Mark read</button>' : '') + '</article>').join("") || '<p class="empty-state">You are all caught up.</p>';
+    root.querySelectorAll("[data-mark-alert]").forEach(button => button.addEventListener("click", async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        const { error: updateError } = await supabase.from("notifications")
+          .update({ read_at: new Date().toISOString() })
+          .eq("id", button.dataset.markAlert).eq("recipient_id", userData.user.id);
+        if (updateError) throw updateError;
+        await renderAlerts();
+      } catch (error) { alert(error.message); }
+    }));
     const unread = (data || []).filter(n => !n.read_at).length;
     if (el("alertsBadge")) { el("alertsBadge").hidden = !unread; el("alertsBadge").textContent = unread ? String(unread) : ""; }
     if (el("alertsUnreadCount")) el("alertsUnreadCount").textContent = String(unread);
