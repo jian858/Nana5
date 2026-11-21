@@ -3,6 +3,8 @@ import { supabase } from "./supabase-client.js";
 import { friendships, stories, reels, userNotes, conversations, messages, storage } from "./supabase-data.js";
 
 const el = id => document.getElementById(id);
+let socialChannel = null;
+let messageChannel = null;
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fail = (container, error) => { if (container) container.innerHTML = '<p class="empty-state">' + esc(error.message || "Could not load this section.") + '</p>'; };
 
