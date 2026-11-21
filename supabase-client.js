@@ -23,10 +23,12 @@ export async function requireUser() {
     const message = String(error.message || "");
     const code = String(error.code || "");
     const invalidJwt = code === "bad_jwt" || /invalid JWT|token signature is invalid|signing method RS256 is invalid/i.test(message);
-    if (invalidJwt) {
-      // Clear only the Supabase Auth session; keep Murmur profile/offline data intact.
+    const invalidRefresh = code === "refresh_token_not_found" ||
+      /invalid refresh token|refresh token.*(not found|invalid|already used)/i.test(message);
+    if (invalidJwt || invalidRefresh) {
+      // Clear only the broken Supabase Auth session; keep Murmur profile/offline data intact.
       await supabase.auth.signOut({ scope: "local" }).catch(() => {});
-      throw new Error("Your sign-in session is no longer valid. Please sign in again with your Murmur account.");
+      throw new Error("Your saved sign-in session expired. Please sign in again with your Murmur account.");
     }
     throw error;
   }
