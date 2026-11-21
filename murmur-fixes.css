@@ -1136,3 +1136,33 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
   border-radius:50%!important;
   transform:none!important;
 }
+
+
+/* Home/feed avatar fix: clip every avatar frame, not only the menu/composer IDs. */
+#app .avatar,
+#app .avatar-frame,
+#app [class*="avatar"]:not(.murmur-profile-title):not(.murmur-edit-photo-copy){
+  overflow:hidden!important;
+  border-radius:50%!important;
+}
+#app .avatar{
+  position:relative!important;
+  aspect-ratio:1 / 1!important;
+  isolation:isolate;
+}
+#app .avatar img,
+#app .avatar picture,
+#app .avatar picture img,
+#app .avatar-frame img,
+#app [class*="avatar"] > img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  border-radius:50%!important;
+}
