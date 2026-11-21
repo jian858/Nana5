@@ -379,8 +379,16 @@ function watchFeed() {
 function showAccountRestriction(restriction) {
   const overlay = document.createElement("div");
   overlay.className = "murmur-auth-modal";
+  const terminated = restriction.status === "terminated";
+  const scheduled = restriction.status === "scheduled_deletion";
   const until = restriction.ends_at ? new Date(restriction.ends_at).toLocaleString() : "until further notice";
-  overlay.innerHTML = '<section role="alertdialog" aria-modal="true"><h2>Account access restricted</h2><p>' + safeText(restriction.reason || "Your account is temporarily restricted by Murmur administrators.") + '</p><p>Access is restricted ' + safeText(until) + '.</p><button type="button" class="btn primary">Close</button></section>';
+  const heading = terminated ? "Account terminated" : scheduled ? "Account deletion scheduled" : "Account suspended";
+  const detail = terminated
+    ? "This Murmur account has been terminated and permanently disabled. Password resets cannot restore access."
+    : scheduled
+      ? "This Murmur account is scheduled for permanent deletion. Contact Murmur support if you believe this is a mistake."
+      : "This Murmur account is temporarily suspended. Access is restricted " + until + ".";
+  overlay.innerHTML = '<section role="alertdialog" aria-modal="true"><h2>' + heading + '</h2><p>' + safeText(restriction.reason || detail) + '</p><p>' + safeText(detail) + '</p><button type="button" class="btn primary">Close</button></section>';
   document.body.appendChild(overlay);
   overlay.querySelector("button").addEventListener("click", () => overlay.remove());
 }
@@ -703,16 +711,34 @@ function openForgotPasswordPage() {
     countdown.textContent = "";
     searchState.hidden = false;
     try {
-      // Supabase performs the account lookup and reset request server-side.
-      // Keep the result neutral so the form cannot be used to enumerate registered emails.
-      const { error } = await withAuthTimeout(supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: location.origin + "/?password-reset=1"
-      }), "Checking your Murmur account", 20000);
-      if (error) throw error;
+      // The protected Edge Function checks account state before requesting a reset.
+      const { data, error } = await withAuthTimeout(
+        supabase.functions.invoke("murmur-password-reset-check", { body: { email } }),
+        "Checking your Murmur account",
+        25000
+      );
+      if (error) {
+        let payload = null;
+        try { payload = await error.context?.json?.(); } catch (_) {}
+        if (payload?.message) {
+          status.textContent = payload.message;
+          if (payload.status === "rate_limited") button.dataset.cooldown = "300";
+          button.textContent = "Try again";
+          return;
+        }
+        throw error;
+      }
       searchState.hidden = true;
-      status.textContent = "Search complete. If this email belongs to an eligible Murmur account, a reset link has been requested. Check your inbox and spam folder.";
-      button.dataset.cooldown = "60";
-      button.textContent = "Send another link";
+      status.textContent = data?.message || "Murmur could not read the account check result. Please try again.";
+      if (data?.status === "sent") {
+        button.dataset.cooldown = "60";
+        button.textContent = "Send another link";
+      } else if (data?.status === "rate_limited") {
+        button.dataset.cooldown = "300";
+        button.textContent = "Send another link";
+      } else {
+        button.textContent = "Check another email";
+      }
     } catch (error) {
       searchState.hidden = true;
       const message = String(error.message || "");
