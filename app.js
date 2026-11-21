@@ -477,6 +477,11 @@ function renderChats() {
   ca.textContent = cur ? initials(cur.name) : '?'; ca.style.backgroundImage = '';
   if (cur) setBg(ca, photoFor(cur.uid));
   document.getElementById('chatName').textContent = cur ? cur.name : 'No chat selected';
+  const profileButton = document.getElementById('chatProfileBtn');
+  if (profileButton) {
+    profileButton.dataset.profileUid = cur?.uid || '';
+    profileButton.disabled = !cur;
+  }
   const on = !!cur && isActive(cur.uid);
   const dot = document.getElementById('chatDot'), st = document.getElementById('chatStatus');
   dot.hidden = !cur; dot.className = 'active-dot' + (on ? '' : ' off');
@@ -3352,6 +3357,8 @@ function openProfile(uid) {
   const el = document.createElement('div');
   profileOverlay = el;
   el.className = 'screen-legal';
+  // Keep the profile screen above the chat layout and its mobile conversation layer.
+  el.style.zIndex = '10000';
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-modal', 'true');
   el.setAttribute('aria-label', 'Profile');
@@ -3409,7 +3416,13 @@ function slideOutChat(done) {
   setTimeout(() => { c.classList.remove('closing'); done(); }, CONFIG.chatAnimMs * 0.85);
 }
 document.getElementById('chatBack').addEventListener('click', () => slideOutChat(() => { if (location.hash === '#chat') history.back(); else closeChat(); }));
-document.getElementById('chatProfileBtn').addEventListener('click', () => { if (activeChatUid) openProfile(activeChatUid); });
+document.getElementById('chatProfileBtn').addEventListener('click', event => {
+  event.preventDefault();
+  event.stopPropagation();
+  const uid = event.currentTarget.dataset.profileUid || activeChatUid;
+  if (!uid) { showToast('Open a conversation first to view this profile.'); return; }
+  openProfile(uid);
+});
 ['chatAvatar', 'chatName'].forEach(id => {
   const node = document.getElementById(id);
   node.style.cursor = 'pointer';
