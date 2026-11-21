@@ -203,3 +203,15 @@ Last updated: 2026-11-21
 - Only authenticated users can execute the RPC. Existing `conversation_members` INSERT RLS checks enforce that the target is not blocked; a blocked insert rolls back the entire RPC transaction.
 - Updated friend and people-search results to show a Message action alongside Add friend. The UI calls the RPC, so users can start a direct chat without first becoming friends.
 - This is statically and privilege-verified; full two-account browser verification still requires a second Supabase Auth test account.
+
+
+## Server-enforced suspensions and scheduled account deletion — 2026-11-21
+
+- Applied migration `20261121140101_enforce_account_restrictions_and_scheduled_deletion`.
+- `private.current_supabase_user_id()` now returns no active application identity when the authenticated user is suspended, scheduled for deletion, or already deleted. Existing RLS policies for posts, chats, friends, notes, reels, and other user data therefore deny access server-side, not only in the browser.
+- Suspended users can still read their own profile and restriction record and submit an appeal. Profile updates, social discovery, notes, reels, media signed URLs, and other protected actions are blocked while the restriction is active.
+- Added a private scheduled worker and a Supabase Cron job named `murmur-account-restrictions`, running every five minutes. It automatically lifts expired timed suspensions and processes due account deletions.
+- Deletion removes Auth sessions and the Auth user; dependent profile/social data follows existing ON DELETE CASCADE constraints. An admin audit record is written before deletion. Accounts on the admin allowlist are protected from suspension/deletion.
+- The worker dry-run processed zero deletions because there are currently no scheduled restriction rows.
+- Applied migration `20261121140328_add_admin_restriction_reason_codes`; admin suspension/deletion now require one of ten approved reason codes and a reason detail. Suspension duration is required (1–8760 hours); scheduled deletion requires a future timestamp.
+- Verified in a rollback-only test that a suspended account can still see its own restriction and profile to appeal, but cannot update its profile or read the public profile directory or notes.
