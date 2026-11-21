@@ -60,7 +60,7 @@ async function openPublicProfile(userId) {
   const pane = document.createElement("section");
   pane.className = "pane murmur-profile-pane";
   pane.dataset.pane = "profile";
-  pane.innerHTML = '<div class="murmur-profile-tab-head"><button type="button" class="murmur-profile-back" aria-label="Back">‹</button><h1>Profile</h1></div><div class="murmur-profile-view-content"><p class="empty-state">Loading profile…</p></div>';
+  pane.innerHTML = '<div class="murmur-profile-tab-head"><button type="button" class="murmur-profile-back" aria-label="Back to previous page" title="Back">←</button><h1>Profile</h1></div><div class="murmur-profile-view-content"><p class="empty-state">Loading profile…</p></div>';
   // Keep the site legal footer after dynamically-created profile content.
   // The footer is a direct child of main-content, so appendChild would place
   // the new profile pane after it and make the footer appear above the profile.
