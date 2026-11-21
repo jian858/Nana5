@@ -3162,9 +3162,14 @@ async function openEditProfile() {
 }
 
 function findPerson(uid) {
+  if (!uid) return null;
   if (uid === meUid()) return { uid, name: state.currentUser?.name || 'You', username: state.currentUser?.username || '' };
   const d = friendDocs.find(x => x.uid === uid) || searchResults.find(x => x.uid === uid);
-  return d ? { uid, name: d.name, username: d.username } : null;
+  // A profile can be opened from a post, tag, or notification even when the
+  // person is not in the current friends/search lists. Load their public
+  // profile by UID instead of silently refusing navigation.
+  return d ? { uid, name: d.name || 'Loading profile…', username: d.username || '' }
+    : { uid, name: 'Loading profile…', username: '' };
 }
 const relationOf = uid => (friendDocs.find(x => x.uid === uid) || {}).status || 'none';
 
@@ -3306,8 +3311,15 @@ function renderProfileTab() {
 function paintProfile() {
   const root = profileOverlay; if (!root) return;
   const d = profileData || {}, cover = root.querySelector('.p-cover'), av = root.querySelector('.avatar.big');
+  const displayName = d.name || d.displayName || (profileUid === meUid() ? state.currentUser?.name : '') || 'Profile';
+  root.querySelector('.p-title').textContent = displayName;
+  root.querySelector('.p-name').textContent = displayName;
+  root.querySelector('.p-sub').textContent = d.username || (profileUid === meUid() ? state.currentUser?.username : '') || '';
+  if (av) {
+    av.textContent = initials(displayName);
+    if (okImg(d.photo)) setBg(av, d.photo); else av.style.backgroundImage = '';
+  }
   if (okImg(d.cover)) setBg(cover, d.cover); else cover.style.backgroundImage = '';
-  if (okImg(d.photo)) setBg(av, d.photo);
   const city = (d.location || '').split(',')[0].trim();
   root.querySelector('[data-p-info]').innerHTML = [city && ic('pin') + esc(city), d.work && ic('work') + esc(d.work), d.school && ic('school') + esc(d.school)].filter(Boolean).map(x => `<span>${x}</span>`).join('<i>·</i>');
   renderProfileNote(); renderProfileTab();
@@ -3315,10 +3327,15 @@ function paintProfile() {
 async function loadProfileDetails(uid) {
   let d = null;
   watchNote(uid);
-  try { d = (await get(ref(db, (uid === meUid() ? 'users/' : 'profiles/') + uid))).val(); } catch {}
+  try { d = (await get(ref(db, (uid === meUid() ? 'users/' : 'profiles/') + uid))).val(); }
+  catch (error) { console.warn('Could not load public profile:', error); }
   if (!profileOverlay || profileUid !== uid) return;
-  profileData = d || {};
+  profileData = d && typeof d === 'object' ? d : {};
   paintProfile();
+  if (!d) {
+    const body = profileOverlay.querySelector('[data-p-tabbody]');
+    if (body) body.innerHTML = '<div class="p-sec"><p class="reel-muted">This profile is unavailable or its public profile data could not be loaded.</p></div>';
+  }
 }
 
 function openProfileCard(user) {
