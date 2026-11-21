@@ -1,0 +1,47 @@
+/* Murmur final layout and visibility repair layer.
+   Loaded after the design layers so native hidden state and responsive sizing win. */
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{width:100%;min-width:320px;max-width:100%;margin:0;overflow-x:hidden}
+body{min-height:100vh;min-height:100dvh}
+#app,#auth{width:100%;min-width:0}
+img,video,canvas,iframe{display:block;max-width:100%}
+button,input,select,textarea{font:inherit;min-width:0}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.6}
+.fb-head{width:100%;min-width:0}
+.fb-head .topbar,.fb-nav{min-width:0}
+.fb-nav button{flex:1 1 0;min-width:0}
+.fb-nav button svg{pointer-events:none}
+.main{width:min(100%,1440px);min-width:0;margin-inline:auto}
+.pane{display:none;min-width:0;width:100%}
+.pane.active:not([hidden]){display:block}
+.pane>*{min-width:0;max-width:100%}
+.posts,.stories,.alerts-list,.chat-list,.fr-list{min-width:0}
+.post,.card,.composer,.fr-block,.notice,.alerts-row{min-width:0;overflow-wrap:anywhere}
+.post img,.post video{width:100%;height:auto;object-fit:contain}
+input,select,textarea{max-width:100%}
+.auth-card,.panel,.auth-card .panel{min-width:0}
+.chat-layout{min-width:0}
+.chat-layout .sidebar,.chat-layout .conversation{min-width:0}
+.messages{min-width:0;overflow-x:hidden;overscroll-behavior:contain}
+.bubble{max-width:min(82%,620px);overflow-wrap:anywhere;white-space:pre-wrap}
+.murmur-menu-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:780px){
+  .main{padding-inline:12px}
+  .fb-nav{gap:3px}
+  .fb-nav button{padding-inline:3px}
+  .murmur-menu-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chat-layout{display:block;width:100%}
+  .chat-layout:not(.open) .conversation{display:none}
+  .chat-layout.open .sidebar{display:none}
+  .chat-layout.open .conversation{display:flex}
+}
+@media(max-width:420px){
+  .main{padding-inline:10px}
+  .post,.composer{border-radius:15px}
+  .fb-logo{font-size:1.35rem}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
