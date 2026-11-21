@@ -2054,3 +2054,22 @@ html[data-theme="dark"] .murmur-menu-pane .menu-add-account:hover{background:#26
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Google sign-in and profile editor */
+.google-auth-btn{display:flex;align-items:center;justify-content:center;gap:12px;min-height:46px;background:#fff!important;color:#263238!important;border:1px solid #d8e0e5!important;box-shadow:0 2px 8px rgba(20,33,61,.05)}
+.google-auth-btn:disabled{opacity:.65;cursor:wait}
+.google-g{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font:800 18px Arial,sans-serif;color:#4285f4;background:#fff}
+.profile-edit-back{position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:16px;background:rgba(9,20,30,.55);overflow:auto}
+.profile-edit-card{width:min(100%,620px);max-height:min(92dvh,850px);overflow:auto;background:var(--white,#fff);color:var(--ink,#17233a);border:1px solid var(--line);border-radius:22px;padding:clamp(18px,4vw,30px);box-shadow:0 24px 80px rgba(0,0,0,.24)}
+.profile-edit-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.profile-edit-head h2{margin:0;font-size:1.35rem}
+.profile-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.profile-edit-grid .field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.profile-edit-grid .field.full{grid-column:1/-1}
+.profile-edit-grid label{font-size:.86rem;font-weight:700;color:var(--muted)}
+.profile-edit-grid input,.profile-edit-grid textarea,.profile-edit-grid select{min-height:44px;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--white);color:var(--ink);font:inherit}
+.profile-edit-grid textarea{min-height:88px;resize:vertical}
+.profile-edit-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.profile-edit-error{min-height:20px;color:var(--danger);font-size:.9rem}
+@media(max-width:480px){.profile-edit-back{padding:8px;align-items:end}.profile-edit-card{max-height:94dvh;border-radius:20px 20px 12px 12px;padding:18px 15px}.profile-edit-grid{grid-template-columns:1fr;gap:10px}.profile-edit-grid .field.full{grid-column:auto}}
