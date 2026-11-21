@@ -650,14 +650,112 @@ function openSignup() {
   showTab("account");
 }
 
+function openForgotPasswordPage() {
+  document.querySelector(".murmur-recovery-screen")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "murmur-recovery-screen";
+  overlay.innerHTML = `
+    <header class="murmur-recovery-top"><button type="button" data-recovery-back aria-label="Back to login">←</button><strong>Murmur</strong></header>
+    <main class="murmur-recovery-card">
+      <span class="murmur-recovery-eyebrow">ACCOUNT RECOVERY</span>
+      <h1>Forgot password?</h1>
+      <p>Enter the email address connected to your Murmur account. If it is registered, we’ll send you a secure password reset link.</p>
+      <form data-forgot-form>
+        <label for="murmurRecoveryEmail">Email address</label>
+        <input id="murmurRecoveryEmail" name="email" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com" required>
+        <button class="btn primary" type="submit">Send reset link</button>
+      </form>
+      <p class="murmur-recovery-status" role="status" aria-live="polite"></p>
+      <p class="murmur-recovery-footnote">If your account is suspended or terminated, changing your password will not restore access. Permanently deleted accounts cannot be recovered.</p>
+    </main>`;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector("[data-recovery-back]").addEventListener("click", close);
+  overlay.querySelector("form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const email = form.elements.email.value.trim().toLowerCase();
+    const button = form.querySelector("button[type=submit]");
+    const status = overlay.querySelector(".murmur-recovery-status");
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      status.textContent = "Enter a valid email address.";
+      form.elements.email.focus();
+      return;
+    }
+    button.disabled = true;
+    button.textContent = "Checking account…";
+    status.textContent = "Looking up your account and requesting a secure reset link…";
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: location.origin + "/?password-reset=1"
+      });
+      if (error) throw error;
+      status.textContent = "If an account is registered with that email, a reset link has been sent. Check your inbox and spam folder.";
+      button.textContent = "Send another link";
+    } catch (error) {
+      status.textContent = /rate limit|too many requests/i.test(String(error.message || ""))
+        ? "Too many attempts. Please wait a few minutes before trying again."
+        : "We could not request a reset link right now. Please check your connection and try again.";
+      button.textContent = "Try again";
+    } finally {
+      button.disabled = false;
+    }
+  });
+  overlay.querySelector("#murmurRecoveryEmail").focus();
+}
+
+function openResetPasswordPage() {
+  document.querySelector(".murmur-recovery-screen")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "murmur-recovery-screen";
+  overlay.innerHTML = `
+    <header class="murmur-recovery-top"><strong>Murmur</strong></header>
+    <main class="murmur-recovery-card">
+      <span class="murmur-recovery-eyebrow">SECURE YOUR ACCOUNT</span>
+      <h1>Reset password</h1>
+      <p>Create a new password for your Murmur account.</p>
+      <form data-new-password-form>
+        <label for="murmurNewPassword">New password</label>
+        <input id="murmurNewPassword" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters" required>
+        <label for="murmurConfirmPassword">Confirm new password</label>
+        <input id="murmurConfirmPassword" name="confirm" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Enter it again" required>
+        <button class="btn primary" type="submit">Save new password</button>
+      </form>
+      <p class="murmur-recovery-status" role="status" aria-live="polite"></p>
+    </main>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector("form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const password = form.elements.password.value;
+    const confirm = form.elements.confirm.value;
+    const button = form.querySelector("button[type=submit]");
+    const status = overlay.querySelector(".murmur-recovery-status");
+    if (password.length < 8) { status.textContent = "Use at least 8 characters."; return; }
+    if (password !== confirm) { status.textContent = "Your passwords do not match."; form.elements.confirm.focus(); return; }
+    button.disabled = true;
+    button.textContent = "Updating password…";
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      status.textContent = "Your password has been updated. You can now log in with your new password.";
+      form.remove();
+      history.replaceState(null, "", location.pathname);
+      await supabase.auth.signOut();
+      setTimeout(() => overlay.remove(), 2200);
+    } catch (error) {
+      status.textContent = /session|token|expired|invalid/i.test(String(error.message || ""))
+        ? "This reset link is invalid or has expired. Request a new password reset link."
+        : error.message || "Could not update your password. Please try again.";
+      button.disabled = false;
+      button.textContent = "Save new password";
+    }
+  });
+  overlay.querySelector("#murmurNewPassword").focus();
+}
+
 async function resetPassword() {
-  const email = $("email")?.value.trim().toLowerCase();
-  if (!email) return showError("Enter your email address first.");
-  try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + "/?password-reset=1" });
-    if (error) throw error;
-    showError("If an account exists for that email, a password reset link has been sent.");
-  } catch (error) { showError(error.message); }
+  openForgotPasswordPage();
 }
 
 async function resendSignupConfirmation() {
@@ -1009,13 +1107,12 @@ function wireAuth() {
 async function completePasswordResetIfNeeded() {
   const params = new URLSearchParams(location.search);
   if (params.get("password-reset") !== "1") return;
-  const password = prompt("Enter your new password (at least 8 characters):");
-  if (!password) return;
-  if (password.length < 8) { showError("Your new password must be at least 8 characters."); return; }
-  const { error } = await supabase.auth.updateUser({ password });
-  if (error) showError(error.message);
-  else { showError("Your password has been updated."); history.replaceState(null, "", location.pathname); }
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  if (data.session) openResetPasswordPage();
+  else showError("This password reset link is invalid or has expired. Request a new one.");
 }
+
 async function boot() {
   wireAuth();
   wireNavigation();
@@ -1040,6 +1137,8 @@ async function boot() {
   const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT" || !session?.user) {
       currentUser = null; currentProfile = null; enteredUserId = null; if (feedChannel) { supabase.removeChannel(feedChannel); feedChannel = null; } window.dispatchEvent(new CustomEvent("murmur:supabase-signed-out")); showAuth();
+    } else if (event === "PASSWORD_RECOVERY") {
+      queueMicrotask(() => openResetPasswordPage());
     } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
       queueMicrotask(() => enterApp(session.user));
     }
