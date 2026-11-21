@@ -434,11 +434,11 @@ export function initSupabaseSocial() {
   el("chatSettingsBtn")?.addEventListener("click", () => {
     const menu=document.createElement("div"); menu.className="chat-settings-popover";
     menu.innerHTML='<strong>Message settings</strong><p>Search your conversations or manage blocked people in Settings.</p><button type="button" class="btn secondary" data-chat-settings-close>Close</button>';
-    document.querySelector(".chat-settings-popover")?.remove(); el("chats")?.append(menu);
+    document.querySelector(".chat-settings-popover")?.remove(); document.querySelector('[data-pane="chats"]')?.append(menu);
     menu.querySelector("[data-chat-settings-close]")?.addEventListener("click",()=>menu.remove());
   });
   el("chatSearch")?.addEventListener("focus", () => { el("chatSearch")?.classList.add("is-focused"); });
-  document.querySelector("[data-messages-back]")?.addEventListener("click",()=>window.dispatchEvent(new CustomEvent("murmur:view-changed",{detail:{view:"home"}})));
+
   el("chatBack")?.addEventListener("click", () => { document.querySelector(".chat-layout")?.classList.remove("open"); });
   el("messageInput")?.addEventListener("keydown", event => { if (event.key === "Enter") sendChatMessage(); });
   el("reelCreateBtn")?.addEventListener("click", () => {
