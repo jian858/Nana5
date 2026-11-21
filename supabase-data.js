@@ -408,6 +408,29 @@ export const userNotes = {
       expires_at: expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
     }).select().single());
   },
+  replaceMine: async ({ content, background = null, expiresAt = null }) => {
+    const user = await requireUser();
+    const cleanContent = String(content || "").trim();
+    if (!cleanContent) throw new Error("Write something before saving your note.");
+    if (cleanContent.length > 500) throw new Error("Notes must be 500 characters or fewer.");
+    // Insert first so a failed save never destroys the user's existing note.
+    const created = throwIfError(await supabase.from("user_notes").insert({
+      user_id: user.id,
+      content: cleanContent,
+      background,
+      expires_at: expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    }).select().single());
+    // Keep one active note per user; older rows must not reappear after edit/delete.
+    const { error } = await supabase.from("user_notes").delete()
+      .eq("user_id", user.id).neq("id", created.id);
+    if (error) console.warn("[Murmur notes] Saved the new note, but could not clean up older notes:", error);
+    return created;
+  },
+  removeMine: async () => {
+    const user = await requireUser();
+    return throwIfError(await supabase.from("user_notes").delete()
+      .eq("user_id", user.id).select("id"));
+  },
   remove: async (noteId) => {
     await requireUser();
     return throwIfError(await supabase.from("user_notes").delete().eq("id", noteId).select("id").single());
