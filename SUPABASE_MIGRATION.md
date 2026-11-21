@@ -78,3 +78,14 @@ The live `index.html` loads the Supabase modules, but Firebase-era source and hi
 - Harden or formally accept the anonymous visitor RPC's abuse/rate-limit exposure.
 - Enable leaked-password protection in Supabase Auth dashboard settings.
 - Continue validating public application table policies with two separate accounts and anonymous access.
+
+
+## Admin database and visitor RPC security review — 2026-11-21
+
+- Reviewed admin tables: `public.admin_audit_log`, `public.murmur_admin_allowlist`, `public.murmur_admin_identity_map`, `public.murmur_admin_records`, `public.murmur_error_logs`, and `public.murmur_refresh_cooldowns`. All have RLS enabled. The `anon` and `authenticated` roles have no direct SELECT or INSERT privileges; the inspected table grants are limited to `service_role`.
+- Reviewed admin RPC execution grants. The inspected account restriction and admin identity-list SECURITY DEFINER functions are executable by `service_role`, not `anon` or `authenticated`. Continue to keep the service-role key server-side only.
+- Added and applied `20261121130300_rate_limit_public_visitor_recording`. The public visitor RPC now enforces a maximum of 40 events per visitor per five-minute window and, when a valid forwarded IP is available, 200 events per network address per five-minute window. The RPC returns `false` when throttled. It continues to write only to the private visitor tables.
+- Verified the function definition and execution grants, verified the admin RPC grants, verified direct browser-role table privileges are absent, and confirmed a null visitor ID is rejected without writing an event.
+- The Supabase advisor still flags the visitor RPC because it intentionally remains a public SECURITY DEFINER endpoint for anonymous visitor counting. Its privileged behavior is narrowly scoped, uses an empty search_path and schema-qualified private tables, and is rate-limited. Reassess before launch if anonymous visitor tracking is no longer needed.
+- The advisor also continues to report RLS-enabled tables without policies. These are intentionally private/service-only tables or need further per-feature review; do not add broad client policies to clear informational findings.
+- Leaked-password protection remains a dashboard setting and still needs to be enabled in Supabase Auth.
