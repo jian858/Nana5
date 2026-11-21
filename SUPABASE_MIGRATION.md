@@ -26,12 +26,12 @@ Last updated: 2026-11-21
 - Applied migration `20261121130809_harden_public_table_privileges_and_profile_rls`: revoked browser-role `TRUNCATE`, `REFERENCES`, and `TRIGGER` on all public tables; set the same restrictions for future tables created by `postgres`; revoked anonymous access to account restriction/appeal tables; optimized profile insert/update policies with `(select auth.uid())`.
 
 ## Important remaining work — do not deploy as finished
-- Historical Firebase-named database objects and identity records remain for audit/migration history. The inactive Firebase client modules have been removed, four legacy Edge Function endpoints are retired, the error logger now accepts Supabase sessions only, and the active admin API no longer exposes Firebase identity links. Preserve the existing 2 legacy identity links and 3 device-account links until a deliberate migration/archive plan is approved; do not delete them as part of routine cleanup.
+- The active app and Admin code are Supabase-only. No Firebase references remain in active code, public/private database columns or tables, database functions, or indexes. Historical migration filenames retain their original names for audit history. Two orphaned legacy profile records are kept in a private archive without Firebase identifiers; three device-account links retain only their Supabase IDs.
 - The Supabase UI is an initial working slice, not a complete recreation of every previous screen. Remaining UI work includes full messaging attachments/voice, read receipts/typing, comments/reactions/saved posts, richer story views, richer reels controls, block/report flows, admin tools and device/visitor administration.
 - Confirm Supabase Auth email-confirmation settings and Google OAuth provider credentials/redirect URLs in the dashboard.
 - Validate RLS and Storage policies with separate test accounts; run the documented two-user and anonymous tests.
-- Leaked-password protection is not available on this project's current Free plan; Supabase documents this feature as Pro and above. It remains a known limitation unless the project plan changes.
-- The avatar bucket remains public; post, story, and reel media buckets are private. The client stores object paths and requests short-lived signed URLs; row-aware Storage policies check post visibility, story friendship/expiry, and reel audience. All media buckets were empty when this migration was applied.
+- Supabase Auth's leaked-password protection remains disabled. Supabase documents this control as Pro and above; project plan eligibility has not been independently confirmed in this pass.
+- The avatar bucket remains public; post, story, and reel media buckets are private. The client stores object paths and requests short-lived signed URLs; row-aware Storage policies check post visibility, story friendship/expiry, and reel audience. Media buckets were empty when the private-media migration was applied.
 - Verify Realtime subscriptions and media uploads in a browser on desktop and mobile.
 - Test signup, login, Google OAuth, password reset, session restoration, posts, friend requests, chat, stories, reels, notes and notifications before public deployment.
 
@@ -42,7 +42,7 @@ Last updated: 2026-11-21
 - Realtime publication: `posts`, `notifications`, `stories`, `reels`, and `messages`.
 
 ## Safety
-- Do not delete the existing Supabase test account or historical Firebase-to-Supabase identity/device records until a migration plan preserves their references.
+- Keep the two-row private legacy profile archive and three Supabase-only visitor-device associations private; they are historical references, not active user accounts. Do not restore their old identifiers into active auth.
 - Do not place a service-role key in any frontend or Admin file.
 - Do not mark the project launch-ready until two-user RLS tests, Storage privacy checks, browser smoke tests and dashboard configuration checks pass.
 
@@ -67,7 +67,7 @@ Last updated: 2026-11-21
 
 ## RLS-without-policy classification
 - The RLS-enabled/no-policy tables include private migration/device tables, public admin/system tables and legacy `public.murmur_posts`. A privilege audit confirmed no direct SELECT/INSERT grants to `anon` or `authenticated` for this group. Do not add broad client policies merely to clear informational advisor findings.
-- `public.murmur_posts` is a legacy Firebase-keyed table with zero rows and no browser grants. Its old Edge Function is now retired. Keep the table inaccessible; drop it only in a separately reviewed migration after all dependencies and historical references are confirmed absent.
+- `public.murmur_posts` was dropped in migration `20261121132234` after confirming zero rows and no dependencies. Its historical migration file remains for audit history.
 
 ## Public table privilege hardening — 2026-11-21
 - Revoked `TRUNCATE`, `REFERENCES`, and `TRIGGER` from `anon` and `authenticated` on all existing public tables. These privileges bypass row-level access expectations or are not needed by browser clients.
@@ -82,10 +82,10 @@ Last updated: 2026-11-21
 - Removed 28 inactive JavaScript modules that were not referenced by any HTML entry point or active-module import, including the old Firebase app, Google auth, registration and login modules. Their history remains recoverable through Git.
 - Replaced the deployed `murmur-posts`, `murmur-identity`, and `murmur-admin` Firebase endpoints, plus the unused password-reset account-enumeration endpoint, with retired 410 responses and enabled Supabase JWT verification at the Edge gateway. Old Firebase tokens can no longer use these endpoints.
 - Reworked `murmur-error-log` to require a verified Supabase JWT at the Edge gateway and verify the user with Supabase Auth. New error records use a `supabase:<uuid>` actor key in the renamed `actor_key` column. Existing 115 error-log rows were preserved.
-- The active `murmur-admin-supabase` endpoint now returns 410 for the historical Firebase identity lookup action. The 2 historical identity links and 3 visitor-device account links remain private and unchanged.
+- The active `murmur-admin-supabase` endpoint returns 410 for the retired identity lookup action. Two orphaned legacy profile records remain in `private.murmur_legacy_account_archive` without Firebase identifiers; all three device-account links remain with only `supabase_id`.
 - Verified the Supabase Auth account/profile counts: one existing test account and one profile. No test users were created or deleted.
-- The Supabase organization is on the Free plan. Supabase's current password-security documentation states that leaked-password protection requires Pro or above; this cannot be enabled on the current plan.
-- Current media buckets `murmur-posts`, `murmur-stories`, and `murmur-reels` are public-read and contain zero objects. They remain public for compatibility with the current client, which stores public URLs. Convert them to private only together with a signed-URL/path-based client migration and row-aware Storage policies.
+- Supabase's password-security documentation states leaked-password protection requires Pro or above. The project plan entitlement was not confirmed in this pass; the dashboard setting remains to be checked.
+- Media buckets `murmur-posts`, `murmur-stories`, and `murmur-reels` are now private; the client uses object paths and short-lived signed URLs, and Storage read policies enforce audience rules.
 
 ## Final verification snapshot — 2026-11-21
 
@@ -95,15 +95,15 @@ Last updated: 2026-11-21
 - Security advisor: no publicly executable SECURITY DEFINER functions remain. Remaining findings are informational RLS-enabled private/admin tables with no direct policies, plus leaked-password protection unavailable on the Free plan.
 - Performance advisor: remaining findings are unused-index notices. Do not drop these indexes based on the current short/no-user activity window; collect longer-term usage evidence first.
 - Health advisor returned no findings.
-- Full two-user browser RLS tests, Google OAuth/email delivery checks, private-media policy migration, and live Vercel deployment verification remain outstanding. Do not call the app launch-ready until those pass.
+- Full two-user browser RLS tests, Google OAuth/email delivery checks, end-to-end media upload/download tests, and live Vercel deployment verification remain outstanding. Do not call the app launch-ready until those pass.
 
 
 ## Firebase identity RPC retirement — 2026-11-21
 
-- Applied migration `20261121132000_retire_firebase_identity_rpcs`.
+- Applied migration `20261121131922_retire_firebase_identity_rpcs`.
 - Dropped the unused server-only Firebase identity RPCs: both `admin_ensure_firebase_link` overloads, `admin_set_firebase_email`, `admin_find_firebase_link_by_email`, `admin_list_firebase_identity_links`, and `admin_link_firebase_device`.
 - The deployed Firebase callers were already replaced with retired endpoints; a dependency scan found no other database functions referencing these RPCs.
-- No rows were deleted. The private historical `firebase_user_links` and `murmur_device_accounts` records remain preserved and inaccessible to browser roles.
+- No device association rows were deleted. The old two-row link table was later renamed to `private.murmur_legacy_account_archive`, stripped of Firebase identifiers, and kept inaccessible to browser roles.
 - Retired `murmur-password-reset-check` because the live client uses Supabase Auth's native `resetPasswordForEmail` flow; the old endpoint distinguished unknown and active email addresses and was not part of the current app.
 
 
@@ -185,3 +185,12 @@ Last updated: 2026-11-21
 - The directory contains only `id`, `public_id`, `username`, `display_name`, `bio`, `avatar_url`, `cover_url`, and `created_at`. It is readable by authenticated users and has no client write privileges.
 - A private-schema trigger synchronizes those public fields when a profile is inserted or updated. Full profile reads remain owner-only, so fields such as phone, birthday, and gender are not exposed through social discovery.
 - Updated profile search, friend lists, and feed author lookup to read the public projection table.
+
+
+## Social grants and profile-directory privacy — 2026-11-21
+
+- Revoked anonymous access to `public.reels` and `public.user_notes`; authenticated RLS remains in force.
+- Full `public.profiles` rows are now readable only by their owner. The separate `public.murmur_public_profiles` table exposes only public profile fields to authenticated users.
+- The public-profile directory is synchronized by a private-schema trigger function; no client role can write to that table.
+- Profile search, friend lists, and feed author lookup now use the safe directory table. Owner profile reads/updates continue using `public.profiles`.
+- Verification confirmed the public directory has no anonymous SELECT grant, authenticated users have SELECT only, and the profile read policy is owner-scoped.
