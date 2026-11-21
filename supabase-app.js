@@ -677,6 +677,7 @@ function openForgotPasswordPage() {
         <button class="btn primary" type="submit">Send reset link</button>
       </form>
       <p class="murmur-recovery-status" role="status" aria-live="polite"></p>
+      <p class="murmur-recovery-countdown" role="timer" aria-live="off"></p>
       <p class="murmur-recovery-footnote">If your account is suspended or terminated, changing your password will not restore access. Permanently deleted accounts cannot be recovered.</p>
     </main>`;
   document.body.appendChild(overlay);
@@ -725,8 +726,13 @@ function openForgotPasswordPage() {
       delete button.dataset.cooldown;
       if (cooldown > 0) {
         let remaining = cooldown;
+        const countdown = overlay.querySelector(".murmur-recovery-countdown");
+        const showRemaining = () => {
+          countdown.textContent = "You can request another reset link in " + remaining + " seconds.";
+          button.textContent = "Send again in " + remaining + "s";
+        };
         button.disabled = true;
-        button.textContent = "Send again in " + remaining + "s";
+        showRemaining();
         const timer = setInterval(() => {
           remaining -= 1;
           if (!button.isConnected || remaining <= 0) {
@@ -734,9 +740,10 @@ function openForgotPasswordPage() {
             if (button.isConnected) {
               button.disabled = false;
               button.textContent = "Send another link";
+              countdown.textContent = "You can request another reset link now.";
             }
           } else {
-            button.textContent = "Send again in " + remaining + "s";
+            showRemaining();
           }
         }, 1000);
       } else {
