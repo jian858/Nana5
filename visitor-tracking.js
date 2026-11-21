@@ -64,13 +64,7 @@
 
     let lastError = null;
     for (let attempt = 0; attempt < 3; attempt++) {
-      let controller;
-      let timeout;
       try {
-        if (typeof AbortController !== "undefined") {
-          controller = new AbortController();
-          timeout = setTimeout(() => controller.abort(), 9000);
-        }
         const client = window.murmurSupabase;
         if (!client?.functions) throw new Error("Supabase client is not ready.");
         const { data, error } = await client.functions.invoke("murmur-visitor-track", {
@@ -82,7 +76,6 @@
         window.dispatchEvent(new CustomEvent("murmur:visitor-recorded", { detail: { path: cleanPath } }));
         return true;
       } catch (error) {
-        if (timeout) clearTimeout(timeout);
         lastError = error;
         if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
       }
