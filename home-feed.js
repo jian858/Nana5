@@ -30,6 +30,7 @@ function mergeRemotePosts() {
 async function loadSupabasePosts() {
   const result = await murmurPostsRequest('list');
   supabasePosts = Array.isArray(result.posts) ? result.posts : [];
+  supabasePosts.forEach(post => watchPhoto(post.authorUid));
   feedLoading = false;
   hideAppSkeleton();
   mergeRemotePosts();
