@@ -459,6 +459,7 @@ function switchView(view, sourceButton = null) {
   if (!target) return false;
   if (view !== "post") {
     const composer = $("postComposer");
+    if ($("postMediaButton")) $("postMediaButton").hidden = true;
     composer?.classList.remove("is-editing");
     if ($("postInput")) $("postInput").value = "";
     if ($("postMediaPicker")) $("postMediaPicker").value = "";
@@ -697,6 +698,7 @@ function wireNavigation() {
   });
   const openPostView = () => {
     switchView("post");
+    if ($("postMediaButton")) $("postMediaButton").hidden = false;
     $("postInput")?.focus();
   };
   $("openPostComposer")?.addEventListener("click", openPostView);
