@@ -46,6 +46,19 @@ Deno.serve(async (req: Request) => {
       p_page_path: pagePath,
     });
     if (error) throw error;
+    if (data === true) {
+      try {
+        const channel = db.channel("admin:visitors", { config: { private: true } });
+        await channel.send({
+          type: "broadcast",
+          event: "visitor-change",
+          payload: { visitor_id: visitorId, page_path: pagePath, at: new Date().toISOString() },
+        });
+        await db.removeChannel(channel);
+      } catch (_) {
+        // Visitor recording succeeds even if the optional admin live notification fails.
+      }
+    }
     return reply(200, { recorded: data === true, throttled: data === false });
   } catch (error) {
     console.error("murmur-visitor-track failure", error instanceof Error ? error.message : error);
