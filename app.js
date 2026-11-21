@@ -793,11 +793,20 @@ function startFriendsListener(uid) {
    ===================================================================== */
 let presenceMap = {}, presenceSubs = {};
 const isActive = u => Date.now() - (presenceMap[u] || 0) < CONFIG.onlineWindowMs;
+let presenceRenderQueued = false;
+function schedulePresenceRender() {
+  if (presenceRenderQueued) return;
+  presenceRenderQueued = true;
+  setTimeout(() => {
+    presenceRenderQueued = false;
+    if (!document.hidden) renderChats();
+  }, 120);
+}
 function syncPresence() {
   const want = new Set(friendsOf().map(d => d.uid));
   Object.keys(presenceSubs).forEach(u => { if (!want.has(u)) { presenceSubs[u](); delete presenceSubs[u]; delete presenceMap[u]; } });
   friendDocs.forEach(d => watchPhoto(d.uid));
-  want.forEach(u => { if (!presenceSubs[u]) presenceSubs[u] = onValue(ref(db, 'presence/' + u), s => { presenceMap[u] = s.val() || 0; renderChats(); }, () => {}); });
+  want.forEach(u => { if (!presenceSubs[u]) presenceSubs[u] = onValue(ref(db, 'presence/' + u), s => { presenceMap[u] = s.val() || 0; schedulePresenceRender(); }, () => {}); });
 }
 setInterval(() => { if (!document.hidden && document.getElementById('activeRow')) renderChats(); }, CONFIG.presenceRefreshMs);
 function renderActiveRow() {
