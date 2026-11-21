@@ -200,6 +200,7 @@ function wireNavigation() {
     if (error) showError(error.message);
   });
   $("hdrAdd")?.addEventListener("click", () => $("postInput")?.focus());
+  if ($("postInput")) $("postInput").removeAttribute("readonly");
   $("postInput")?.addEventListener("input", () => { if ($("postBtn")) $("postBtn").hidden = !$("postInput").value.trim(); });
   $("postBtn")?.addEventListener("click", createPost);
 }
@@ -220,6 +221,16 @@ function wireAuth() {
   });
 }
 
+async function completePasswordResetIfNeeded() {
+  const params = new URLSearchParams(location.search);
+  if (params.get("password-reset") !== "1") return;
+  const password = prompt("Enter your new password (at least 8 characters):");
+  if (!password) return;
+  if (password.length < 8) { showError("Your new password must be at least 8 characters."); return; }
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) showError(error.message);
+  else { showError("Your password has been updated."); history.replaceState(null, "", location.pathname); }
+}
 async function boot() {
   wireAuth();
   wireNavigation();
@@ -227,6 +238,7 @@ async function boot() {
   if (error) throw error;
   if (data.session?.user) await enterApp(data.session.user);
   else showAuth();
+  await completePasswordResetIfNeeded();
   const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT" || !session?.user) {
       currentUser = null; currentProfile = null; if (feedChannel) { supabase.removeChannel(feedChannel); feedChannel = null; } showAuth();
