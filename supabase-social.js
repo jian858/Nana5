@@ -130,16 +130,44 @@ async function renderReels() {
 async function renderNotes() {
   const root = el("noteRow");
   if (!root) return;
+  root.innerHTML = '<div class="note-heading"><strong>Your notes</strong><button type="button" class="btn secondary" data-add-note>New note</button></div><p class="empty-state">Loading your notes…</p>';
   try {
     const rows = await userNotes.listMine();
-    root.innerHTML = '<div class="note-heading"><strong>Your notes</strong> <button type="button" class="btn secondary" data-add-note>New note</button></div>' + (rows.map(n => '<article class="note-card">' + esc(n.content) + '</article>').join("") || '<p class="empty-state">You have no active notes.</p>');
-    root.querySelector("[data-add-note]")?.addEventListener("click", async () => {
-      const content = prompt("Write a note (up to 500 characters):");
-      if (!content?.trim()) return;
-      try { await userNotes.create({ content }); await renderNotes(); } catch (error) { alert(error.message); }
+    root.innerHTML = '<div class="note-heading"><div><strong>Your notes</strong><small>Notes disappear after 24 hours</small></div><button type="button" class="btn secondary" data-add-note>New note</button></div>' +
+      (rows.length ? '<div class="note-grid">' + rows.map(n =>
+        '<article class="note-card"><p>' + esc(n.content) + '</p><div class="note-card-footer"><small>' + esc(new Date(n.created_at).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})) + '</small><button type="button" class="note-delete" data-delete-note="' + esc(n.id) + '" aria-label="Delete note">Delete</button></div></article>'
+      ).join("") + '</div>' : '<p class="empty-state note-empty">You have no active notes yet.</p>');
+    root.querySelector("[data-add-note]")?.addEventListener("click", () => {
+      const overlay = document.createElement("div");
+      overlay.className = "murmur-auth-modal murmur-note-modal";
+      overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="note-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="note-title">New note</h2><label for="note-content">Write a note</label><textarea id="note-content" maxlength="500" rows="5" placeholder="Write something to remember…"></textarea><div class="note-editor-footer"><small data-note-count>0 / 500</small><button type="button" class="btn primary" data-save-note>Save note</button></div><p class="murmur-modal-error" role="alert"></p></section>';
+      document.body.appendChild(overlay);
+      const input = overlay.querySelector("#note-content");
+      const save = overlay.querySelector("[data-save-note]");
+      const errorBox = overlay.querySelector(".murmur-modal-error");
+      const close = () => overlay.remove();
+      overlay.querySelector(".murmur-modal-close")?.addEventListener("click", close);
+      overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+      input?.addEventListener("input", () => { overlay.querySelector("[data-note-count]").textContent = input.value.length + " / 500"; });
+      save?.addEventListener("click", async () => {
+        const content = input.value.trim();
+        if (!content) { errorBox.textContent = "Write something before saving."; input.focus(); return; }
+        save.disabled = true;
+        try { await userNotes.create({ content }); close(); await renderNotes(); }
+        catch (error) { errorBox.textContent = error.message || "Could not save your note."; save.disabled = false; }
+      });
+      input?.focus();
     });
+    root.querySelectorAll("[data-delete-note]").forEach(button => button.addEventListener("click", async () => {
+      if (!confirm("Delete this note?")) return;
+      button.disabled = true;
+      try { await userNotes.remove(button.dataset.deleteNote); await renderNotes(); }
+      catch (error) { alert(error.message || "Could not delete this note."); button.disabled = false; }
+    }));
   } catch (error) { fail(root, error); }
 }
+
+let activeAlertFilter = "all";
 
 async function renderAlerts() {
   const root = el("alertsList");
@@ -147,37 +175,56 @@ async function renderAlerts() {
   try {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError) throw userError;
-    const { data, error } = await supabase.from("notifications")
-      .select("id,kind,content,read_at,created_at")
-      .eq("recipient_id", userData.user.id)
-      .order("created_at", { ascending: false }).limit(50);
+    if (!userData.user) throw new Error("Sign in again to view notifications.");
+    const [{ data, error }, { data: announcements, error: announcementError }] = await Promise.all([
+      supabase.from("notifications").select("id,kind,content,read_at,created_at")
+        .eq("recipient_id", userData.user.id).order("created_at", { ascending: false }).limit(50),
+      supabase.from("announcements").select("id,title,body,kind,published_at")
+        .lte("published_at", new Date().toISOString())
+        .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+        .order("is_pinned", { ascending: false }).order("published_at", { ascending: false }).limit(20)
+    ]);
     if (error) throw error;
-    const { data: announcements, error: announcementError } = await supabase.from("announcements")
-      .select("id,title,body,kind,published_at")
-      .lte("published_at", new Date().toISOString())
-      .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
-      .order("is_pinned", { ascending: false }).order("published_at", { ascending: false }).limit(20);
     if (announcementError) throw announcementError;
     const uniqueAnnouncements = [...new Map((announcements || []).map(a => [
-      [String(a.title || "").trim(), String(a.body || "").trim(), a.published_at].join("|"),
-      a
+      [String(a.title || "").trim(), String(a.body || "").trim(), a.published_at].join("|"), a
     ])).values()];
-    const announcementHtml = uniqueAnnouncements.map(a => '<article class="alert-row admin-announcement"><strong>From Admin of Murmur</strong><h3>' + esc(a.title) + '</h3><p>' + esc(a.body) + '</p><small>' + esc(new Date(a.published_at).toLocaleString()) + '</small></article>').join("");
-    const notificationHtml = (data || []).map(n => '<article class="alert-row" data-alert-id="' + esc(n.id) + '"><strong>' + esc(n.kind || "Alert") + '</strong><p>' + esc(n.content) + '</p><small>' + esc(new Date(n.created_at).toLocaleString()) + (n.read_at ? ' · Read' : ' · Unread') + '</small>' + (!n.read_at ? '<button class="btn secondary" type="button" data-mark-alert="' + esc(n.id) + '">Mark read</button>' : '') + '</article>').join("");
-    root.innerHTML = announcementHtml + notificationHtml || '<p class="empty-state">You are all caught up.</p>';
+    const unread = (data || []).filter(n => !n.read_at).length;
+    const selectedAnnouncements = activeAlertFilter === "all" || activeAlertFilter === "announcements" ? uniqueAnnouncements : [];
+    const selectedNotifications = (data || []).filter(n => {
+      if (activeAlertFilter === "unread") return !n.read_at;
+      if (activeAlertFilter === "people") return /friend|follow|request|message|chat/i.test(n.kind || "");
+      if (activeAlertFilter === "activity") return !/friend|follow|request|message|chat/i.test(n.kind || "");
+      return activeAlertFilter === "all";
+    });
+    const announcementHtml = selectedAnnouncements.map(a =>
+      '<article class="alert-row admin-announcement"><strong>From Admin of Murmur</strong><h3>' + esc(a.title) + '</h3><p>' + esc(a.body) + '</p><small>' + esc(new Date(a.published_at).toLocaleString()) + '</small></article>'
+    ).join("");
+    const notificationHtml = selectedNotifications.map(n =>
+      '<article class="alert-row' + (n.read_at ? '' : ' is-unread') + '" data-alert-id="' + esc(n.id) + '">' +
+      '<div class="alert-row-heading"><strong>' + esc((n.kind || "Alert").replace(/[_-]/g, " ")) + '</strong>' +
+      (!n.read_at ? '<span class="alert-unread-dot" aria-label="Unread"></span>' : '') + '</div>' +
+      '<p>' + esc(n.content) + '</p><small>' + esc(new Date(n.created_at).toLocaleString()) + (n.read_at ? ' · Read' : ' · Unread') + '</small>' +
+      (!n.read_at ? '<button class="btn secondary" type="button" data-mark-alert="' + esc(n.id) + '">Mark read</button>' : '') + '</article>'
+    ).join("");
+    root.innerHTML = announcementHtml + notificationHtml || '<p class="empty-state">No notifications in this filter.</p>';
     root.querySelectorAll("[data-mark-alert]").forEach(button => button.addEventListener("click", async () => {
+      button.disabled = true;
       try {
-        const { data: userData } = await supabase.auth.getUser();
         const { error: updateError } = await supabase.from("notifications")
           .update({ read_at: new Date().toISOString() })
           .eq("id", button.dataset.markAlert).eq("recipient_id", userData.user.id);
         if (updateError) throw updateError;
         await renderAlerts();
-      } catch (error) { alert(error.message); }
+      } catch (error) { alert(error.message || "Could not mark notification as read."); button.disabled = false; }
     }));
-    const unread = (data || []).filter(n => !n.read_at).length;
+    document.querySelectorAll("[data-alert-filter]").forEach(button => {
+      const selected = button.dataset.alertFilter === activeAlertFilter;
+      button.classList.toggle("active", selected);
+      button.setAttribute("aria-selected", String(selected));
+    });
     if (el("alertsBadge")) { el("alertsBadge").hidden = !unread; el("alertsBadge").textContent = unread ? String(unread) : ""; }
-    if (el("alertsUnreadCount")) el("alertsUnreadCount").textContent = String(unread);
+    if (el("alertsUnreadCount")) el("alertsUnreadCount").textContent = unread ? unread + " unread" : "You're all caught up";
   } catch (error) { fail(root, error); }
 }
 
@@ -373,6 +420,11 @@ async function sendChatMessage() {
 }
 
 export function initSupabaseSocial() {
+  document.querySelectorAll("[data-alert-filter]").forEach(button => button.addEventListener("click", () => {
+    activeAlertFilter = button.dataset.alertFilter || "all";
+    renderAlerts();
+  }));
+
   el("friendSearchBtn")?.addEventListener("click", searchPeople);
   el("friendSearch")?.addEventListener("keydown", event => { if (event.key === "Enter") searchPeople(); });
   el("sendBtn")?.addEventListener("click", sendChatMessage);
