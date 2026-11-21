@@ -1,0 +1,67 @@
+/* Murmur responsive layout system
+   Viewport-based layouts for phones, tablets, laptops and desktop screens. */
+:root{--layout-gutter:clamp(12px,2.2vw,32px);--content-max:1440px;--feed-max:760px;}
+html{width:100%;min-width:320px;overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{width:100%;min-width:320px;overflow-x:hidden}
+img,video,canvas,svg{max-width:100%}
+button,input,select,textarea{max-width:100%;min-width:0}
+.app-shell{width:100%;min-height:100vh;min-height:100dvh;padding:var(--layout-gutter)}
+.fb-head{width:100%;padding-inline:var(--layout-gutter)}
+.fb-head .topbar,.fb-nav{width:100%;max-width:var(--content-max);margin-inline:auto}
+.main{width:100%;max-width:var(--feed-max);min-width:0;margin-inline:auto}
+.main>*{min-width:0;max-width:100%}
+.posts,.post,.card,.composer,.stories,.story-row,.chat-layout,.conversation,.sidebar,.profile-wrap,.p-wrap,.legal-body,.legal-doc{min-width:0;max-width:100%}
+.post p,.chat-item p,.meta,.person-link,.notice{overflow-wrap:anywhere}
+input,textarea,select{font-size:16px}
+button{touch-action:manipulation}
+@media(max-width:480px){
+ :root{--layout-gutter:0px}
+ .app-shell{padding:12px}
+ .fb-head{padding-inline:0}
+ .fb-head .topbar{padding:8px 12px}
+ .fb-actions{gap:6px}
+ .fb-actions button{width:38px;height:38px}
+ .fb-nav button{min-height:48px;min-width:0}
+ .main{width:100%;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+ .composer{grid-template-columns:auto minmax(0,1fr) auto;gap:8px;padding:10px 12px}
+ .post{padding:12px}
+ .post-actions{flex-wrap:wrap}
+ .post-actions button{flex:1 1 0;min-width:0;padding:8px 4px;font-size:.82rem}
+ .chat-layout{display:block;width:100%;margin:0}
+ .chat-layout .sidebar{display:block;width:100%;max-width:none}
+ .chat-layout .conversation{display:none}
+ .chat-layout.open .sidebar{display:none}
+ .chat-layout.open .conversation{display:flex;position:fixed;inset:0;z-index:80;width:100%;height:100vh;height:100dvh;max-height:100dvh;margin:0;border:0;border-radius:0;padding-bottom:env(safe-area-inset-bottom,0px)}
+ .chat-layout.open .chat-back{display:grid}
+ .chat-layout.open .messages{min-height:0;overscroll-behavior:contain}
+ .menu-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .legal-doc{padding:20px 16px}
+ .modal-back{padding:10px}
+ .modal-card{width:100%;max-width:420px}
+}
+@media(min-width:481px) and (max-width:900px){
+ :root{--layout-gutter:16px}
+ .main{max-width:760px;padding-bottom:80px}
+ .fb-head{padding-inline:0}
+ .fb-head .topbar{padding-inline:16px}
+ .chat-layout{width:100%}
+ .p-wrap{max-width:760px;margin-inline:auto}
+ .legal-doc{padding:clamp(20px,4vw,40px)}
+}
+@media(min-width:901px){
+ :root{--layout-gutter:clamp(20px,2.5vw,40px)}
+ .fb-head{padding-inline:var(--layout-gutter)}
+ .fb-head .topbar{max-width:var(--content-max);min-height:64px}
+ .fb-nav{max-width:var(--content-max);margin-inline:auto}
+ .main{max-width:var(--content-max);padding:18px var(--layout-gutter) 48px;margin-inline:auto}
+ .main>.posts,.main>.composer,.main>.stories,.main>.active-row,.main>.story-row,.main>.alerts-list,.main>#alertsList,.main>.card,.main>.notice{max-width:var(--feed-max);margin-left:auto;margin-right:auto}
+ .chat-layout{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:16px;width:100%;max-width:1180px;min-height:560px;margin:18px auto}
+ .chat-layout .sidebar{display:flex;flex-direction:column;min-width:0;min-height:560px}
+ .chat-layout .conversation{display:flex;position:relative;inset:auto;min-width:0;min-height:560px;margin:0}
+ .chat-layout.open .sidebar{display:flex}
+ .chat-layout.open .conversation{position:relative;inset:auto}
+ .chat-layout.open .chat-back{display:none}
+ .auth-card{width:min(1080px,calc(100% - 48px));grid-template-columns:minmax(0,1fr) minmax(340px,420px);gap:clamp(32px,6vw,88px)}
+}
+@media(hover:hover) and (pointer:fine){.chat-item:hover{background:#f5faf8}}
+@media(hover:none) and (pointer:coarse){button,a,[role=button]{-webkit-tap-highlight-color:transparent}}
