@@ -292,7 +292,11 @@ async function renderPostComments(postId, panel) {
 async function renderFeed() {
   const root = $("posts");
   if (!root) return;
-  root.innerHTML = '<p class="empty-state">Loading posts…</p>';
+  // Keep the current feed visible during background refreshes. Only show the
+  // initial loading state when there are no posts rendered yet.
+  if (!root.querySelector("[data-post-id]")) {
+    root.innerHTML = '<p class="empty-state">Loading posts…</p>';
+  }
   try {
     const rows = await posts.feed(0);
     if (!rows.length) {
@@ -388,8 +392,25 @@ let feedChannel = null;
 function watchFeed() {
   if (feedChannel) supabase.removeChannel(feedChannel);
   feedChannel = supabase.channel("murmur-public-posts")
-    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => renderFeed())
-    .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => renderFeed())
+    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, payload => {
+      // A like may update a denormalized counter on the posts row. That is
+      // already reflected locally by the Like button, so do not reload the
+      // feed (or replace the post cards) for counter-only realtime updates.
+      if (payload.eventType === "UPDATE") {
+        const oldRow = payload.old || {};
+        const newRow = payload.new || {};
+        const changed = Object.keys(newRow).filter(key =>
+          JSON.stringify(newRow[key]) !== JSON.stringify(oldRow[key])
+        );
+        const likeFields = new Set(["like_count", "likes_count", "likes", "updated_at"]);
+        if (changed.length && changed.every(key => likeFields.has(key))) return;
+      }
+      void renderFeed();
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => {
+      // Comment updates should refresh counts without flashing a full-page loader.
+      void renderFeed();
+    })
     .subscribe();
 }
 
