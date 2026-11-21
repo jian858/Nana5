@@ -81,7 +81,7 @@ Last updated: 2026-11-21
 - Audited every HTML entry point and the import graph of the active modules. The main app loads only `supabase-client.js`, `supabase-runtime.js`, `visitor-tracking.js`, `supabase-app.js`, and `pwa.js`; the separate invite page loads `invite.js`. Active Supabase modules import only the Supabase client/data/social modules.
 - Removed 28 inactive JavaScript modules that were not referenced by any HTML entry point or active-module import, including the old Firebase app, Google auth, registration and login modules. Their history remains recoverable through Git.
 - Replaced the deployed `murmur-posts`, `murmur-identity`, and `murmur-admin` Firebase endpoints, plus the unused password-reset account-enumeration endpoint, with retired 410 responses and enabled Supabase JWT verification at the Edge gateway. Old Firebase tokens can no longer use these endpoints.
-- Reworked `murmur-error-log` to require a verified Supabase JWT at the Edge gateway and verify the user with Supabase Auth. New error records use a `supabase:<uuid>` actor key in the legacy `firebase_uid` database column. Existing 115 error-log rows were preserved.
+- Reworked `murmur-error-log` to require a verified Supabase JWT at the Edge gateway and verify the user with Supabase Auth. New error records use a `supabase:<uuid>` actor key in the renamed `actor_key` column. Existing 115 error-log rows were preserved.
 - The active `murmur-admin-supabase` endpoint now returns 410 for the historical Firebase identity lookup action. The 2 historical identity links and 3 visitor-device account links remain private and unchanged.
 - Verified the Supabase Auth account/profile counts: one existing test account and one profile. No test users were created or deleted.
 - The Supabase organization is on the Free plan. Supabase's current password-security documentation states that leaked-password protection requires Pro or above; this cannot be enabled on the current plan.
@@ -135,3 +135,10 @@ Last updated: 2026-11-21
 - The database RPC retains the 40-per-visitor five-minute limit and optional network limit. The browser now calls the Edge Function through the shared Supabase client rather than calling a public SECURITY DEFINER RPC.
 - Verified `anon_execute=false`, `authenticated_execute=false`, and `service_role_execute=true` for the visitor RPC. The security advisor no longer reports a publicly executable SECURITY DEFINER function.
 - Updated the visitor script to wait for the shared Supabase client-ready event and bumped the service-worker shell cache to v19.
+
+
+## Error-log identity column cleanup — 2026-11-21
+
+- Applied migration `2026112113XXXX_rename_error_log_firebase_uid_to_actor_key` (exact applied version is recorded in Supabase migration history).
+- Renamed `public.murmur_error_logs.firebase_uid` to `actor_key` and renamed its supporting index. All 115 existing error records were preserved.
+- Updated the error-log Edge Function and admin API to use `actor_key`; new authenticated records identify users as `supabase:<uuid>`. Historical values remain unchanged and are treated as archived actor references, not active Firebase authentication.
