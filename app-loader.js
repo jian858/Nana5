@@ -1,6 +1,6 @@
 /* Deprecated compatibility entry point.
  * The live index loads supabase-app.js directly. This file intentionally never
- * loads the retired Firebase-era feature scripts.
+ * loads any retired legacy feature scripts.
  */
 import("./supabase-app.js").catch(error => {
   console.error("[Murmur Supabase loader]", error);
