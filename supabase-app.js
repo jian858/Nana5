@@ -104,7 +104,7 @@ async function openPublicProfile(userId) {
       ...post,
       mediaUrl: post.media_path ? await storage.url("murmur-posts", post.media_path).catch(() => post.media_url || null) : (post.media_url || null)
     })));
-    const avatar = person.avatar_url ? '<img class="murmur-profile-avatar-image" src="' + safeText(person.avatar_url) + '" alt="">' : '<span class="murmur-profile-avatar-fallback">' + safeText((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</span>';
+    const avatar = person.avatar_url ? '<button type="button" class="murmur-profile-avatar murmur-profile-avatar-open" aria-label="View profile picture"><img class="murmur-profile-avatar-image" src="' + safeText(person.avatar_url) + '" alt=""></button>' : '<div class="murmur-profile-avatar"><span class="murmur-profile-avatar-fallback">' + safeText((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</span></div>';
     content.innerHTML = '<div class="murmur-profile-cover"></div><div class="murmur-profile-summary"><div class="murmur-profile-avatar">' + avatar + '</div><div class="murmur-profile-title"><h2 id="profile-view-title">' + safeText(person.display_name || "Murmur user") + '</h2><p>@' + safeText(person.username || "") + '</p></div>' +
       (isMe ? '<button type="button" class="btn secondary murmur-profile-edit">Edit profile</button>' : '') +
       '</div>' +
@@ -113,6 +113,20 @@ async function openPublicProfile(userId) {
       (postRows.length ? postRows.map(post => '<article class="murmur-profile-post">' + (post.content ? '<p>' + safeText(post.content) + '</p>' : '') +
         (post.mediaUrl ? (post.media_type === "video" ? '<video controls playsinline preload="metadata" src="' + safeText(post.mediaUrl) + '"></video>' : '<img loading="lazy" src="' + safeText(post.mediaUrl) + '" alt="Post photo">') : '') +
         '<small>' + safeText(new Date(post.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No posts yet.</p>') + '</div>';
+    content.querySelector(".murmur-profile-avatar-open")?.addEventListener("click", event => {
+      const source = event.currentTarget.querySelector("img")?.src;
+      if (!source) return;
+      const viewer = document.createElement("div");
+      viewer.className = "murmur-photo-viewer";
+      viewer.innerHTML = '<button type="button" class="murmur-photo-viewer-close" aria-label="Close picture">×</button><img alt="Profile picture">';
+      viewer.querySelector("img").src = source;
+      const dismiss = () => { viewer.remove(); document.removeEventListener("keydown", onKey); };
+      const onKey = keyEvent => { if (keyEvent.key === "Escape") dismiss(); };
+      viewer.addEventListener("click", clickEvent => { if (clickEvent.target === viewer || clickEvent.target.closest(".murmur-photo-viewer-close")) dismiss(); });
+      document.addEventListener("keydown", onKey);
+      document.body.appendChild(viewer);
+      viewer.querySelector(".murmur-photo-viewer-close").focus();
+    });
     content.querySelector(".murmur-profile-edit")?.addEventListener("click", () => { close(); openProfileEditor(); });
     content.querySelector("[data-edit-profile-note]")?.addEventListener("click", () => {
       const overlay = document.createElement("div");
