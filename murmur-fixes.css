@@ -346,3 +346,49 @@ input,select,textarea{max-width:100%}
 .pane[data-pane="home"] .composer.is-editing{flex-wrap:wrap}
 .pane[data-pane="home"] .composer.is-editing #postMediaButton{display:inline-flex!important}
 .pane[data-pane="home"] .composer.is-editing #postMediaStatus{display:block!important}
+
+
+/* Dedicated Post tab: keep the home feed as a simple entry point. */
+.post-entry{
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  border:1px solid var(--line,#e3eaec);
+  color:var(--muted,#687980);
+  text-align:left;
+  cursor:pointer;
+}
+.post-entry span{
+  flex:1;
+  min-height:42px;
+  display:flex;
+  align-items:center;
+  padding:0 16px;
+  border-radius:999px;
+  background:var(--surface-soft,#f4f7f7);
+}
+.post-pane{max-width:760px;margin:0 auto}
+.post-pane-heading{display:flex;align-items:center;gap:12px;margin:0 0 16px}
+.post-pane-heading h1{margin:0;font-size:1.45rem;font-weight:800;letter-spacing:-.04em}
+.post-back{width:42px;height:42px;border:0;border-radius:50%;background:var(--surface,#fff);color:var(--ink);font-size:2rem;line-height:1}
+.post-pane .composer{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:12px;
+  padding:18px;
+}
+.post-pane #postInput{
+  display:block;
+  width:100%;
+  min-height:130px;
+  resize:vertical;
+  border:0;
+  border-radius:12px;
+  background:var(--surface-soft,#f4f7f7);
+  padding:14px;
+  font:inherit;
+}
+.post-pane #postMediaButton,.post-pane #postBtn{align-self:flex-start}
+.post-pane #postMediaStatus{color:var(--muted);font-size:.82rem}
