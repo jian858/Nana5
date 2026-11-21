@@ -1,6 +1,6 @@
 /* Murmur Supabase runtime.
  * This is the single browser entry point for Postgres, Auth, Realtime and Storage.
- * Feature modules consume window.MurmurData; no Firebase SDK or identity bridge.
+ * Feature modules consume window.MurmurData through the shared Supabase client.
  */
 import * as data from "./supabase-data.js";
 import { supabase, requireUser } from "./supabase-client.js";
