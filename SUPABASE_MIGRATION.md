@@ -171,3 +171,17 @@ Last updated: 2026-11-21
 - Applied migration `20261121134257_finalize_legacy_archive_keys`.
 - Added a primary key on `private.murmur_legacy_account_archive.legacy_supabase_id`, removed an unused email index, and renamed the remaining username index to remove legacy Firebase naming.
 - Verified no Firebase-named indexes remain in the `public` or `private` schemas.
+
+
+## Anonymous social grants cleanup — 2026-11-21
+
+- Applied migration `20261121134512_revoke_legacy_anonymous_social_grants`.
+- Revoked all `anon` privileges from `public.reels` and `public.user_notes`. Both tables retain their authenticated RLS policies; no rows were deleted.
+
+## Profile privacy hardening — 2026-11-21
+
+- Applied migration `20261121134635_limit_full_profile_reads_to_owner`, restricting full `profiles` rows to their owner.
+- The initial security-barrier view was replaced by a normal RLS-protected `public.murmur_public_profiles` projection table in migration `20261121134816_replace_profile_view_with_safe_directory_table`, avoiding a SECURITY DEFINER view warning.
+- The directory contains only `id`, `public_id`, `username`, `display_name`, `bio`, `avatar_url`, `cover_url`, and `created_at`. It is readable by authenticated users and has no client write privileges.
+- A private-schema trigger synchronizes those public fields when a profile is inserted or updated. Full profile reads remain owner-only, so fields such as phone, birthday, and gender are not exposed through social discovery.
+- Updated profile search, friend lists, and feed author lookup to read the public projection table.
