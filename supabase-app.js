@@ -119,11 +119,15 @@ async function renderFeed() {
     const { data: people, error } = await supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", ids);
     if (error) throw error;
     const byId = new Map((people || []).map(person => [person.id, person]));
-    root.innerHTML = rows.map(post => {
+    const displayRows = await Promise.all(rows.map(async post => ({
+      ...post,
+      signedMediaUrl: post.media_path ? await storage.url("murmur-posts", post.media_path) : null
+    })));
+    root.innerHTML = displayRows.map(post => {
       const person = byId.get(post.author_id) || {};
       const author = safeText(person.display_name || "Murmur user");
       const handle = person.username ? "@" + safeText(person.username) : "";
-      const media = post.media_url ? (post.media_type === "video" ? '<video class="post-media" controls playsinline preload="metadata" src="' + safeText(post.media_url) + '"></video>' : '<img class="post-media" loading="lazy" src="' + safeText(post.media_url) + '" alt="Post attachment">') : "";
+      const media = post.signedMediaUrl ? (post.media_type === "video" ? '<video class="post-media" controls playsinline preload="metadata" src="' + safeText(post.signedMediaUrl) + '"></video>' : '<img class="post-media" loading="lazy" src="' + safeText(post.signedMediaUrl) + '" alt="Post attachment">') : "";
       return '<article class="post-card" data-post-id="' + safeText(post.id) + '"><header class="post-head"><span class="avatar">' + safeText(author.slice(0,1).toUpperCase()) + '</span><div><strong>' + author + '</strong><small>' + handle + ' · ' + safeText(new Date(post.created_at).toLocaleString()) + '</small></div></header><p class="post-content">' + safeText(post.content || "") + '</p>' + media + '</article>';
     }).join("");
   } catch (error) {
@@ -241,13 +245,13 @@ async function createPost() {
   const button = $("postBtn");
   if (button) button.disabled = true;
   try {
-    let mediaUrl = null, mediaType = null;
+    let mediaPath = null, mediaType = null;
     if (pendingPostFile) {
       const uploaded = await storage.uploadMedia(pendingPostFile, "posts");
-      mediaUrl = uploaded.url;
+      mediaPath = uploaded.path;
       mediaType = pendingPostFile.type.startsWith("video/") ? "video" : "image";
     }
-    await posts.create({ content, visibility: "public", mediaUrl, mediaType });
+    await posts.create({ content, visibility: "public", mediaPath, mediaType });
     $("postInput").value = "";
     pendingPostFile = null;
     const status = $("postMediaStatus"); if (status) status.textContent = "";
