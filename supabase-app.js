@@ -1131,7 +1131,8 @@ async function boot() {
     showAuth();
     showError("Your saved sign-in session expired. Please sign in again.");
   }
-  if (session?.user) await enterApp(session.user);
+  const isPasswordResetRoute = new URLSearchParams(location.search).get("password-reset") === "1";
+  if (session?.user && !isPasswordResetRoute) await enterApp(session.user);
   else showAuth();
   await completePasswordResetIfNeeded();
   const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
@@ -1139,7 +1140,8 @@ async function boot() {
       currentUser = null; currentProfile = null; enteredUserId = null; if (feedChannel) { supabase.removeChannel(feedChannel); feedChannel = null; } window.dispatchEvent(new CustomEvent("murmur:supabase-signed-out")); showAuth();
     } else if (event === "PASSWORD_RECOVERY") {
       queueMicrotask(() => openResetPasswordPage());
-    } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+    } else if ((event === "SIGNED_IN" || event === "USER_UPDATED") &&
+      new URLSearchParams(location.search).get("password-reset") !== "1") {
       queueMicrotask(() => enterApp(session.user));
     }
   });
