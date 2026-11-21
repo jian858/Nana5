@@ -55,7 +55,7 @@ async function searchPeople() {
   target.innerHTML = "<p>Searching…</p>";
   try {
     const safe = term.replace(/[%,()]/g, "");
-    const { data, error } = await supabase.from("profiles")
+    const { data, error } = await supabase.from("murmur_public_profiles")
       .select("id,public_id,username,display_name,avatar_url")
       .or("username.ilike.%" + safe + "%,display_name.ilike.%" + safe + "%,public_id.eq." + safe)
       .limit(20);
