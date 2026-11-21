@@ -39,3 +39,6 @@ export async function consumeManualRefresh() {
 export function getPublicConfig() {
   return Object.freeze({ url: SUPABASE_URL, publishableKey: SUPABASE_PUBLISHABLE_KEY });
 }
+
+// Expose the same configured client to the legacy classic-script modules.
+window.murmurSupabase = supabase;
