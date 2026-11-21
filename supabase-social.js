@@ -5,6 +5,8 @@ import { friendships, stories, reels, userNotes, conversations, messages, storag
 const el = id => document.getElementById(id);
 let socialChannel = null;
 let messageChannel = null;
+let socialChannel = null;
+let messageChannel = null;
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fail = (container, error) => { if (container) container.innerHTML = '<p class="empty-state">' + esc(error.message || "Could not load this section.") + '</p>'; };
 
@@ -140,6 +142,10 @@ async function openConversation(id) {
   const root = el("messages");
   if (!root) return;
   root.dataset.conversationId = id;
+  if (messageChannel) supabase.removeChannel(messageChannel);
+  messageChannel = supabase.channel("murmur-chat-" + id)
+    .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: "conversation_id=eq." + id }, () => openConversation(id))
+    .subscribe();
   try {
     const rows = await messages.list(id);
     root.innerHTML = rows.reverse().map(m => '<article class="message-row">' + esc(m.content) + '</article>').join("") || '<p class="empty-state">Start the conversation.</p>';
@@ -178,7 +184,18 @@ export function initSupabaseSocial() {
   });
   el("frSearchIcon")?.addEventListener("click", () => { el("findBlock") && (el("findBlock").hidden = false); el("friendSearch")?.focus(); });
   window.addEventListener("murmur:supabase-user-ready", async () => {
+    if (socialChannel) supabase.removeChannel(socialChannel);
+    socialChannel = supabase.channel("murmur-social-updates")
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, renderAlerts)
+      .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, renderStories)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, renderReels)
+      .subscribe();
     await Promise.all([renderFriends(), renderStories(), renderReels(), renderNotes(), renderAlerts(), renderChats()]);
+  });
+  window.addEventListener("murmur:supabase-signed-out", () => {
+    if (socialChannel) supabase.removeChannel(socialChannel);
+    if (messageChannel) supabase.removeChannel(messageChannel);
+    socialChannel = null; messageChannel = null;
   });
   document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => {
     if (button.dataset.view === "friends") renderFriends();
