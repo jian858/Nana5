@@ -90,7 +90,7 @@ async function openPublicProfile(userId) {
   try {
     const [{ data: person, error: profileError }, { data: rows, error: postsError }] = await Promise.all([
       supabase.from("murmur_public_profiles").select("id,username,display_name,bio,avatar_url,created_at").eq("id", userId).maybeSingle(),
-      supabase.from("posts").select("id,author_id,content,media_path,media_type,created_at").eq("author_id", userId).order("created_at", { ascending: false }).limit(30)
+      supabase.from("posts").select("id,author_id,content,media_url,media_path,media_type,created_at").eq("author_id", userId).order("created_at", { ascending: false }).limit(30)
     ]);
     if (profileError) throw profileError;
     if (postsError) throw postsError;
@@ -102,7 +102,7 @@ async function openPublicProfile(userId) {
     const latestNote = profileNotes[0] || null;
     const postRows = await Promise.all((rows || []).map(async post => ({
       ...post,
-      mediaUrl: post.media_path ? await storage.url("murmur-posts", post.media_path).catch(() => null) : null
+      mediaUrl: post.media_path ? await storage.url("murmur-posts", post.media_path).catch(() => post.media_url || null) : (post.media_url || null)
     })));
     const avatar = person.avatar_url ? '<img class="murmur-profile-avatar-image" src="' + safeText(person.avatar_url) + '" alt="">' : '<span class="murmur-profile-avatar-fallback">' + safeText((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</span>';
     content.innerHTML = '<div class="murmur-profile-cover"></div><div class="murmur-profile-summary"><div class="murmur-profile-avatar">' + avatar + '</div><div class="murmur-profile-title"><h2 id="profile-view-title">' + safeText(person.display_name || "Murmur user") + '</h2><p>@' + safeText(person.username || "") + '</p></div>' +
