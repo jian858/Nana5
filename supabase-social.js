@@ -204,16 +204,19 @@ async function renderAlerts() {
     if (userError) throw userError;
     const currentUser = sessionData?.session?.user;
     if (!currentUser) throw new Error("Sign in again to view notifications.");
+    const notificationRequest = supabase.from("notifications").select("id,kind,content,read_at,created_at")
+      .eq("recipient_id", currentUser.id).order("created_at", { ascending: false }).limit(50);
+    const announcementRequest = activeAlertFilter === "all"
+      ? supabase.from("announcements").select("id,title,body,kind,published_at")
+          .lte("published_at", new Date().toISOString())
+          .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+          .order("is_pinned", { ascending: false }).order("published_at", { ascending: false }).limit(20)
+      : Promise.resolve({ data: [], error: null });
     const [{ data, error }, { data: announcements, error: announcementError }] = await Promise.all([
-      supabase.from("notifications").select("id,kind,content,read_at,created_at")
-        .eq("recipient_id", currentUser.id).order("created_at", { ascending: false }).limit(50),
-      supabase.from("announcements").select("id,title,body,kind,published_at")
-        .lte("published_at", new Date().toISOString())
-        .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
-        .order("is_pinned", { ascending: false }).order("published_at", { ascending: false }).limit(20)
+      notificationRequest, announcementRequest
     ]);
     if (error) throw error;
-    if (announcementError) throw announcementError;
+    if (announcementError) console.warn("[Murmur notifications] Announcements unavailable:", announcementError);
     const uniqueAnnouncements = [...new Map((announcements || []).map(a => [
       [String(a.title || "").trim(), String(a.body || "").trim(), a.published_at].join("|"), a
     ])).values()];
