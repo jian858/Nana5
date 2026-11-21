@@ -1,9 +1,9 @@
-const CACHE_NAME = "murmur-shell-v10";
+const CACHE_NAME = "murmur-shell-v11";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20261117-3",
+  "/styles.css?v=20261121-1",
   "/config.js?v=20261102-1",
   "/firebase.js?v=20261102-1",
   "/account-restrictions.js?v=20261102-1",
