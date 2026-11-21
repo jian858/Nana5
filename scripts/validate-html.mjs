@@ -43,7 +43,7 @@ for (const file of htmlFiles) {
       const raw = match[2].trim();
       if (!raw || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(raw)) continue;
       const localPath = stripQueryAndHash(raw);
-      if (!localPath) continue;
+      if (!localPath || !extname(localPath)) continue;
 
       let decodedPath;
       try {
