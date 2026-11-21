@@ -755,7 +755,12 @@ function openForgotPasswordPage() {
 }
 
 function openResetPasswordPage() {
-  document.querySelector(".murmur-recovery-screen")?.remove();
+  const existing = document.querySelector(".murmur-recovery-screen");
+  if (existing?.querySelector("[data-new-password-form]")) {
+    existing.querySelector("#murmurNewPassword")?.focus();
+    return;
+  }
+  existing?.remove();
   const overlay = document.createElement("div");
   overlay.className = "murmur-recovery-screen";
   overlay.innerHTML = `
@@ -1154,19 +1159,51 @@ function wireAuth() {
   }
 }
 
+function isPasswordRecoveryRoute() {
+  const query = new URLSearchParams(location.search);
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  return query.get("password-reset") === "1" ||
+    query.get("type") === "recovery" ||
+    hash.get("type") === "recovery";
+}
+
 async function completePasswordResetIfNeeded() {
-  const params = new URLSearchParams(location.search);
-  if (params.get("password-reset") !== "1") return;
+  if (!isPasswordRecoveryRoute()) return;
+  // Supabase PKCE may still be exchanging the one-time code when this route loads.
+  // getSession waits for client initialization and returns the exchanged session.
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
-  if (data.session) openResetPasswordPage();
-  else showError("This password reset link is invalid or has expired. Request a new one.");
+  if (data.session?.user) {
+    openResetPasswordPage();
+    return;
+  }
+  showAuth();
+  showError("This password reset link is invalid or has expired. Request a new one.");
 }
 
 async function boot() {
   wireAuth();
   wireNavigation();
   showAuthRedirectError();
+
+  // Register before getSession(): PASSWORD_RECOVERY can be emitted while the
+  // PKCE callback is being processed during startup.
+  const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY") {
+      queueMicrotask(() => openResetPasswordPage());
+      return;
+    }
+    if (event === "SIGNED_OUT" || !session?.user) {
+      currentUser = null; currentProfile = null; enteredUserId = null;
+      if (feedChannel) { supabase.removeChannel(feedChannel); feedChannel = null; }
+      window.dispatchEvent(new CustomEvent("murmur:supabase-signed-out"));
+      if (!isPasswordRecoveryRoute()) showAuth();
+    } else if ((event === "SIGNED_IN" || event === "USER_UPDATED") && !isPasswordRecoveryRoute()) {
+      queueMicrotask(() => enterApp(session.user));
+    }
+  });
+  authSubscription = listener.subscription;
+
   let session = null;
   try {
     const { data, error } = await supabase.auth.getSession();
@@ -1176,26 +1213,19 @@ async function boot() {
     const staleSession = error?.status === 400 ||
       /invalid refresh token|refresh token.*(not found|invalid|already used)|refresh_token_not_found/i.test(String(error?.message || ""));
     if (!staleSession) throw error;
-    // A revoked/expired saved refresh token must not trap the app on startup.
     await supabase.auth.signOut({ scope: "local" }).catch(() => {});
     showAuth();
     showError("Your saved sign-in session expired. Please sign in again.");
   }
-  const isPasswordResetRoute = new URLSearchParams(location.search).get("password-reset") === "1";
-  if (session?.user && !isPasswordResetRoute) await enterApp(session.user);
-  else showAuth();
-  await completePasswordResetIfNeeded();
-  const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-    if (event === "SIGNED_OUT" || !session?.user) {
-      currentUser = null; currentProfile = null; enteredUserId = null; if (feedChannel) { supabase.removeChannel(feedChannel); feedChannel = null; } window.dispatchEvent(new CustomEvent("murmur:supabase-signed-out")); showAuth();
-    } else if (event === "PASSWORD_RECOVERY") {
-      queueMicrotask(() => openResetPasswordPage());
-    } else if ((event === "SIGNED_IN" || event === "USER_UPDATED") &&
-      new URLSearchParams(location.search).get("password-reset") !== "1") {
-      queueMicrotask(() => enterApp(session.user));
-    }
-  });
-  authSubscription = listener.subscription;
+
+  if (isPasswordRecoveryRoute()) {
+    showAuth();
+    await completePasswordResetIfNeeded();
+  } else if (session?.user) {
+    await enterApp(session.user);
+  } else {
+    showAuth();
+  }
 }
 
 boot().catch(error => {
