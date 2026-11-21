@@ -158,7 +158,11 @@ async function renderAlerts() {
       .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
       .order("is_pinned", { ascending: false }).order("published_at", { ascending: false }).limit(20);
     if (announcementError) throw announcementError;
-    const announcementHtml = (announcements || []).map(a => '<article class="alert-row admin-announcement"><strong>From Admin of Murmur</strong><h3>' + esc(a.title) + '</h3><p>' + esc(a.body) + '</p><small>' + esc(new Date(a.published_at).toLocaleString()) + '</small></article>').join("");
+    const uniqueAnnouncements = [...new Map((announcements || []).map(a => [
+      [String(a.title || "").trim(), String(a.body || "").trim(), a.published_at].join("|"),
+      a
+    ])).values()];
+    const announcementHtml = uniqueAnnouncements.map(a => '<article class="alert-row admin-announcement"><strong>From Admin of Murmur</strong><h3>' + esc(a.title) + '</h3><p>' + esc(a.body) + '</p><small>' + esc(new Date(a.published_at).toLocaleString()) + '</small></article>').join("");
     const notificationHtml = (data || []).map(n => '<article class="alert-row" data-alert-id="' + esc(n.id) + '"><strong>' + esc(n.kind || "Alert") + '</strong><p>' + esc(n.content) + '</p><small>' + esc(new Date(n.created_at).toLocaleString()) + (n.read_at ? ' · Read' : ' · Unread') + '</small>' + (!n.read_at ? '<button class="btn secondary" type="button" data-mark-alert="' + esc(n.id) + '">Mark read</button>' : '') + '</article>').join("");
     root.innerHTML = announcementHtml + notificationHtml || '<p class="empty-state">You are all caught up.</p>';
     root.querySelectorAll("[data-mark-alert]").forEach(button => button.addEventListener("click", async () => {
@@ -184,7 +188,15 @@ async function renderChats() {
     const rows = await conversations.list();
     root.innerHTML = rows.map(c => '<button class="chat-list-item" type="button" data-conversation="' + esc(c.id) + '">Conversation · ' + esc(c.id.slice(0,8)) + '</button>').join("") || '<p class="empty-state">Your conversations will appear here.</p>';
     root.querySelectorAll("[data-conversation]").forEach(button => button.addEventListener("click", () => openConversation(button.dataset.conversation)));
-  } catch (error) { fail(root, error); }
+  } catch (error) {
+    fail(root, error);
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "btn secondary";
+    retry.textContent = "Try again";
+    retry.addEventListener("click", renderChats, { once: true });
+    root.appendChild(retry);
+  }
 }
 async function openConversation(id) {
   const root = el("messages");
