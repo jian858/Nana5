@@ -398,6 +398,8 @@ export function initSupabaseSocial() {
     if (socialChannel) supabase.removeChannel(socialChannel);
     socialChannel = supabase.channel("murmur-social-updates")
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, renderAlerts)
+      .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, renderChats)
+      .on("postgres_changes", { event: "*", schema: "public", table: "conversation_members" }, renderChats)
       .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, renderStories)
       .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, renderReels)
       .subscribe();
