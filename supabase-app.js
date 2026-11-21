@@ -105,7 +105,7 @@ async function openPublicProfile(userId) {
       mediaUrl: post.media_path ? await storage.url("murmur-posts", post.media_path).catch(() => post.media_url || null) : (post.media_url || null)
     })));
     const avatar = person.avatar_url ? '<button type="button" class="murmur-profile-avatar murmur-profile-avatar-open" aria-label="View profile picture"><img class="murmur-profile-avatar-image" src="' + safeText(person.avatar_url) + '" alt=""></button>' : '<div class="murmur-profile-avatar"><span class="murmur-profile-avatar-fallback">' + safeText((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</span></div>';
-    content.innerHTML = '<div class="murmur-profile-cover"></div><div class="murmur-profile-summary"><div class="murmur-profile-avatar">' + avatar + '</div><div class="murmur-profile-title"><h2 id="profile-view-title">' + safeText(person.display_name || "Murmur user") + '</h2><p>@' + safeText(person.username || "") + '</p></div>' +
+    content.innerHTML = '<div class="murmur-profile-cover"></div><div class="murmur-profile-summary">' + avatar + '<div class="murmur-profile-title"><h2 id="profile-view-title">' + safeText(person.display_name || "Murmur user") + '</h2><p>@' + safeText(person.username || "") + '</p></div>' +
       (isMe ? '<button type="button" class="btn secondary murmur-profile-edit">Edit profile</button>' : '') +
       '</div>' +
       (latestNote ? '<section class="murmur-profile-note" aria-label="Your note"><div class="murmur-profile-note-heading">Your note</div><button type="button" class="murmur-profile-note-content" data-edit-profile-note>' + safeText(latestNote.content) + '</button><small>Tap your note to edit or delete it</small></section>' : (isMe ? '<button type="button" class="murmur-profile-note-empty" data-edit-profile-note>Add a note</button>' : '')) +
@@ -364,20 +364,25 @@ async function renderFeed() {
       const card = button.closest("[data-post-id]");
       const count = card?.querySelector("[data-like-count]");
       const wasLiked = button.getAttribute("aria-pressed") === "true";
+      const nextLiked = !wasLiked;
+      const previousCount = Number(count?.textContent || 0);
+      // Update this post immediately. A Like must never replace or reload the feed.
+      button.setAttribute("aria-pressed", String(nextLiked));
+      button.classList.toggle("is-liked", nextLiked);
+      button.textContent = nextLiked ? "Liked" : "Like";
+      if (count) count.textContent = String(Math.max(0, previousCount + (nextLiked ? 1 : -1)));
       button.disabled = true;
-      button.setAttribute("aria-busy", "true");
       try {
         await postLikes.toggle(button.dataset.likePost);
-        const nextLiked = !wasLiked;
-        button.setAttribute("aria-pressed", String(nextLiked));
-        button.classList.toggle("is-liked", nextLiked);
-        button.textContent = nextLiked ? "Liked" : "Like";
-        if (count) count.textContent = String(Math.max(0, Number(count.textContent || 0) + (nextLiked ? 1 : -1)));
       } catch (error) {
-        alert(error.message || "Could not update your like.");
+        // Roll back only this button if the database rejects the change.
+        button.setAttribute("aria-pressed", String(wasLiked));
+        button.classList.toggle("is-liked", wasLiked);
+        button.textContent = wasLiked ? "Liked" : "Like";
+        if (count) count.textContent = String(previousCount);
+        alert(error.message || "Could not update your like. Please try again.");
       } finally {
         button.disabled = false;
-        button.removeAttribute("aria-busy");
       }
     }));
     root.querySelectorAll("[data-open-comments]").forEach(button => button.addEventListener("click", async () => {
