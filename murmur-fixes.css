@@ -502,3 +502,30 @@ input,select,textarea{max-width:100%}
  .fb-friends .friend-row{gap:8px}
  .fb-friends .friend-actions{flex-direction:column}
 }
+
+/* Match the exact Murmur logo supplied by the owner. */
+.fb-head .fb-logo{display:flex;align-items:center;justify-content:flex-start;min-width:0;min-height:0;padding:0;background:transparent;border-radius:0}
+.fb-head .murmur-app-logo{display:block;width:36px;height:36px;max-width:36px;object-fit:contain}
+.alerts-heading{min-height:0;padding:8px 0 7px;align-items:center;border:0;border-bottom:1px solid var(--line);border-radius:0}
+.alerts-heading h1{font-size:1.35rem;line-height:1.2;letter-spacing:-.025em;margin:0 0 3px}
+.alerts-heading .alerts-eyebrow{font-size:.66rem;line-height:1.2;letter-spacing:.08em}
+.alerts-heading p{font-size:.78rem;line-height:1.3;margin:2px 0;overflow-wrap:anywhere}
+.alerts-heading-icon{width:34px;height:34px;flex-basis:34px;border-radius:10px}
+.alerts-heading-icon svg{width:18px;height:18px}
+.alerts-filters{padding:7px 0 9px;gap:6px}
+.alerts-filters button{min-height:32px;padding:6px 13px;font-size:.8rem;line-height:1.15}
+.alerts-list{gap:7px}
+.alert-row{padding:9px 11px;border-radius:11px;line-height:1.3;box-shadow:none}
+.alert-row-heading{gap:7px;align-items:center}
+.alert-row-heading strong{font-size:.78rem;line-height:1.25;overflow-wrap:anywhere}
+.alert-row h3{font-size:.9rem;line-height:1.3;margin:4px 0}
+.alert-row p{font-size:.82rem;line-height:1.35;margin:4px 0;white-space:normal;overflow-wrap:anywhere;word-break:normal}
+.alert-row small{font-size:.68rem;line-height:1.25;margin-top:3px;overflow-wrap:anywhere}
+.alert-row .btn{min-height:30px;margin-top:6px;padding:5px 10px;font-size:.75rem}
+.alerts-list .alert-row{animation:none!important;transition:none}
+@media(max-width:480px){
+ .fb-head .murmur-app-logo{width:32px;height:32px}
+ .alerts-pane{padding-top:4px}
+ .alert-row{padding:8px 10px}
+ .alert-row p{font-size:.8rem;line-height:1.32}
+}
