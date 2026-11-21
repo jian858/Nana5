@@ -80,6 +80,10 @@ async function openPublicProfile(userId) {
     if (postsError) throw postsError;
     if (!person) throw new Error("This profile is unavailable.");
     const isMe = currentUser?.id === userId;
+    // Notes are private to their owner; show the signed-in user's active note
+    // at the top of their own profile without exposing private notes to others.
+    const profileNotes = isMe ? await userNotes.listMine() : [];
+    const latestNote = profileNotes[0] || null;
     const postRows = await Promise.all((rows || []).map(async post => ({
       ...post,
       mediaUrl: post.media_path ? await storage.url("murmur-posts", post.media_path).catch(() => null) : null
@@ -87,11 +91,51 @@ async function openPublicProfile(userId) {
     const avatar = person.avatar_url ? '<img class="murmur-profile-avatar-image" src="' + safeText(person.avatar_url) + '" alt="">' : '<span class="murmur-profile-avatar-fallback">' + safeText((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</span>';
     content.innerHTML = '<div class="murmur-profile-cover"></div><div class="murmur-profile-summary"><div class="murmur-profile-avatar">' + avatar + '</div><div class="murmur-profile-title"><h2 id="profile-view-title">' + safeText(person.display_name || "Murmur user") + '</h2><p>@' + safeText(person.username || "") + '</p></div>' +
       (isMe ? '<button type="button" class="btn secondary murmur-profile-edit">Edit profile</button>' : '') +
-      '</div><p class="murmur-profile-bio">' + safeText(person.bio || "No bio yet.") + '</p><div class="murmur-profile-stats"><strong>' + postRows.length + '</strong> posts</div><h3 class="murmur-profile-post-heading">Posts</h3><div class="murmur-profile-posts">' +
+      '</div>' +
+      (latestNote ? '<section class="murmur-profile-note" aria-label="Your note"><div class="murmur-profile-note-heading">Your note</div><button type="button" class="murmur-profile-note-content" data-edit-profile-note>' + safeText(latestNote.content) + '</button><small>Tap your note to edit or delete it</small></section>' : (isMe ? '<button type="button" class="murmur-profile-note-empty" data-edit-profile-note>Add a note</button>' : '')) +
+      '<p class="murmur-profile-bio">' + safeText(person.bio || "No bio yet.") + '</p><div class="murmur-profile-stats"><strong>' + postRows.length + '</strong> posts</div><h3 class="murmur-profile-post-heading">Posts</h3><div class="murmur-profile-posts">' +
       (postRows.length ? postRows.map(post => '<article class="murmur-profile-post">' + (post.content ? '<p>' + safeText(post.content) + '</p>' : '') +
         (post.mediaUrl ? (post.media_type === "video" ? '<video controls playsinline preload="metadata" src="' + safeText(post.mediaUrl) + '"></video>' : '<img loading="lazy" src="' + safeText(post.mediaUrl) + '" alt="Post photo">') : '') +
         '<small>' + safeText(new Date(post.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No posts yet.</p>') + '</div>';
     content.querySelector(".murmur-profile-edit")?.addEventListener("click", () => { close(); openProfileEditor(); });
+    content.querySelector("[data-edit-profile-note]")?.addEventListener("click", () => {
+      const overlay = document.createElement("div");
+      overlay.className = "murmur-auth-modal murmur-note-modal";
+      overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="profile-note-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="profile-note-title">' + (latestNote ? "Edit your note" : "Create a note") + '</h2><label for="profile-note-content">Your note</label><textarea id="profile-note-content" maxlength="500" rows="5" placeholder="Write a short note…">' + safeText(latestNote?.content || "") + '</textarea><div class="note-editor-footer"><small data-note-count>0 / 500</small><button type="button" class="btn primary" data-save-profile-note>Save note</button></div>' + (latestNote ? '<button type="button" class="note-delete" data-delete-profile-note>Delete note</button>' : '') + '<p class="murmur-modal-error" role="alert"></p></section>';
+      document.body.appendChild(overlay);
+      const input = overlay.querySelector("#profile-note-content");
+      const save = overlay.querySelector("[data-save-profile-note]");
+      const errorBox = overlay.querySelector(".murmur-modal-error");
+      const closeEditor = () => overlay.remove();
+      overlay.querySelector(".murmur-modal-close")?.addEventListener("click", closeEditor);
+      overlay.addEventListener("click", event => { if (event.target === overlay) closeEditor(); });
+      const count = overlay.querySelector("[data-note-count]");
+      const updateCount = () => { count.textContent = input.value.length + " / 500"; };
+      updateCount();
+      input.addEventListener("input", updateCount);
+      save.addEventListener("click", async () => {
+        const value = input.value.trim();
+        if (!value) { errorBox.textContent = "Write something before saving."; input.focus(); return; }
+        save.disabled = true;
+        try {
+          if (latestNote) await userNotes.remove(latestNote.id);
+          await userNotes.create({ content: value });
+          closeEditor();
+          await openPublicProfile(userId);
+        } catch (error) { errorBox.textContent = error.message || "Could not save your note."; save.disabled = false; }
+      });
+      overlay.querySelector("[data-delete-profile-note]")?.addEventListener("click", async buttonEvent => {
+        const button = buttonEvent.currentTarget;
+        if (!window.confirm("Delete your note? This cannot be undone.")) return;
+        button.disabled = true;
+        try {
+          await userNotes.remove(latestNote.id);
+          closeEditor();
+          await openPublicProfile(userId);
+        } catch (error) { errorBox.textContent = error.message || "Could not delete your note."; button.disabled = false; }
+      });
+      input.focus();
+    });
   } catch (error) {
     content.innerHTML = '<p class="empty-state">Could not load this profile: ' + safeText(error.message) + '</p>';
   }
