@@ -53,7 +53,7 @@ function paintIdentity() {
   const name = currentProfile?.display_name || currentUser?.email || "Murmur user";
   const username = currentProfile?.username ? "@" + currentProfile.username : "";
   if ($("menuName")) $("menuName").textContent = name;
-  if ($("menuUser")) $("menuUser").textContent = username;
+  if ($("menuUser")) $("menuUser").textContent = [username, currentProfile?.public_id ? "ID: " + currentProfile.public_id : ""].filter(Boolean).join(" · ");
   if ($("composerAvatar")) $("composerAvatar").textContent = name.slice(0, 1).toUpperCase();
   if ($("menuAvatar")) $("menuAvatar").textContent = name.slice(0, 1).toUpperCase();
 }
@@ -85,6 +85,15 @@ async function renderFeed() {
   }
 }
 
+
+let feedChannel = null;
+function watchFeed() {
+  if (feedChannel) supabase.removeChannel(feedChannel);
+  feedChannel = supabase.channel("murmur-public-posts")
+    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => renderFeed())
+    .subscribe();
+}
+
 async function enterApp(user) {
   currentUser = user;
   try {
@@ -92,6 +101,7 @@ async function enterApp(user) {
     showApp();
     paintIdentity();
     await renderFeed();
+    watchFeed();
   } catch (error) {
     console.error("[Murmur profile]", error);
     showError(error.message);
@@ -216,7 +226,7 @@ async function boot() {
   else showAuth();
   const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT" || !session?.user) {
-      currentUser = null; currentProfile = null; showAuth();
+      currentUser = null; currentProfile = null; if (feedChannel) { supabase.removeChannel(feedChannel); feedChannel = null; } showAuth();
     } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
       queueMicrotask(() => enterApp(session.user));
     }
