@@ -29,15 +29,15 @@
   "rewrites": [
     {
       "source": "/terms",
-      "destination": "/terms.html"
+      "destination": "/index.html"
     },
     {
       "source": "/privacy",
-      "destination": "/privacy.html"
+      "destination": "/index.html"
     },
     {
       "source": "/cookies",
-      "destination": "/cookies.html"
+      "destination": "/index.html"
     },
     {
       "source": "/(.*)",
