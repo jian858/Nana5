@@ -213,7 +213,7 @@ function openPerformanceDiagnostics() {
         <article class="murmur-diagnostic-card"><small>Signal estimate</small><strong><span data-signal>—</span><small>/100</small></strong><span data-signal-detail>Checking connection information</span></article>
         <article class="murmur-diagnostic-card"><small>Network</small><strong data-network>Checking…</strong><span data-network-detail>Browser connection status</span></article>
       </section>
-      <p class="murmur-diagnostics-note">The FPS value is measured while this screen is visible. Signal estimate is calculated from browser-reported network speed and latency; it is not the phone’s actual cellular signal strength.</p>
+      <p class="murmur-diagnostics-note">The signal score is a connection-quality estimate based on the measured response time to Murmur and any network speed details your browser provides. It is not the phone’s actual cellular signal bars or dBm reading.</p>
       <button class="permissions-refresh" data-refresh type="button">Run test again</button>
     </main>`;
   document.body.appendChild(screen);
@@ -229,7 +229,7 @@ function openPerformanceDiagnostics() {
     cores ? cores + ' CPU cores' : 'CPU details hidden',
     deviceMemory ? deviceMemory + ' GB memory estimate' : 'Memory details hidden'
   ].join(' · ');
-  function updateNetwork() {
+  async function updateNetwork() {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     $('[data-network]').textContent = navigator.onLine ? 'Online' : 'Offline';
     if (!navigator.onLine) {
@@ -238,25 +238,27 @@ function openPerformanceDiagnostics() {
       $('[data-network-detail]').textContent = 'Device is offline';
       return;
     }
-    if (!connection || (!Number.isFinite(connection.rtt) && !Number.isFinite(connection.downlink))) {
+    const started = performance.now();
+    try {
+      await murmurPostsRequest('list');
+      const latency = Math.max(1, Math.round(performance.now() - started));
+      const downlink = Number(connection?.downlink) || 0;
+      let score = Math.round(100 * Math.exp(-Math.max(0, latency - 35) / 430));
+      if (downlink > 0) score = Math.round(score * 0.75 + Math.min(100, downlink * 12.5) * 0.25);
+      score = Math.max(1, Math.min(100, score));
+      $('[data-signal]').textContent = String(score);
+      $('[data-signal-detail]').textContent = score >= 75 ? 'Good estimated connection' : score >= 45 ? 'Fair estimated connection' : 'Slow estimated connection';
+      const parts = [latency + ' ms to Murmur'];
+      if (connection?.effectiveType) parts.push(connection.effectiveType.toUpperCase());
+      if (downlink > 0) parts.push(downlink + ' Mbps');
+      $('[data-network-detail]').textContent = parts.join(' · ');
+      $('[data-network]').textContent = score >= 75 ? 'Fast' : score >= 45 ? 'Moderate' : 'Slow';
+    } catch (error) {
       $('[data-signal]').textContent = 'N/A';
-      $('[data-signal-detail]').textContent = 'Browser does not provide signal metrics';
-      $('[data-network-detail]').textContent = 'Online · detailed speed unavailable';
-      return;
+      $('[data-signal-detail]').textContent = 'Could not measure the Murmur server';
+      $('[data-network-detail]').textContent = 'Connection check failed';
+      $('[data-network]').textContent = 'Online · test failed';
     }
-    const rtt = Number(connection.rtt);
-    const downlink = Number(connection.downlink);
-    let score = 55;
-    if (Number.isFinite(rtt) && rtt > 0) score += Math.max(-35, Math.min(25, (180 - rtt) / 5));
-    if (Number.isFinite(downlink) && downlink > 0) score += Math.max(-20, Math.min(20, (downlink - 2) * 5));
-    score = Math.round(Math.max(0, Math.min(100, score)));
-    $('[data-signal]').textContent = String(score);
-    $('[data-signal-detail]').textContent = score >= 75 ? 'Good estimated connection' : score >= 45 ? 'Fair estimated connection' : 'Weak estimated connection';
-    const parts = [];
-    if (connection.effectiveType) parts.push(connection.effectiveType.toUpperCase());
-    if (Number.isFinite(downlink) && downlink > 0) parts.push(downlink + ' Mbps');
-    if (Number.isFinite(rtt) && rtt > 0) parts.push(rtt + ' ms latency');
-    $('[data-network-detail]').textContent = parts.join(' · ') || 'Connection details unavailable';
   }
   function measureFps() {
     if (!active) return;
