@@ -701,17 +701,47 @@ function openForgotPasswordPage() {
         redirectTo: location.origin + "/?password-reset=1"
       }), "Sending the password reset link", 20000);
       if (error) throw error;
-      status.textContent = "If an account is registered with that email, a reset link has been sent. Check your inbox and spam folder.";
+      status.textContent = "If an account is registered with that email, a reset link has been requested. Check your inbox and spam folder.";
+      button.dataset.cooldown = "60";
       button.textContent = "Send another link";
     } catch (error) {
-      status.textContent = /rate limit|too many requests/i.test(String(error.message || ""))
-        ? "Too many attempts. Please wait a few minutes before trying again."
-        : /taking too long|timeout/i.test(String(error.message || ""))
-          ? "The server is taking too long to respond. Your request was not confirmed. Check your connection, then try again."
-          : "We could not request a reset link right now. Please check your connection and try again.";
-      button.textContent = "Try again";
+      const message = String(error.message || "");
+      const rateLimit = /rate limit|too many requests|over_email_send_rate_limit/i.test(message);
+      const waitMatch = message.match(/after\s+(\d+)\s+seconds?/i);
+      if (rateLimit) {
+        button.dataset.cooldown = String(waitMatch ? Math.min(120, Math.max(1, Number(waitMatch[1]))) : 60);
+        status.textContent = "Murmur is protecting your inbox. Please wait before requesting another reset email.";
+        button.textContent = "Send another link";
+      } else if (/taking too long|timeout/i.test(message)) {
+        button.dataset.cooldown = "60";
+        status.textContent = "The server is taking too long to respond. The request may still be processing. Wait a minute before trying again.";
+        button.textContent = "Send another link";
+      } else {
+        status.textContent = "We could not request a reset link right now. Please check your connection and try again.";
+        button.textContent = "Try again";
+      }
     } finally {
-      button.disabled = false;
+      const cooldown = Number(button.dataset.cooldown || 0);
+      delete button.dataset.cooldown;
+      if (cooldown > 0) {
+        let remaining = cooldown;
+        button.disabled = true;
+        button.textContent = "Send again in " + remaining + "s";
+        const timer = setInterval(() => {
+          remaining -= 1;
+          if (!button.isConnected || remaining <= 0) {
+            clearInterval(timer);
+            if (button.isConnected) {
+              button.disabled = false;
+              button.textContent = "Send another link";
+            }
+          } else {
+            button.textContent = "Send again in " + remaining + "s";
+          }
+        }, 1000);
+      } else {
+        button.disabled = false;
+      }
     }
   });
   overlay.querySelector("#murmurRecoveryEmail").focus();
