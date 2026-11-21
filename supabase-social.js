@@ -77,7 +77,11 @@ async function renderStories() {
   if (!root) return;
   try {
     const rows = await stories.list();
-    root.innerHTML = '<div class="story-heading"><strong>Stories</strong> <button type="button" class="btn secondary" data-add-story>Share a story</button></div>' + (rows.length ? rows.map(s => '<article class="story-card">' + (s.media_url ? (s.media_url.match(/\.(mp4|webm)(\?|$)/i) ? '<video controls playsinline preload="metadata" src="' + esc(s.media_url) + '"></video>' : '<img loading="lazy" src="' + esc(s.media_url) + '" alt="Story media">') : '') + '<strong>' + esc(s.content || "Story") + '</strong><small>' + esc(new Date(s.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No active stories.</p>');
+    const displayRows = await Promise.all(rows.map(async story => ({
+      ...story,
+      signedMediaUrl: story.media_path ? await storage.url("murmur-stories", story.media_path) : null
+    })));
+    root.innerHTML = '<div class="story-heading"><strong>Stories</strong> <button type="button" class="btn secondary" data-add-story>Share a story</button></div>' + (displayRows.length ? displayRows.map(s => '<article class="story-card">' + (s.signedMediaUrl ? (s.media_type === "video" ? '<video controls playsinline preload="metadata" src="' + esc(s.signedMediaUrl) + '"></video>' : '<img loading="lazy" src="' + esc(s.signedMediaUrl) + '" alt="Story media">') : '') + '<strong>' + esc(s.content || "Story") + '</strong><small>' + esc(new Date(s.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No active stories.</p>');
     root.querySelector("[data-add-story]")?.addEventListener("click", () => {
       const picker = document.createElement("input");
       picker.type = "file"; picker.accept = "image/jpeg,image/png,image/webp,image/avif,video/mp4,video/webm"; picker.hidden = true;
@@ -88,9 +92,13 @@ async function renderStories() {
         if (!file && !content.trim()) return;
         if (file && file.size > 20 * 1024 * 1024) return alert("Choose a story file under 20 MB.");
         try {
-          let mediaUrl = null;
-          if (file) mediaUrl = (await storage.uploadMedia(file, "stories")).url;
-          await stories.create({ content, mediaUrl });
+          let mediaPath = null, mediaType = null;
+          if (file) {
+            const uploaded = await storage.uploadMedia(file, "stories");
+            mediaPath = uploaded.path;
+            mediaType = file.type.startsWith("video/") ? "video" : "image";
+          }
+          await stories.create({ content, mediaPath, mediaType });
           await renderStories();
         } catch (error) { alert(error.message); }
       }, { once: true });
@@ -104,7 +112,11 @@ async function renderReels() {
   if (!root) return;
   try {
     const rows = await reels.list();
-    root.innerHTML = rows.map(r => '<article class="reel-card"><video controls playsinline preload="metadata" src="' + esc(r.video_url) + '"></video><strong>' + esc(r.title || "Reel") + '</strong><p>' + esc(r.caption || "") + '</p></article>').join("") || '<p class="empty-state">No reels yet.</p>';
+    const displayRows = await Promise.all(rows.map(async reel => ({
+      ...reel,
+      signedMediaUrl: reel.storage_path ? await storage.url("murmur-reels", reel.storage_path) : reel.video_url
+    })));
+    root.innerHTML = displayRows.map(r => '<article class="reel-card"><video controls playsinline preload="metadata" src="' + esc(r.signedMediaUrl || "") + '"></video><strong>' + esc(r.title || "Reel") + '</strong><p>' + esc(r.caption || "") + '</p></article>').join("") || '<p class="empty-state">No reels yet.</p>';
   } catch (error) { fail(root, error); }
 }
 
@@ -205,7 +217,7 @@ export function initSupabaseSocial() {
       if (file.size > 100 * 1024 * 1024) return alert("Choose a video under 100 MB.");
       try {
         const uploaded = await storage.uploadMedia(file, "reels");
-        await reels.create({ videoUrl: uploaded.url, storagePath: uploaded.path, title: file.name });
+        await reels.create({ storagePath: uploaded.path, title: file.name });
         await renderReels();
       } catch (error) { alert(error.message); }
     }, { once: true });
