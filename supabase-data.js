@@ -63,7 +63,7 @@ export const profiles = {
   },
   search: async (term, page = 0) => {
     const [from, to] = pageRange(page);
-    const query = supabase.from("profiles").select("id,username,display_name,bio,avatar_url,created_at").order("created_at", { ascending: false }).range(from, to);
+    const query = supabase.from("profiles").select("id,public_id,username,display_name,bio,avatar_url,created_at").order("created_at", { ascending: false }).range(from, to);
     if (term?.trim()) query.or("username.ilike.%" + term.trim().replace(/[%_,]/g, "") + "%,display_name.ilike.%" + term.trim().replace(/[%_,]/g, "") + "%");
     return throwIfError(await query);
   }
