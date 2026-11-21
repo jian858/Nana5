@@ -102,7 +102,7 @@ async function searchPeople() {
     const currentUserId = sessionData?.session?.user?.id;
     const matches = (data || []).filter(person => person.id !== currentUserId);
     target.innerHTML = matches.map(person =>
-      '<div class="friend-row"><span class="avatar">' + esc((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</span><div><strong>' + esc(person.display_name || "Murmur user") + '</strong><small>@' + esc(person.username || "") + '</small></div><div class="friend-actions"><button class="btn secondary" type="button" data-chat-user="' + esc(person.id) + '">Message</button><button class="btn secondary" type="button" data-request="' + esc(person.id) + '">Add friend</button></div></div>'
+      '<div class="friend-row"><button class="avatar" type="button" data-open-profile="' + esc(person.id) + '" aria-label="View profile">' + esc((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</button><div><button class="people-profile-name" type="button" data-open-profile="' + esc(person.id) + '">' + esc(person.display_name || "Murmur user") + '</button><small>@' + esc(person.username || "") + '</small></div><div class="friend-actions"><button class="btn secondary" type="button" data-chat-user="' + esc(person.id) + '">Message</button><button class="btn secondary" type="button" data-request="' + esc(person.id) + '">Add friend</button></div></div>'
     ).join("") || '<p class="empty-state">No account found. Try another name or username.</p>';
     target.querySelectorAll("[data-chat-user]").forEach(action => action.addEventListener("click", async () => {
       action.disabled = true;
