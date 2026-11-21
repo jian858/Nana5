@@ -788,29 +788,59 @@ input,select,textarea{max-width:100%}
 @media(max-width:480px){#app .murmur-profile-view-content{padding-inline:12px}#app .murmur-profile-cover{margin-inline:-12px}}
 
 
-/* Legal links stay after the active view and wrap cleanly on small screens. */
+/* App footer: full-width legal actions, never clipped by the mobile viewport. */
 .main > footer.legal-links{
   display:flex;
   flex-wrap:wrap;
   align-items:center;
   justify-content:center;
-  gap:4px 7px;
+  gap:9px;
   width:100%;
-  margin:24px auto 0;
-  padding:16px 14px calc(20px + env(safe-area-inset-bottom,0px));
-  color:var(--muted);
-  font-size:.84rem;
-  line-height:1.6;
+  max-width:100%;
+  box-sizing:border-box;
+  margin:26px auto 0;
+  padding:18px 14px calc(26px + env(safe-area-inset-bottom,0px));
+  color:var(--muted,#74818a);
+  font-size:.82rem;
+  line-height:1.45;
   text-align:center;
-  overflow-wrap:anywhere;
+  overflow:visible;
 }
 .main > footer.legal-links a{
-  color:var(--ink);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:40px;
+  max-width:100%;
+  box-sizing:border-box;
+  padding:8px 14px;
+  border:1px solid var(--line,#dfe7e8);
+  border-radius:12px;
+  background:var(--surface,#fff);
+  color:var(--ink,#172a2b);
+  font-size:.84rem;
   font-weight:700;
+  line-height:1.2;
   text-decoration:none;
+  overflow-wrap:anywhere;
+  transition:background .18s ease,border-color .18s ease,transform .18s ease;
 }
 .main > footer.legal-links a:hover,
-.main > footer.legal-links a:focus-visible{text-decoration:underline}
+.main > footer.legal-links a:focus-visible{
+  border-color:var(--accent,#14c8a0);
+  background:rgba(20,200,160,.09);
+  outline:none;
+}
+.main > footer.legal-links .legal-copy{
+  flex:1 0 100%;
+  display:block;
+  padding-top:2px;
+  color:var(--muted,#74818a);
+}
+@media(max-width:480px){
+  .main > footer.legal-links{gap:8px;margin-top:20px;padding:16px 12px calc(28px + env(safe-area-inset-bottom,0px));}
+  .main > footer.legal-links a{flex:1 1 auto;min-width:0;padding:9px 10px;font-size:.8rem;}
+}
 
 /* Refined profile back control: clear arrow, consistent tap target and feedback. */
 #app .murmur-profile-back{
