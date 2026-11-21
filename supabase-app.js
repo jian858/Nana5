@@ -326,7 +326,7 @@ async function createPost() {
 }
 
 function switchView(view, sourceButton = null) {
-  const target = document.querySelector('[data-pane="' + CSS.escape(view) + '"]');
+  const target = Array.from(document.querySelectorAll("[data-pane]")).find(pane => pane.dataset.pane === view);
   if (!target) return false;
   document.querySelectorAll(".fb-nav [data-view]").forEach(item => {
     const active = item.dataset.view === view;
