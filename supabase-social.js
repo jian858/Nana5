@@ -38,51 +38,11 @@ async function renderFriends() {
 }
 
 async function openDirectChat(targetUserId) {
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError) throw userError;
-  const currentUserId = userData.user?.id;
-  if (!currentUserId || !targetUserId || targetUserId === currentUserId) {
-    throw new Error("Choose another Murmur user to message.");
-  }
-
-  const { data: mine, error: mineError } = await supabase.from("conversation_members")
-    .select("conversation_id").eq("user_id", currentUserId);
-  if (mineError) throw mineError;
-
-  const conversationIds = [...new Set((mine || []).map(row => row.conversation_id))];
-  let conversationId = null;
-  if (conversationIds.length) {
-    const { data: shared, error: sharedError } = await supabase.from("conversation_members")
-      .select("conversation_id,user_id")
-      .in("conversation_id", conversationIds)
-      .in("user_id", [currentUserId, targetUserId]);
-    if (sharedError) throw sharedError;
-
-    const membersByConversation = new Map();
-    for (const row of shared || []) {
-      const members = membersByConversation.get(row.conversation_id) || new Set();
-      members.add(row.user_id);
-      membersByConversation.set(row.conversation_id, members);
-    }
-    conversationId = [...membersByConversation.entries()]
-      .find(([, members]) => members.size === 2 && members.has(currentUserId) && members.has(targetUserId))?.[0] || null;
-  }
-
-  if (!conversationId) {
-    const { data: conversation, error: conversationError } = await supabase.from("conversations")
-      .insert({ created_by: currentUserId }).select("id").single();
-    if (conversationError) throw conversationError;
-
-    const { error: membersError } = await supabase.from("conversation_members").insert([
-      { conversation_id: conversation.id, user_id: currentUserId },
-      { conversation_id: conversation.id, user_id: targetUserId }
-    ]);
-    if (membersError) {
-      await supabase.from("conversations").delete().eq("id", conversation.id).eq("created_by", currentUserId);
-      throw membersError;
-    }
-    conversationId = conversation.id;
-  }
+  const { data: conversationId, error } = await supabase.rpc("start_murmur_direct_conversation", {
+    p_target_user_id: targetUserId
+  });
+  if (error) throw error;
+  if (!conversationId) throw new Error("The conversation could not be opened.");
 
   document.querySelector('[data-view="chats"]')?.click();
   await renderChats();
