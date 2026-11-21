@@ -22,7 +22,7 @@ Last updated: 2026-11-21
 - Verified the existing profile has a 16-character public ID.
 - Added Supabase Storage buckets for avatars, posts, stories and reels, with public-read and owner-folder upload/update/delete policies.
 - Enabled Supabase Realtime publication for posts, notifications, stories and reels; messages were already enabled.
-- Live app functions now use Supabase for the home feed, friend requests, conversation creation, messages, stories, reels, notes and notifications.
+- Live app functions now use Supabase for the home feed, text/photo/video posts, friend search and requests, conversation creation, messages, stories with media, reels with video uploads, notes, notifications and admin announcements in Alerts.\n- Added Supabase profile editing and avatar uploads.\n- Added realtime subscriptions for posts, messages, notifications, stories and reels.\n- Added account restriction checks before opening the signed-in app.
 - Updated public Privacy and Cookie pages to describe Supabase rather than Firebase.
 
 ## Important remaining work — do not deploy as finished
