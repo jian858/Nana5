@@ -404,6 +404,21 @@
     </main>
   </div>
 
+  <script>
+    // Never leave visitors trapped behind the startup splash if a network
+    // request or module import stalls. The auth screen remains usable and the
+    // app can still open later if its startup request eventually completes.
+    window.setTimeout(function () {
+      var splash = document.getElementById("splash");
+      var auth = document.getElementById("auth");
+      if (splash && !splash.hidden && auth) {
+        splash.hidden = true;
+        auth.hidden = false;
+        var error = document.getElementById("authError");
+        if (error) error.textContent = "Murmur is taking too long to connect. Check your internet connection and sign in again.";
+      }
+    }, 12000);
+  </script>
   <script type="module" src="./supabase-client.js?v=20261121-25"></script>
   <script type="module" src="./supabase-runtime.js?v=20261121-1"></script>
   <script src="./visitor-tracking.js?v=20261121-3"></script>
