@@ -1,0 +1,119 @@
+/* Murmur legal documents and password recovery page
+   Kept separate so these full-screen flows stay consistent across devices. */
+.screen-legal{
+  box-sizing:border-box;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  background:linear-gradient(145deg,#e8faf5 0%,#f3f7fb 56%,#edf2f8 100%);
+}
+.legal-top{
+  position:relative;
+  z-index:1;
+  flex-wrap:wrap;
+  gap:14px;
+  padding:14px clamp(14px,3vw,30px);
+  min-height:68px;
+  box-shadow:0 5px 22px rgba(20,33,61,.05);
+}
+.legal-top .brand-row{flex:0 0 auto;font-weight:850;font-size:1.08rem}
+.legal-tabs{min-width:0;gap:6px;flex-wrap:wrap}
+.legal-tab{min-height:42px;padding:9px 15px;cursor:pointer}
+.legal-tab:focus-visible,.screen-legal .close-btn:focus-visible,
+.forgot-tabs button:focus-visible{outline:3px solid rgba(20,168,138,.35);outline-offset:2px}
+.legal-body{overscroll-behavior:contain;padding:clamp(16px,4vw,38px)}
+.legal-doc{
+  width:min(100%,820px);
+  padding:clamp(22px,5vw,52px);
+  border-radius:22px;
+  background:#fff;
+  box-shadow:0 18px 55px rgba(20,33,61,.09);
+  overflow-wrap:anywhere;
+}
+.legal-doc h1{margin-bottom:10px}
+.legal-doc h2{margin:28px 0 9px;padding-top:8px}
+.legal-doc p,.legal-doc li{line-height:1.75}
+.legal-doc ul,.legal-doc ol{padding-left:1.35rem}
+.legal-doc li{padding-left:3px;margin:5px 0}
+.legal-doc .legal-meta{margin:0 0 22px}
+.screen-forgot{
+  box-sizing:border-box;
+  grid-template-columns:minmax(250px,.82fr) minmax(0,1.18fr);
+  background:radial-gradient(circle at 15% 15%,rgba(20,200,160,.17),transparent 34%),linear-gradient(145deg,#edf9f6,#f3f6fb 70%);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.forgot-side{box-sizing:border-box;padding:clamp(26px,5vw,64px);gap:24px}
+.forgot-side .brand-row{font-size:1.2rem;font-weight:850}
+.forgot-side h2{max-width:12ch}
+.forgot-side p{max-width:34ch;font-size:1.02rem}
+.forgot-main{min-width:0;background:rgba(255,255,255,.82)}
+.forgot-top{align-items:center;justify-content:space-between;gap:12px;padding:18px clamp(16px,4vw,42px);border-bottom:1px solid rgba(20,33,61,.08)}
+.forgot-tabs{display:flex;gap:7px;align-items:center;padding:4px;border:1px solid #e5eaf0;border-radius:14px;background:#f5f7fa}
+.forgot-tab{min-height:40px;padding:9px 14px;border:0;border-radius:10px;background:transparent;color:#596579;font:inherit;font-weight:750}
+.forgot-tab.active{background:#fff;color:#087e69;box-shadow:0 2px 9px rgba(20,33,61,.09)}
+.forgot-body{box-sizing:border-box;padding:clamp(20px,5vw,54px)}
+.forgot-content{
+  box-sizing:border-box;
+  width:min(100%,460px);
+  padding:clamp(22px,4vw,38px);
+  gap:14px;
+  border:1px solid #e6ebf0;
+  border-radius:22px;
+  background:#fff;
+  box-shadow:0 18px 50px rgba(20,33,61,.08);
+}
+.forgot-content h3{color:#17233a}
+.forgot-content>p{margin:0 0 8px;color:#667286}
+.forgot-content .field{gap:8px}
+.forgot-content .field label{color:#344158;font-weight:750}
+.forgot-content input{min-height:50px;background:#fbfcfd;border-color:#dce3ea}
+.forgot-content .btn{width:100%;min-height:48px;margin-top:2px}
+.forgot-content .error{color:#b3261e;line-height:1.45}
+.forgot-success{padding:14px 15px;color:#176b59;line-height:1.55}
+.forgot-loading{display:flex;align-items:center;gap:10px;margin:4px 0;color:#64748b;font-size:.92rem}
+.forgot-loading[hidden]{display:none}
+.forgot-spinner{width:19px;height:19px;flex:0 0 19px;border:3px solid #dbe4ec;border-top-color:#14a88a;border-radius:50%;animation:murmurResetSpin .75s linear infinite}
+@keyframes murmurResetSpin{to{transform:rotate(360deg)}}
+.screen-legal .close-btn,.screen-forgot .close-btn{min-width:42px;min-height:42px;border:1px solid #e1e7ed;border-radius:12px;background:#fff;color:#26354b;font-size:1.5rem}
+html[data-theme="dark"] .screen-legal,
+html[data-theme="dark"] .screen-forgot{background:#101923;color:#e8eef7}
+html[data-theme="dark"] .legal-top,
+html[data-theme="dark"] .forgot-main{background:#172230;border-color:#334155}
+html[data-theme="dark"] .legal-doc,
+html[data-theme="dark"] .forgot-content{background:#1c2938;border-color:#344357;color:#e2eaf4}
+html[data-theme="dark"] .legal-doc h1,
+html[data-theme="dark"] .legal-doc h2,
+html[data-theme="dark"] .legal-doc h3,
+html[data-theme="dark"] .forgot-content h3{color:#f2f6fb}
+html[data-theme="dark"] .legal-doc p,
+html[data-theme="dark"] .legal-doc li,
+html[data-theme="dark"] .forgot-content>p{color:#c0cad8}
+html[data-theme="dark"] .forgot-tabs{background:#111b27;border-color:#344357}
+html[data-theme="dark"] .forgot-tab{color:#bdc8d7}
+html[data-theme="dark"] .forgot-tab.active{background:#26384a;color:#8ce6d2}
+html[data-theme="dark"] .forgot-content input{background:#111b27;border-color:#405169;color:#f2f6fb}
+html[data-theme="dark"] .screen-legal .close-btn,
+html[data-theme="dark"] .screen-forgot .close-btn{background:#263446;color:#f2f6fb;border-color:#405169}
+@media(max-width:900px){
+  .screen-legal{display:flex}
+  .legal-top{gap:8px;padding:10px 12px}
+  .legal-top .brand-row{display:none}
+  .legal-tabs{justify-content:flex-start;flex:1;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
+  .legal-tab{flex:0 0 auto;padding:9px 12px;font-size:.9rem}
+  .legal-body{padding:14px 12px 22px}
+  .legal-doc{padding:22px 19px;border-radius:17px}
+  .screen-forgot{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);overflow-y:auto}
+  .forgot-side{padding:12px 16px;gap:0;border-bottom:1px solid #e2e9ef}
+  .forgot-side>div:nth-child(2),.forgot-side>span{display:none}
+  .forgot-main{min-height:0}
+  .forgot-top{padding:10px 14px}
+  .forgot-body{align-items:flex-start;padding:20px 14px 30px}
+  .forgot-content{margin:auto;padding:23px 19px}
+}
+@media(max-width:420px){
+  .legal-tab{padding:8px 10px;font-size:.84rem}
+  .legal-doc{padding:19px 16px;font-size:.94rem}
+  .legal-doc h1{font-size:1.8rem}
+  .legal-doc h2{font-size:1.12rem}
+  .forgot-tabs{gap:3px}
+  .forgot-tab{padding:8px 10px;font-size:.9rem}
+}
+@media(prefers-reduced-motion:reduce){.forgot-spinner{animation:none}}
