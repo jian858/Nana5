@@ -77,6 +77,7 @@ const db = getDatabase(app);
 const MURMUR_SUPABASE_URL = 'https://pkadftvqslkykehcqedj.supabase.co';
 const MURMUR_SUPABASE_KEY = 'sb_publishable_etoHiUGbJ96MUPzJABL12A_UiTWVxok';
 const MURMUR_IDENTITY_URL = MURMUR_SUPABASE_URL + '/functions/v1/murmur-identity';
+const MURMUR_POSTS_URL = MURMUR_SUPABASE_URL + '/functions/v1/murmur-posts';
 window.MURMUR_IDS = window.MURMUR_IDS || { firebaseUid: null, supabaseId: null, status: 'not-signed-in' };
 function getMurmurDeviceToken() {
   try {
@@ -124,6 +125,25 @@ async function syncMurmurSupabaseIdentity(user, profile = {}) {
     console.warn('Supabase identity sync is not ready:', window.MURMUR_IDS.error);
   }
   return window.MURMUR_IDS;
+}
+
+
+async function murmurPostsRequest(action, payload = {}) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Sign in to use posts.');
+  const token = await user.getIdToken();
+  const response = await fetch(MURMUR_POSTS_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'apikey': MURMUR_SUPABASE_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ action, ...payload })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Post service failed (' + response.status + ').');
+  return result;
 }
 
 /* =====================================================================
@@ -292,21 +312,39 @@ const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const ic = (n, c) => `<svg class="ic"${c ? ` style="color:${c}"` : ''} aria-hidden="true"><use href="#i-${n}"/></svg>`;
 let noteData = {}, noteSubs = {};   // notes: one short line each friend can see in chat
 let remotePosts = null, unsubPosts = null, feedLoading = false;
+let supabasePosts = [], legacyPosts = [], supabasePostsTimer = null;
 
 function startPostsListener() {
   if (unsubPosts) return;
+  feedLoading = true;
+  renderPosts();
+  loadSupabasePosts().catch(error => console.warn('Supabase posts unavailable:', error.message));
+  if (!supabasePostsTimer) supabasePostsTimer = setInterval(() => {
+    loadSupabasePosts().catch(error => console.warn('Supabase post refresh failed:', error.message));
+  }, 300000);
   const q = query(ref(db, 'posts'), orderByChild('createdAt'), limitToLast(50));
-  feedLoading = true; renderPosts();
   unsubPosts = onValue(q, snap => {
-    feedLoading = false; hideAppSkeleton();
+    feedLoading = false;
+    hideAppSkeleton();
     const v = snap.val() || {};
     Object.values(v).forEach(p => watchPhoto(p.authorUid));
-    remotePosts = Object.entries(v).map(([id, p]) => ({ id, ...p })).sort((a, b) => (b.createdAt || Date.now()) - (a.createdAt || Date.now()));
-    renderPosts();
+    legacyPosts = Object.entries(v).map(([id, p]) => ({ id, ...p, source: 'firebase' }));
+    mergeRemotePosts();
   }, err => {
-    console.warn('Shared posts unavailable (check Realtime Database rules):', err);
-    feedLoading = false; hideAppSkeleton(); remotePosts = null; unsubPosts = null; renderPosts();
+    console.warn('Legacy Firebase posts unavailable:', err);
+    legacyPosts = [];
+    feedLoading = false;
+    hideAppSkeleton();
+    mergeRemotePosts();
   });
 }
-    function stopPostsListener() { if (unsubPosts) unsubPosts(); unsubPosts = null; remotePosts = null; }
+function stopPostsListener() {
+  if (unsubPosts) unsubPosts();
+  unsubPosts = null;
+  if (supabasePostsTimer) clearInterval(supabasePostsTimer);
+  supabasePostsTimer = null;
+  remotePosts = null;
+  supabasePosts = [];
+  legacyPosts = [];
+}
 
