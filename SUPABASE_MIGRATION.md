@@ -164,3 +164,10 @@ Last updated: 2026-11-21
 - Applied migration `20261121134128_anonymize_legacy_error_log_actors`; historical error records remain, but 103 unprefixed legacy actor identifiers were replaced with `legacy:anonymous`. Twelve current `supabase:<uuid>` actor identifiers were preserved.
 - Verified no Firebase-named tables or columns and no Firebase-referencing database functions remain in the `public` and `private` schemas.
 - Updated the separate Admin app's error page to read `actor_key`, use Supabase/database terminology, and refreshed its script versions. Fixed malformed Announcements tab markup.
+
+
+## Legacy archive index cleanup — 2026-11-21
+
+- Applied migration `20261121134257_finalize_legacy_archive_keys`.
+- Added a primary key on `private.murmur_legacy_account_archive.legacy_supabase_id`, removed an unused email index, and renamed the remaining username index to remove legacy Firebase naming.
+- Verified no Firebase-named indexes remain in the `public` or `private` schemas.
