@@ -2073,3 +2073,15 @@ html[data-theme="dark"] .murmur-menu-pane .menu-add-account:hover{background:#26
 .profile-edit-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
 .profile-edit-error{min-height:20px;color:var(--danger);font-size:.9rem}
 @media(max-width:480px){.profile-edit-back{padding:8px;align-items:end}.profile-edit-card{max-height:94dvh;border-radius:20px 20px 12px 12px;padding:18px 15px}.profile-edit-grid{grid-template-columns:1fr;gap:10px}.profile-edit-grid .field.full{grid-column:auto}}
+
+
+/* Supabase friend discovery and direct-message actions */
+.friend-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);}
+.friend-row>div:first-child{flex:1;min-width:0;}
+.friend-row small{display:block;color:var(--muted);overflow-wrap:anywhere;}
+.friend-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.friend-actions .btn{white-space:nowrap;}
+@media(max-width:520px){
+  .friend-row{align-items:flex-start;flex-wrap:wrap;}
+  .friend-actions{width:100%;margin-left:48px;}
+}
