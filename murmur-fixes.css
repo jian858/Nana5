@@ -786,3 +786,28 @@ input,select,textarea{max-width:100%}
 #app .murmur-profile-cover{height:clamp(110px,22vw,190px);margin:0 -16px}
 #app .murmur-profile-posts{grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:12px}
 @media(max-width:480px){#app .murmur-profile-view-content{padding-inline:12px}#app .murmur-profile-cover{margin-inline:-12px}}
+
+
+/* Legal links stay after the active view and wrap cleanly on small screens. */
+.main > footer.legal-links{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:center;
+  gap:4px 7px;
+  width:100%;
+  margin:24px auto 0;
+  padding:16px 14px calc(20px + env(safe-area-inset-bottom,0px));
+  color:var(--muted);
+  font-size:.84rem;
+  line-height:1.6;
+  text-align:center;
+  overflow-wrap:anywhere;
+}
+.main > footer.legal-links a{
+  color:var(--ink);
+  font-weight:700;
+  text-decoration:none;
+}
+.main > footer.legal-links a:hover,
+.main > footer.legal-links a:focus-visible{text-decoration:underline}
