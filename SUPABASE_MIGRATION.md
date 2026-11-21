@@ -31,7 +31,7 @@ Last updated: 2026-11-21
 - Confirm Supabase Auth email-confirmation settings and Google OAuth provider credentials/redirect URLs in the dashboard.
 - Validate RLS and Storage policies with separate test accounts; run the documented two-user and anonymous tests.
 - Leaked-password protection is not available on this project's current Free plan; Supabase documents this feature as Pro and above. It remains a known limitation unless the project plan changes.
-- Review public-read media bucket behavior before real user media is uploaded. All current media buckets contain zero objects; do not make private buckets without updating the client to use signed URLs and the corresponding row-aware Storage policies.
+- The avatar bucket remains public; post, story, and reel media buckets are private. The client stores object paths and requests short-lived signed URLs; row-aware Storage policies check post visibility, story friendship/expiry, and reel audience. All media buckets were empty when this migration was applied.
 - Verify Realtime subscriptions and media uploads in a browser on desktop and mobile.
 - Test signup, login, Google OAuth, password reset, session restoration, posts, friend requests, chat, stories, reels, notes and notifications before public deployment.
 
@@ -114,3 +114,14 @@ Last updated: 2026-11-21
 - Retired the unused `murmur-public-announcements` Edge Function. The live client reads published announcements directly from Supabase under the existing RLS policy.
 - Changed `murmur-error-log` to require Supabase JWT verification at the Edge gateway; anonymous error logging is no longer accepted. Admin log access still requires an enabled Supabase Super Admin.
 - The remaining public anonymous write path is the narrow, rate-limited visitor RPC; public Edge Functions are no longer used for ordinary app data reads.
+
+
+## Private media and signed URL migration — 2026-11-21
+
+- Applied migration `20261121132636_private_murmur_media_with_signed_urls`.
+- `murmur-avatars` remains public-read. `murmur-posts`, `murmur-stories`, `murmur-reels`, and `murmur-media` are private.
+- Added row-aware `private.can_view_murmur_media(bucket_id, object_path)` as a narrowly scoped SECURITY DEFINER helper with an empty search_path. Only authenticated users can execute it; it checks the relevant post visibility/specific audience, active friend stories, and reel audience, and verifies the object path belongs to the row's author.
+- Replaced the broad public-read media policy with public avatar read plus authenticated audience-aware media read.
+- The client now stores random object paths rather than public or signed URLs, creates short-lived signed URLs at render time, ignores original filenames for object keys, validates MIME type and size, and attempts Storage API deletion when a post/story/reel is deleted.
+- Storage limits: avatars 5 MB, posts 20 MB, stories 20 MB, reels 100 MB. Allowed MIME types are restricted per bucket.
+- Added unique indexes for media paths. Existing media buckets had zero objects, so no old media URLs needed migration.
