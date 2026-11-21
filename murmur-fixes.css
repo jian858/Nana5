@@ -1007,3 +1007,35 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
 .murmur-recovery-search{display:flex;align-items:center;gap:11px;margin:15px 0 4px;padding:13px 14px;border:1px solid rgba(20,200,160,.3);border-radius:13px;background:rgba(20,200,160,.08);font-size:.87rem;font-weight:700;line-height:1.4}
 .murmur-recovery-search[hidden]{display:none}
 .murmur-recovery-spinner{flex:0 0 19px;width:19px;height:19px;border:2.5px solid rgba(20,200,160,.22);border-top-color:#0ca987;border-radius:50%;animation:murmur-login-spin .75s linear infinite}
+
+
+/* Profile photos: keep uploaded images centered, undistorted, and clipped to the avatar circle. */
+.avatar,
+.menu-profile-avatar,
+#murmurEditAvatar,
+.murmur-edit-avatar,
+.murmur-profile-avatar,
+.note-avatar-circle{
+  overflow:hidden!important;
+  border-radius:50%!important;
+  isolation:isolate;
+}
+.avatar>img,
+.menu-profile-avatar>img,
+#composerAvatar>img,
+#menuAvatar>img,
+#murmurEditAvatar>img,
+.murmur-edit-avatar-image,
+.murmur-profile-avatar-image,
+.note-avatar-circle>img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:100%;
+  min-height:100%;
+  max-width:none!important;
+  max-height:none!important;
+  object-fit:cover!important;
+  object-position:50% 50%!important;
+  border-radius:inherit!important;
+}
