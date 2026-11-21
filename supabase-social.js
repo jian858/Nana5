@@ -131,17 +131,30 @@ async function renderReels() {
 async function renderNotes() {
   const root = el("noteRow");
   if (!root) return;
-  root.innerHTML = '<div class="note-heading"><strong>Your notes</strong><button type="button" class="btn secondary" data-add-note>New note</button></div><p class="empty-state">Loading your notes…</p>';
   try {
-    const rows = await userNotes.listMine();
-    root.innerHTML = '<div class="note-heading"><div><strong>Your notes</strong><small>Notes disappear after 24 hours</small></div><button type="button" class="btn secondary" data-add-note>New note</button></div>' +
-      (rows.length ? '<div class="note-grid">' + rows.map(n =>
-        '<article class="note-card"><p>' + esc(n.content) + '</p><div class="note-card-footer"><small>' + esc(new Date(n.created_at).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})) + '</small><button type="button" class="note-delete" data-delete-note="' + esc(n.id) + '" aria-label="Delete note">Delete</button></div></article>'
-      ).join("") + '</div>' : '<p class="empty-state note-empty">You have no active notes yet.</p>');
+    const [{ data: authData, error: authError }, rows] = await Promise.all([
+      supabase.auth.getUser(), userNotes.listMine()
+    ]);
+    if (authError) throw authError;
+    const user = authData.user;
+    if (!user) throw new Error("Sign in again to create a note.");
+    let profile = {};
+    try {
+      const { data } = await supabase.from("murmur_public_profiles")
+        .select("display_name,avatar_url").eq("id", user.id).maybeSingle();
+      profile = data || {};
+    } catch (_) {}
+    const avatarUrl = profile.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || "";
+    const name = profile.display_name || user.user_metadata?.display_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "You";
+    const latest = rows[0] || null;
+    root.innerHTML = '<button type="button" class="note-avatar-button" data-add-note aria-label="Create a note">' +
+      '<span class="note-avatar-circle">' + (avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="">' : '<span>' + esc(name.slice(0,1).toUpperCase()) + '</span>') +
+      '<i aria-hidden="true">+</i></span><strong>Your note</strong></button>' +
+      (latest ? '<span class="note-preview-bubble" title="' + esc(latest.content) + '">' + esc(latest.content) + '</span>' : '<span class="note-hint">Share a note…</span>');
     root.querySelector("[data-add-note]")?.addEventListener("click", () => {
       const overlay = document.createElement("div");
       overlay.className = "murmur-auth-modal murmur-note-modal";
-      overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="note-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="note-title">New note</h2><label for="note-content">Write a note</label><textarea id="note-content" maxlength="500" rows="5" placeholder="Write something to remember…"></textarea><div class="note-editor-footer"><small data-note-count>0 / 500</small><button type="button" class="btn primary" data-save-note>Save note</button></div><p class="murmur-modal-error" role="alert"></p></section>';
+      overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="note-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="note-title">' + (latest ? 'Edit your note' : 'Create a note') + '</h2><label for="note-content">Your note</label><textarea id="note-content" maxlength="500" rows="5" placeholder="What’s on your mind?">' + esc(latest?.content || "") + '</textarea><div class="note-editor-footer"><small data-note-count>0 / 500</small><button type="button" class="btn primary" data-save-note>Save note</button></div>' + (latest ? '<button type="button" class="note-delete" data-delete-current>Delete note</button>' : '') + '<p class="murmur-modal-error" role="alert"></p></section>';
       document.body.appendChild(overlay);
       const input = overlay.querySelector("#note-content");
       const save = overlay.querySelector("[data-save-note]");
@@ -149,22 +162,24 @@ async function renderNotes() {
       const close = () => overlay.remove();
       overlay.querySelector(".murmur-modal-close")?.addEventListener("click", close);
       overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
-      input?.addEventListener("input", () => { overlay.querySelector("[data-note-count]").textContent = input.value.length + " / 500"; });
-      save?.addEventListener("click", async () => {
+      overlay.querySelector("[data-note-count]").textContent = input.value.length + " / 500";
+      input.addEventListener("input", () => { overlay.querySelector("[data-note-count]").textContent = input.value.length + " / 500"; });
+      save.addEventListener("click", async () => {
         const content = input.value.trim();
         if (!content) { errorBox.textContent = "Write something before saving."; input.focus(); return; }
         save.disabled = true;
-        try { await userNotes.create({ content }); close(); await renderNotes(); }
-        catch (error) { errorBox.textContent = error.message || "Could not save your note."; save.disabled = false; }
+        try {
+          if (latest) { await userNotes.remove(latest.id); }
+          await userNotes.create({ content });
+          close(); await renderNotes();
+        } catch (error) { errorBox.textContent = error.message || "Could not save your note."; save.disabled = false; }
       });
-      input?.focus();
+      overlay.querySelector("[data-delete-current]")?.addEventListener("click", async () => {
+        try { await userNotes.remove(latest.id); close(); await renderNotes(); }
+        catch (error) { errorBox.textContent = error.message || "Could not delete your note."; }
+      });
+      input.focus();
     });
-    root.querySelectorAll("[data-delete-note]").forEach(button => button.addEventListener("click", async () => {
-      if (!confirm("Delete this note?")) return;
-      button.disabled = true;
-      try { await userNotes.remove(button.dataset.deleteNote); await renderNotes(); }
-      catch (error) { alert(error.message || "Could not delete this note."); button.disabled = false; }
-    }));
   } catch (error) { fail(root, error); }
 }
 
