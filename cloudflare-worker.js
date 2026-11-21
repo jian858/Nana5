@@ -1,8 +1,8 @@
-/* Murmur Cloudflare edge connection.
- * Cloudflare serves the existing Supabase-backed app through its edge network.
- * Vercel remains the source origin; Supabase remains auth/database/storage.
+/* Murmur Cloudflare edge entry point.
+ * Cloudflare Pages hosts the static application; Supabase provides auth and data.
+ * No Vercel origin or third-party hosting dependency.
  */
-const ORIGIN = "https://murmurrr.vercel.app";
+const ORIGIN = "https://murmur-app-7jm.pages.dev";
 
 export default {
   async fetch(request) {
@@ -22,7 +22,6 @@ export default {
     responseHeaders.set("x-murmur-edge", "cloudflare");
     responseHeaders.set("x-content-type-options", "nosniff");
     responseHeaders.set("referrer-policy", "strict-origin-when-cross-origin");
-    // Always revalidate app shell and code so deployments do not leave stale CSS/JS.
     if (incoming.pathname === "/" || incoming.pathname.endsWith(".html") ||
         /\.(css|js|mjs|json|webmanifest)$/.test(incoming.pathname)) {
       responseHeaders.set("cache-control", "no-store, max-age=0");
