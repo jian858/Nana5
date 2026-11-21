@@ -20,7 +20,12 @@ let authSubscription = null;
 let pendingPostFile = null;
 
 function showError(message) {
-  if (authError) authError.textContent = String(message || "Something went wrong. Please try again.");
+  if (!authError) return;
+  const text = String(message ?? "").trim();
+  // An empty message means clear the previous error, not show a fallback.
+  authError.textContent = text;
+  authError.hidden = !text;
+  authError.setAttribute("aria-live", text ? "assertive" : "off");
 }
 function setLoginLoading(active, message = "") {
   const status = $("loginStatus");
