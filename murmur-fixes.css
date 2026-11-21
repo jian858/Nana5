@@ -666,3 +666,76 @@ input,select,textarea{max-width:100%}
 @media(prefers-reduced-motion:reduce){
   #app:not([hidden])>.main{scroll-behavior:auto}
 }
+
+
+/* Reels spacing and sizing */
+.reels-pane.active{
+  position:relative!important;
+  inset:auto!important;
+  z-index:1!important;
+  width:100%!important;
+  max-width:none!important;
+  height:calc(100dvh - 180px)!important;
+  min-height:420px!important;
+  margin:0!important;
+  padding:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:0!important;
+  overflow:hidden!important;
+  background:#000!important;
+}
+.reels-bar{
+  flex:0 0 56px!important;
+  min-height:56px!important;
+  padding:8px 16px!important;
+  margin:0!important;
+  gap:12px!important;
+}
+.reels-bar strong{line-height:1.2!important;margin:0!important}
+.reels-bar button{flex:0 0 40px!important;margin:0!important}
+.reels-feed{
+  display:flex!important;
+  flex:1 1 auto!important;
+  flex-direction:column!important;
+  gap:0!important;
+  width:100%!important;
+  min-height:0!important;
+  height:100%!important;
+  margin:0!important;
+  padding:0!important;
+}
+.reels-feed>.reel{
+  position:relative!important;
+  flex:0 0 100%!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:100%!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+}
+.reel video{object-fit:contain!important}
+.reel-side{
+  right:12px!important;
+  bottom:clamp(112px,16vh,150px)!important;
+  gap:18px!important;
+}
+.reel-side button{min-width:42px!important;padding:5px 2px!important;line-height:1.2!important}
+.reel-side .ic{width:28px!important;height:28px!important}
+.reel-info{
+  left:16px!important;
+  right:76px!important;
+  bottom:52px!important;
+  max-width:calc(100% - 100px)!important;
+}
+.reel-who{gap:10px!important;min-height:40px!important}
+.reel-cap{margin-top:9px!important;line-height:1.4!important}
+.reel-bottom{left:16px!important;right:16px!important;bottom:10px!important;gap:12px!important}
+@media(max-width:480px){
+  .reels-pane.active{height:calc(100dvh - 170px)!important;min-height:360px!important}
+  .reels-bar{padding:7px 12px!important}
+  .reel-info{left:12px!important;right:70px!important;bottom:48px!important}
+  .reel-side{right:8px!important;gap:15px!important}
+  .reel-bottom{left:12px!important;right:12px!important;bottom:8px!important}
+}
