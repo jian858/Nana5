@@ -59,3 +59,16 @@ select:focus-visible {
     transition-duration: .01ms !important;
   }
 }
+
+
+/* Live performance diagnostics in Settings */
+.murmur-diagnostics-body{max-width:720px}
+.murmur-diagnostics-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}
+.murmur-diagnostic-card{min-width:0;display:flex;flex-direction:column;gap:8px;padding:16px;border:1px solid var(--line,#dfe2e7);border-radius:14px;background:var(--card,#fff);color:var(--ink,#172033)}
+.murmur-diagnostic-card>small{font-size:.78rem;color:var(--muted,#687386);font-weight:700}
+.murmur-diagnostic-card>strong{font-size:clamp(1.4rem,5vw,2rem);line-height:1.15;overflow-wrap:anywhere}
+.murmur-diagnostic-card>strong small{font-size:.8rem;color:var(--muted,#687386);margin-left:4px}
+.murmur-diagnostic-card>span{font-size:.8rem;line-height:1.4;color:var(--muted,#687386);overflow-wrap:anywhere}
+.murmur-diagnostics-note{font-size:.82rem;line-height:1.55;color:var(--muted,#687386);margin:16px 0}
+html[data-theme="dark"] .murmur-diagnostic-card{background:#1c2430;border-color:#334155;color:#e9eef6}
+@media(max-width:420px){.murmur-diagnostics-grid{gap:9px}.murmur-diagnostic-card{padding:12px;gap:7px}}
