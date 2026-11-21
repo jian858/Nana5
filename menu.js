@@ -297,7 +297,8 @@ function openPerformanceDiagnostics() {
   window.addEventListener('offline', updateNetwork);
   runTest();
 }
-\nfunction handleMenuAction(action) {
+
+function handleMenuAction(action) {
   switch(action) {
     case 'reels': setView('reels'); break;
     case 'friends': setView('friends'); break;
@@ -309,7 +310,8 @@ function openPerformanceDiagnostics() {
     case 'privacy': openLegal('privacy'); break;
     case 'add-account': openMenuSwitchAccount(); break;
     case 'account-settings': openEditProfile(); break;
-    case 'permissions': openAppPermissions(); break;\n    case 'performance': openPerformanceDiagnostics(); break;
+    case 'permissions': openAppPermissions(); break;
+    case 'performance': openPerformanceDiagnostics(); break;
     case 'help': openCustomerSupport('question'); break;
     case 'report': openCustomerSupport('report'); break;
     default: break;
