@@ -4,7 +4,7 @@
  */
 import { supabase } from "./supabase-client.js";
 import { posts, profiles, storage, friendships, stories, reels, userNotes, messages, conversations, comments, postLikes, accountRestrictions } from "./supabase-data.js";
-import { initSupabaseSocial } from "./supabase-social.js?v=20261122-6";
+import { initSupabaseSocial } from "./supabase-social.js?v=20261122-7";
 
 const authModalStyles = document.createElement("style");
 authModalStyles.textContent = ".murmur-auth-modal{position:fixed;inset:0;z-index:9999;background:#101828a8;display:grid;place-items:center;padding:18px}.murmur-auth-modal section{position:relative;width:min(100%,440px);max-height:90dvh;overflow:auto;background:var(--panel,#fff);color:var(--text,#17202a);border-radius:20px;padding:26px;box-shadow:0 20px 70px #0004}.murmur-auth-modal h2{margin:0 36px 20px 0}.murmur-auth-modal label{display:grid;gap:6px;margin:12px 0;font-size:14px;font-weight:600}.murmur-auth-modal input{width:100%;min-height:44px;border:1px solid var(--border,#d5dbe3);border-radius:10px;padding:10px;background:var(--input-bg,#fff);color:inherit}.murmur-modal-close{position:absolute;right:14px;top:12px;border:0;background:transparent;font-size:26px}.murmur-modal-error{color:#c62828;font-size:13px;min-height:18px}.murmur-signup-submit{width:100%;min-height:46px}.murmur-auth-modal textarea,.murmur-auth-modal select{width:100%;min-height:44px;border:1px solid var(--border,#d5dbe3);border-radius:10px;padding:10px;background:var(--input-bg,#fff);color:inherit;font:inherit}.murmur-menu-dialog .btn{margin:8px 0;min-height:44px}.murmur-menu-dialog p{line-height:1.55}.murmur-menu-dialog-body{overflow-wrap:anywhere}";
@@ -53,15 +53,19 @@ async function loadProfile(user) {
 
 async function openPublicProfile(userId) {
   if (!userId) return;
-  const overlay = document.createElement("div");
-  overlay.className = "murmur-auth-modal murmur-profile-view";
-  overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="profile-view-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><div class="murmur-profile-view-content"><p class="empty-state">Loading profile…</p></div></section>';
-  document.body.appendChild(overlay);
-  const section = overlay.querySelector("section");
-  const content = overlay.querySelector(".murmur-profile-view-content");
-  const close = () => overlay.remove();
-  section.querySelector(".murmur-modal-close").addEventListener("click", close);
-  overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+  const main = $("main-content");
+  if (!main) return;
+  document.querySelector(".murmur-profile-pane")?.remove();
+  const previousView = document.querySelector("[data-pane].active")?.dataset.pane || "home";
+  const pane = document.createElement("section");
+  pane.className = "pane murmur-profile-pane";
+  pane.dataset.pane = "profile";
+  pane.innerHTML = '<div class="murmur-profile-tab-head"><button type="button" class="murmur-profile-back" aria-label="Back">‹</button><h1>Profile</h1></div><div class="murmur-profile-view-content"><p class="empty-state">Loading profile…</p></div>';
+  main.appendChild(pane);
+  switchView("profile");
+  const content = pane.querySelector(".murmur-profile-view-content");
+  const close = () => { pane.remove(); switchView(previousView === "profile" ? "home" : previousView); };
+  pane.querySelector(".murmur-profile-back").addEventListener("click", close);
   try {
     const [{ data: person, error: profileError }, { data: rows, error: postsError }] = await Promise.all([
       supabase.from("murmur_public_profiles").select("id,username,display_name,bio,avatar_url,created_at").eq("id", userId).maybeSingle(),
@@ -742,7 +746,7 @@ function wireNavigation() {
   };
   $("openPostComposer")?.addEventListener("click", openPostView);
   $("hdrAdd")?.addEventListener("click", openPostView);
-  $("hdrSearch")?.addEventListener("click", () => { switchView("friends"); if ($("findBlock")) $("findBlock").hidden = false; $("friendSearch")?.focus(); });
+  $("hdrSearch")?.addEventListener("click", () => { switchView("friends"); document.querySelector('.fr-pill[data-frtab="suggest"]')?.click(); if ($("findBlock")) $("findBlock").hidden = false; if ($("peopleBlock")) $("peopleBlock").hidden = false; $("friendSearch")?.focus({ preventScroll: true }); });
   const postInput = $("postInput");
   const composer = $("postComposer");
   $("postMediaButton")?.addEventListener("click", () => $("postMediaPicker")?.click());
