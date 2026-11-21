@@ -116,7 +116,7 @@ async function renderFeed() {
       return;
     }
     const ids = [...new Set(rows.map(row => row.author_id))];
-    const { data: people, error } = await supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", ids);
+    const { data: people, error } = await supabase.from("murmur_public_profiles").select("id,display_name,username,avatar_url").in("id", ids);
     if (error) throw error;
     const byId = new Map((people || []).map(person => [person.id, person]));
     const displayRows = await Promise.all(rows.map(async post => ({
