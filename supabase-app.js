@@ -3,7 +3,7 @@
  * No Firebase SDK, tokens, identity bridge, or fallback is loaded.
  */
 import { supabase } from "./supabase-client.js";
-import { posts, profiles, storage, friendships, stories, reels, userNotes, messages, conversations } from "./supabase-data.js";
+import { posts, profiles, storage, friendships, stories, reels, userNotes, messages, conversations, accountRestrictions } from "./supabase-data.js";
 import { initSupabaseSocial } from "./supabase-social.js";
 
 const authModalStyles = document.createElement("style");
@@ -139,6 +139,15 @@ function watchFeed() {
   feedChannel = supabase.channel("murmur-public-posts")
     .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => renderFeed())
     .subscribe();
+}
+
+function showAccountRestriction(restriction) {
+  const overlay = document.createElement("div");
+  overlay.className = "murmur-auth-modal";
+  const until = restriction.ends_at ? new Date(restriction.ends_at).toLocaleString() : "until further notice";
+  overlay.innerHTML = '<section role="alertdialog" aria-modal="true"><h2>Account access restricted</h2><p>' + safeText(restriction.reason || "Your account is temporarily restricted by Murmur administrators.") + '</p><p>Access is restricted ' + safeText(until) + '.</p><button type="button" class="btn primary">Close</button></section>';
+  document.body.appendChild(overlay);
+  overlay.querySelector("button").addEventListener("click", () => overlay.remove());
 }
 
 async function enterApp(user) {
