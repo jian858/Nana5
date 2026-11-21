@@ -739,3 +739,11 @@ input,select,textarea{max-width:100%}
   .reel-side{right:8px!important;gap:15px!important}
   .reel-bottom{left:12px!important;right:12px!important;bottom:8px!important}
 }
+
+/* Find People database search loading state */
+.people-search-loading{min-height:64px;display:flex;align-items:center;justify-content:center;gap:11px;padding:16px;color:var(--muted);font-size:.94rem}
+.people-search-spinner{display:inline-block;width:17px;height:17px;flex:0 0 17px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:peopleSearchSpin .7s linear infinite}
+#friendSearchBtn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:88px}
+#friendSearchBtn:disabled{opacity:.75;cursor:wait}
+@keyframes peopleSearchSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.people-search-spinner{animation-duration:1.8s}}
