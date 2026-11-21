@@ -618,3 +618,51 @@ input,select,textarea{max-width:100%}
   #app .alerts-heading{padding:10px 2px 12px!important}
   #app .alerts-list .alert-row{padding:12px 13px!important}
 }
+
+
+/* App viewport lock: keep the header and navigation in place while each
+   active section scrolls inside the remaining screen area. */
+#app:not([hidden]){
+  position:fixed!important;
+  inset:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  width:100%!important;
+  height:100vh!important;
+  height:100dvh!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  overscroll-behavior:none!important;
+}
+#app:not([hidden])>.fb-head{
+  position:relative!important;
+  top:auto!important;
+  z-index:40!important;
+  flex:0 0 auto!important;
+  width:100%!important;
+}
+#app:not([hidden])>.main{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  max-height:none!important;
+  width:100%!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  overscroll-behavior-y:contain!important;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))!important;
+  scroll-padding-top:12px;
+}
+#app:not([hidden])>.main>.pane{
+  width:100%;
+  min-width:0;
+  max-width:100%;
+}
+#app:not([hidden])>.main>.pane[hidden]{display:none!important}
+#app:not([hidden]) .chat-layout.open .conversation{
+  overscroll-behavior:contain;
+}
+@media(prefers-reduced-motion:reduce){
+  #app:not([hidden])>.main{scroll-behavior:auto}
+}
