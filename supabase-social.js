@@ -77,7 +77,7 @@ async function renderStories() {
   if (!root) return;
   try {
     const rows = await stories.list();
-    root.innerHTML = '<div class="story-heading"><strong>Stories</strong> <button type="button" class="btn secondary" data-add-story>Share a story</button></div>' + (rows.length ? rows.map(s => '<article class="story-card">' + (s.media_url ? (s.media_url.match(/\\.(mp4|webm)(\\?|$)/i) ? '<video controls playsinline preload="metadata" src="' + esc(s.media_url) + '"></video>' : '<img loading="lazy" src="' + esc(s.media_url) + '" alt="Story media">') : '') + '<strong>' + esc(s.content || "Story") + '</strong><small>' + esc(new Date(s.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No active stories.</p>');
+    root.innerHTML = '<div class="story-heading"><strong>Stories</strong> <button type="button" class="btn secondary" data-add-story>Share a story</button></div>' + (rows.length ? rows.map(s => '<article class="story-card">' + (s.media_url ? (s.media_url.match(/\.(mp4|webm)(\?|$)/i) ? '<video controls playsinline preload="metadata" src="' + esc(s.media_url) + '"></video>' : '<img loading="lazy" src="' + esc(s.media_url) + '" alt="Story media">') : '') + '<strong>' + esc(s.content || "Story") + '</strong><small>' + esc(new Date(s.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No active stories.</p>');
     root.querySelector("[data-add-story]")?.addEventListener("click", () => {
       const picker = document.createElement("input");
       picker.type = "file"; picker.accept = "image/jpeg,image/png,image/webp,image/avif,video/mp4,video/webm"; picker.hidden = true;
