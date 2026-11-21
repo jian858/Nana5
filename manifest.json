@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Murmur",
   "short_name": "Murmur",
-  "description": "Murmur is a social app to chat with friends, share posts and stories, discover people, and watch reels together.",
+  "description": "Connect with friends on Murmur. Send messages, share posts and stories, discover people, and enjoy reels together in one social app.",
   "lang": "en-PH",
   "dir": "ltr",
   "start_url": "/",
@@ -11,7 +11,10 @@
   "orientation": "portrait",
   "background_color": "#f1f2f6",
   "theme_color": "#14c8a0",
-  "categories": ["social", "communication"],
+  "categories": [
+    "social",
+    "communication"
+  ],
   "prefer_related_applications": false,
   "icons": [
     {
