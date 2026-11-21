@@ -350,7 +350,10 @@ input,select,textarea{max-width:100%}
 
 /* Dedicated Post tab: keep the home feed as a simple entry point. */
 .post-entry{
+  box-sizing:border-box;
   width:100%;
+  min-width:0;
+  margin:0;
   display:flex;
   align-items:center;
   gap:12px;
@@ -418,3 +421,15 @@ input,select,textarea{max-width:100%}
   .alerts-pane{padding-inline:12px}
   .alerts-row,.alert-row{padding:11px 12px}
 }
+
+
+/* Home composer fills the full available row; stories are not shown on Home. */
+.pane[data-pane="home"] > .post-entry{
+  display:flex;
+  width:100%;
+  max-width:none;
+  box-sizing:border-box;
+  margin-inline:0;
+  justify-content:flex-start;
+}
+.pane[data-pane="home"] > .post-entry span{flex:1;min-width:0}
