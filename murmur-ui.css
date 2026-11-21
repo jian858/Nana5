@@ -127,9 +127,7 @@ input::placeholder,textarea::placeholder{color:#96a4a7}
  .menu-profile-card{border-radius:17px}
  .legal-links{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}
 }
-@media(prefers-color-scheme:dark){
- html[data-theme="dark"],html[data-theme="dark"] body{color-scheme:dark;--bg:#0d1518;--ink:#e7f0ef;--muted:#9aabaa;--line:#29383b;--surface:#152124;--surface-soft:#1a2a2d;--white:#152124;--shadow:0 12px 36px rgba(0,0,0,.22);--shadow-hover:0 18px 42px rgba(0,0,0,.32)}
-}
+html[data-theme="dark"],html[data-theme="dark"] body{color-scheme:dark;--bg:#0d1518;--ink:#e7f0ef;--muted:#9aabaa;--line:#29383b;--surface:#152124;--surface-soft:#1a2a2d;--white:#152124;--shadow:0 12px 36px rgba(0,0,0,.22);--shadow-hover:0 18px 42px rgba(0,0,0,.32)}
 html[data-theme="dark"] body{background:var(--bg);color:var(--ink)}
 html[data-theme="dark"] .fb-head,html[data-theme="dark"] .topbar,html[data-theme="dark"] .fb-nav{background:rgba(18,30,33,.92)}
 html[data-theme="dark"] .fb-logo,html[data-theme="dark"] .fb-nav button{color:var(--ink)}
@@ -142,3 +140,71 @@ html[data-theme="dark"] .menu-row:hover,html[data-theme="dark"] .murmur-menu-ite
 html[data-theme="dark"] .fr-pill,html[data-theme="dark"] .alerts-filters button{background:#1b2a2d;border-color:#304144;color:#c2d0cf}
 html[data-theme="dark"] .fr-pill.active,html[data-theme="dark"] .alerts-filters button.active{background:#123e35;color:#8ce4cf;border-color:#1e6555}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.pane{animation:none}*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+
+
+/* Dark theme must follow Murmur's own selection, not the device preference. */
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d1518;
+  --ink:#e7f0ef;
+  --muted:#9aabaa;
+  --line:#29383b;
+  --surface:#152124;
+  --surface-soft:#1a2a2d;
+  --white:#152124;
+  --shadow:0 12px 36px rgba(0,0,0,.22);
+  --shadow-hover:0 18px 42px rgba(0,0,0,.32);
+  --text:#e7f0ef;
+  --input-bg:#101b1e;
+}
+html[data-theme="dark"] body,
+html[data-theme="dark"] #app,
+html[data-theme="dark"] .main{background:var(--bg);color:var(--ink)}
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] .composer,
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .post,
+html[data-theme="dark"] .sidebar,
+html[data-theme="dark"] .conversation,
+html[data-theme="dark"] .menu-profile-card,
+html[data-theme="dark"] .menu-accordion,
+html[data-theme="dark"] .murmur-menu-item,
+html[data-theme="dark"] .note-card,
+html[data-theme="dark"] .note-row,
+html[data-theme="dark"] .notice,
+html[data-theme="dark"] .modal,
+html[data-theme="dark"] .dialog,
+html[data-theme="dark"] .menu-dialog{
+  background:var(--surface);
+  color:var(--ink);
+  border-color:var(--line);
+}
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea{
+  background:var(--input-bg);
+  color:var(--ink);
+  border-color:var(--line);
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder{color:#849594}
+html[data-theme="dark"] .topbar,
+html[data-theme="dark"] .fb-head,
+html[data-theme="dark"] .fb-nav,
+html[data-theme="dark"] .conversation-header,
+html[data-theme="dark"] .composer-chat{
+  background:#121e21;
+  color:var(--ink);
+  border-color:var(--line);
+}
+html[data-theme="dark"] .messages{background:#101a1d}
+html[data-theme="dark"] .btn.ghost,
+html[data-theme="dark"] .btn.secondary,
+html[data-theme="dark"] .menu-row,
+html[data-theme="dark"] .fb-actions button{
+  color:var(--ink);
+  border-color:var(--line);
+}
+html[data-theme="dark"] .empty,
+html[data-theme="dark"] small,
+html[data-theme="dark"] .muted{color:var(--muted)}
