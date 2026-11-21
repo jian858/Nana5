@@ -1213,3 +1213,38 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
   line-height:1;
   cursor:pointer;
 }
+
+
+/* The clickable profile photo is the avatar frame itself, not a nested avatar. */
+.murmur-profile-summary > .murmur-profile-avatar-open{
+  position:relative!important;
+  display:block!important;
+  flex:0 0 112px!important;
+  width:112px!important;
+  height:112px!important;
+  min-width:112px!important;
+  min-height:112px!important;
+  max-width:112px!important;
+  max-height:112px!important;
+  border:0!important;
+  outline-offset:4px;
+  background:transparent!important;
+  overflow:hidden!important;
+  border-radius:50%!important;
+  clip-path:circle(50% at 50% 50%)!important;
+  cursor:zoom-in!important;
+}
+.murmur-profile-summary > .murmur-profile-avatar-open > .murmur-profile-avatar-image{
+  position:absolute!important;
+  inset:0!important;
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  border-radius:50%!important;
+}
