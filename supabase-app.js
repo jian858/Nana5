@@ -9,6 +9,7 @@ import { initSupabaseSocial } from "./supabase-social.js?v=20261122-12";
 const authModalStyles = document.createElement("style");
 authModalStyles.textContent = ".murmur-auth-modal{position:fixed;inset:0;z-index:9999;background:#101828a8;display:grid;place-items:center;padding:18px}.murmur-auth-modal section{position:relative;width:min(100%,440px);max-height:90dvh;overflow:auto;background:var(--panel,#fff);color:var(--text,#17202a);border-radius:20px;padding:26px;box-shadow:0 20px 70px #0004}.murmur-auth-modal h2{margin:0 36px 20px 0}.murmur-auth-modal label{display:grid;gap:6px;margin:12px 0;font-size:14px;font-weight:600}.murmur-auth-modal input{width:100%;min-height:44px;border:1px solid var(--border,#d5dbe3);border-radius:10px;padding:10px;background:var(--input-bg,#fff);color:inherit}.murmur-modal-close{position:absolute;right:14px;top:12px;border:0;background:transparent;font-size:26px}.murmur-modal-error{color:#c62828;font-size:13px;min-height:18px}.murmur-signup-submit{width:100%;min-height:46px}.murmur-auth-modal textarea,.murmur-auth-modal select{width:100%;min-height:44px;border:1px solid var(--border,#d5dbe3);border-radius:10px;padding:10px;background:var(--input-bg,#fff);color:inherit;font:inherit}.murmur-menu-dialog .btn{margin:8px 0;min-height:44px}.murmur-menu-dialog p{line-height:1.55}.murmur-menu-dialog-body{overflow-wrap:anywhere}";
 document.head.appendChild(authModalStyles);
+const signupScreenStyles=document.createElement('style');signupScreenStyles.textContent="\n/* Full-screen, two-section account creation flow. */\n.murmur-signup-screen{position:fixed;inset:0;z-index:10020;display:flex;flex-direction:column;background:var(--bg,#f5f8f7);color:var(--ink,#17202a);overflow:hidden}\n.murmur-signup-top{height:62px;flex:0 0 62px;display:flex;align-items:center;gap:14px;padding:0 max(18px,calc((100vw - 760px)/2));border-bottom:1px solid var(--line,#e3e9e7);background:var(--surface,#fff)}\n.murmur-signup-back{width:38px;height:38px;border:1px solid var(--line,#e3e9e7);border-radius:12px;background:transparent;color:inherit;font-size:22px}\n.murmur-signup-brand{font-weight:850;letter-spacing:-.04em;font-size:1.12rem}\n.murmur-signup-step-label{margin-left:auto;color:var(--muted,#73817e);font-size:.8rem}\n.murmur-signup-main{width:min(100%,680px);margin:0 auto;padding:30px 22px 40px;overflow-y:auto;overscroll-behavior:contain;flex:1}\n.murmur-signup-intro{margin-bottom:24px}\n.murmur-signup-kicker{font-size:.68rem;letter-spacing:.15em;font-weight:850;color:#0a9878}\n.murmur-signup-intro h1{font-size:clamp(1.8rem,5vw,2.35rem);letter-spacing:-.055em;margin:8px 0}\n.murmur-signup-intro p,.murmur-signup-help{color:var(--muted,#73817e);line-height:1.55;margin:0}\n.murmur-signup-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:5px;background:var(--surface-soft,#eaf0ee);border-radius:14px;margin-bottom:22px}\n.murmur-signup-tabs button{min-height:43px;border:0;border-radius:10px;background:transparent;color:var(--muted,#73817e);font-weight:750}\n.murmur-signup-tabs button.active{background:var(--surface,#fff);color:var(--ink,#17202a);box-shadow:0 2px 8px #0000000d}\n.murmur-signup-panel{padding:24px;border:1px solid var(--line,#e3e9e7);border-radius:20px;background:var(--surface,#fff);box-shadow:0 12px 35px #12251d0a}\n.murmur-signup-panel[hidden]{display:none}\n.murmur-signup-panel h2{margin:0 0 6px;font-size:1.2rem}\n.murmur-signup-panel>label,.murmur-signup-two-col label{display:grid;gap:7px;margin-top:17px;font-size:.85rem;font-weight:720}\n.murmur-signup-panel input,.murmur-signup-panel textarea{width:100%;min-height:46px;padding:11px 13px;border:1px solid var(--line,#dce4e1);border-radius:12px;background:var(--bg,#fff);color:var(--ink,#17202a);font:inherit;outline:none}\n.murmur-signup-panel input:focus,.murmur-signup-panel textarea:focus{border-color:#0a9878;box-shadow:0 0 0 3px #0a98781c}\n.murmur-signup-panel textarea{min-height:92px;resize:vertical}\n.murmur-signup-panel small{font-size:.72rem;color:var(--muted,#73817e);font-weight:400}\n.murmur-signup-two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}\n.murmur-signup-password-note{margin:12px 0 20px;color:var(--muted,#73817e);font-size:.76rem}\n.murmur-signup-optional{display:inline;color:var(--muted,#73817e);font-weight:450;font-size:.75rem}\n.murmur-signup-next,.murmur-signup-actions button{width:100%;min-height:48px}\n.murmur-signup-actions{display:flex;gap:10px;margin-top:22px}\n.murmur-signup-actions .btn{flex:1}\n.murmur-signup-screen .murmur-modal-error{width:min(100%,680px);margin:12px auto 0;padding:0 22px;color:#c33b45;line-height:1.5}\n.murmur-signup-footnote{text-align:center;color:var(--muted,#73817e);font-size:.83rem;margin:20px 0 0}\n.murmur-signup-login{border:0;background:transparent;color:#0a9878;font-weight:800}\nhtml[data-theme=\"dark\"] .murmur-signup-screen{background:var(--bg);color:var(--ink)}\nhtml[data-theme=\"dark\"] .murmur-signup-top,html[data-theme=\"dark\"] .murmur-signup-panel{background:var(--surface);border-color:var(--line)}\nhtml[data-theme=\"dark\"] .murmur-signup-panel input,html[data-theme=\"dark\"] .murmur-signup-panel textarea{background:#101b1e;border-color:var(--line);color:var(--ink)}\n@media(max-width:560px){.murmur-signup-main{padding:22px 14px 30px}.murmur-signup-panel{padding:18px 15px}.murmur-signup-two-col{grid-template-columns:1fr;gap:0}.murmur-signup-top{padding:0 14px}}\n";document.head.appendChild(signupScreenStyles);
 const $ = (id) => document.getElementById(id);
 const authPanel = $("auth");
 const appPanel = $("app");
@@ -53,6 +54,10 @@ async function loadProfile(user) {
       id: user.id,
       display_name: meta.full_name || meta.name || (user.email || "Murmur user").split("@")[0],
       username: String(meta.username || "").replace(/^@/, "").toLowerCase() || null,
+      bio: meta.bio || "",
+      school: meta.school || "",
+      location: meta.location || "",
+      interests: meta.interests || "",
       avatar_url: meta.avatar_url || meta.picture || null
     }, { onConflict: "id" }).select().single();
     if (error) throw error;
@@ -513,29 +518,91 @@ async function login() {
 
 function openSignup() {
   const overlay = document.createElement("div");
-  overlay.className = "murmur-auth-modal";
-  overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="murmur-signup-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="murmur-signup-title">Create your Murmur account</h2><label>Full name<input name="name" maxlength="80" autocomplete="name" required></label><label>Username<input name="username" maxlength="24" minlength="3" pattern="[A-Za-z0-9_.]{3,24}" autocomplete="username" autocapitalize="none" spellcheck="false" required></label><label>Email<input name="email" type="email" maxlength="254" autocomplete="email" required></label><label>Password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><p class="murmur-modal-error" role="alert"></p><button type="button" class="btn primary murmur-signup-submit">Create account</button><button type="button" class="btn secondary murmur-resend-confirmation" hidden>Resend confirmation email</button></section>';
+  overlay.className = "murmur-signup-screen";
+  overlay.innerHTML = `
+    <header class="murmur-signup-top"><button type="button" class="murmur-signup-back" aria-label="Back to login">←</button><div class="murmur-signup-brand">Murmur</div><span class="murmur-signup-step-label">Create account</span></header>
+    <main class="murmur-signup-main">
+      <div class="murmur-signup-intro"><span class="murmur-signup-kicker">JOIN MURMUR</span><h1>Create your account</h1><p>Set up your account and profile to start connecting with people.</p></div>
+      <nav class="murmur-signup-tabs" aria-label="Registration sections"><button type="button" class="active" data-signup-tab="account" aria-selected="true">1. Account</button><button type="button" data-signup-tab="profile" aria-selected="false">2. Profile</button></nav>
+      <form class="murmur-signup-form" novalidate>
+        <section class="murmur-signup-panel" data-signup-panel="account">
+          <h2>Account details</h2><p class="murmur-signup-help">These details are used to create and secure your Murmur account.</p>
+          <label>Full name<input name="name" maxlength="80" autocomplete="name" placeholder="Your full name" required></label>
+          <label>Username<input name="username" maxlength="24" minlength="3" pattern="[A-Za-z0-9_.]{3,24}" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Choose a username" required><small>3–24 letters, numbers, dots or underscores</small></label>
+          <label>Email address<input name="email" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com" required></label>
+          <div class="murmur-signup-two-col"><label>Password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters" required></label><label>Confirm password<input name="confirm_password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Enter password again" required></label></div>
+          <div class="murmur-signup-password-note">Use at least 8 characters. Never share your password.</div>
+          <button type="button" class="btn primary murmur-signup-next">Continue to profile</button>
+        </section>
+        <section class="murmur-signup-panel" data-signup-panel="profile" hidden>
+          <h2>Profile details</h2><p class="murmur-signup-help">Add a little information so friends can recognize you. You can update these details later.</p>
+          <label>Bio <span class="murmur-signup-optional">Optional</span><textarea name="bio" maxlength="240" rows="3" placeholder="Tell people a little about yourself"></textarea><small>Up to 240 characters</small></label>
+          <label>School <span class="murmur-signup-optional">Optional</span><input name="school" maxlength="100" placeholder="Your school"></label>
+          <label>Location <span class="murmur-signup-optional">Optional</span><input name="location" maxlength="100" placeholder="Your city or area"></label>
+          <label>Interests <span class="murmur-signup-optional">Optional</span><input name="interests" maxlength="200" placeholder="Music, games, sports..."></label>
+          <div class="murmur-signup-actions"><button type="button" class="btn secondary murmur-signup-previous">Back</button><button type="submit" class="btn primary murmur-signup-submit">Create account</button></div>
+        </section>
+      </form>
+      <p class="murmur-modal-error" role="alert" aria-live="polite"></p>
+      <p class="murmur-signup-footnote">Already have an account? <button type="button" class="murmur-signup-login">Log in</button></p>
+    </main>`;
   document.body.appendChild(overlay);
+  const form = overlay.querySelector("form");
+  const errorBox = overlay.querySelector(".murmur-modal-error");
+  const showTab = tab => {
+    overlay.querySelectorAll("[data-signup-panel]").forEach(panel => panel.hidden = panel.dataset.signupPanel !== tab);
+    overlay.querySelectorAll("[data-signup-tab]").forEach(button => {
+      const active = button.dataset.signupTab === tab;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+    overlay.querySelector(".murmur-signup-step-label").textContent = tab === "account" ? "Step 1 of 2" : "Step 2 of 2";
+    overlay.querySelector(".murmur-signup-main").scrollTop = 0;
+    errorBox.textContent = "";
+  };
   const close = () => overlay.remove();
-  overlay.querySelector(".murmur-modal-close").addEventListener("click", close);
-  overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
-  overlay.querySelector(".murmur-signup-submit").addEventListener("click", async event => {
-    const button = event.currentTarget;
-    const form = overlay.querySelector("section");
-    const name = form.querySelector('[name="name"]').value.trim();
-    const username = form.querySelector('[name="username"]').value.trim().replace(/^@/, "").toLowerCase();
-    const email = form.querySelector('[name="email"]').value.trim().toLowerCase();
-    const password = form.querySelector('[name="password"]').value;
-    const errorBox = overlay.querySelector(".murmur-modal-error");
-    if (!name || !/^[a-z0-9_.]{3,24}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 8) {
-      errorBox.textContent = "Enter your name, a valid email, a username with 3–24 letters, numbers, dots or underscores, and a password of at least 8 characters.";
-      return;
+  overlay.querySelector(".murmur-signup-back").addEventListener("click", close);
+  overlay.querySelector(".murmur-signup-login").addEventListener("click", close);
+  overlay.querySelector('[data-signup-tab="account"]').addEventListener("click", () => showTab("account"));
+  overlay.querySelector('[data-signup-tab="profile"]').addEventListener("click", () => {
+    if (validateAccount()) showTab("profile");
+  });
+  function validateAccount() {
+    const name = form.elements.name.value.trim();
+    const username = form.elements.username.value.trim().replace(/^@/, "").toLowerCase();
+    const email = form.elements.email.value.trim().toLowerCase();
+    const password = form.elements.password.value;
+    const confirm = form.elements.confirm_password.value;
+    if (!name || !/^[a-z0-9_.]{3,24}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 8 || password !== confirm) {
+      errorBox.textContent = password !== confirm ? "Your passwords do not match." : "Complete your name, valid username, email and password (at least 8 characters).";
+      showTab("account");
+      return false;
     }
+    return true;
+  }
+  overlay.querySelector(".murmur-signup-next").addEventListener("click", () => { if (validateAccount()) showTab("profile"); });
+  overlay.querySelector(".murmur-signup-previous").addEventListener("click", () => showTab("account"));
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!validateAccount()) return;
+    const button = overlay.querySelector(".murmur-signup-submit");
+    const name = form.elements.name.value.trim();
+    const username = form.elements.username.value.trim().replace(/^@/, "").toLowerCase();
+    const email = form.elements.email.value.trim().toLowerCase();
+    const password = form.elements.password.value;
     button.disabled = true;
+    button.textContent = "Creating account…";
+    errorBox.textContent = "";
     try {
       const { data, error } = await supabase.auth.signUp({
         email, password,
-        options: { data: { full_name: name, username }, emailRedirectTo: location.origin + "/" }
+        options: { data: {
+          full_name: name, username,
+          bio: form.elements.bio.value.trim(),
+          school: form.elements.school.value.trim(),
+          location: form.elements.location.value.trim(),
+          interests: form.elements.interests.value.trim()
+        }, emailRedirectTo: location.origin + "/" }
       });
       if (error) throw error;
       if (data.session && data.user) {
@@ -543,40 +610,31 @@ function openSignup() {
         close();
         await enterApp(data.user);
       } else {
-        errorBox.textContent = "Account created. Check your inbox and spam folder for the Murmur confirmation email. Confirm your address before signing in.";
-        const resend = form.querySelector(".murmur-resend-confirmation");
-        if (resend) resend.hidden = false;
+        errorBox.textContent = "Your account has been created. Check your email (including spam) and confirm your address before logging in. Your profile details are saved with your account.";
+        button.hidden = true;
+        const resend = document.createElement("button");
+        resend.type = "button"; resend.className = "btn secondary murmur-signup-resend"; resend.textContent = "Resend confirmation email";
+        overlay.querySelector(".murmur-signup-panel[data-signup-panel='profile'] .murmur-signup-actions").appendChild(resend);
+        resend.addEventListener("click", async () => {
+          resend.disabled = true;
+          try {
+            const { error: resendError } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: location.origin + "/" } });
+            if (resendError) throw resendError;
+            errorBox.textContent = "If confirmation is still required, a new email has been requested.";
+          } catch (err) { errorBox.textContent = err.message || "Could not resend confirmation email."; }
+          finally { resend.disabled = false; }
+        });
       }
     } catch (error) {
       const message = String(error?.message || "Could not create your account. Please try again.");
       errorBox.textContent = /duplicate key|already exists|profiles_username_key|unique constraint/i.test(message)
         ? "That username is already taken. Choose another username."
         : message;
-    } finally { button.disabled = false; }
-  });
-  overlay.querySelectorAll("input").forEach(input => input.addEventListener("keydown", event => {
-    if (event.key === "Enter") { event.preventDefault(); overlay.querySelector(".murmur-signup-submit")?.click(); }
-  }));
-  const resendButton = overlay.querySelector(".murmur-resend-confirmation");
-  resendButton?.addEventListener("click", async () => {
-    const email = overlay.querySelector('[name="email"]').value.trim().toLowerCase();
-    const errorBox = overlay.querySelector(".murmur-modal-error");
-    if (!email) { errorBox.textContent = "Enter your email address first."; return; }
-    resendButton.disabled = true;
-    try {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email,
-        options: { emailRedirectTo: location.origin + "/" }
-      });
-      if (error) throw error;
-      errorBox.textContent = "If confirmation is still required, a new email has been requested. Check your inbox and spam folder.";
-    } catch (error) {
-      errorBox.textContent = error.message;
     } finally {
-      resendButton.disabled = false;
+      if (button.isConnected && !button.hidden) { button.disabled = false; button.textContent = "Create account"; }
     }
   });
+  showTab("account");
 }
 
 async function resetPassword() {
