@@ -1,0 +1,61 @@
+/* Murmur performance and motion layer
+   Keeps long feeds cheaper to render and makes interactions feel responsive. */
+
+:root {
+  --motion-fast: 140ms;
+  --motion-medium: 200ms;
+  --motion-ease: cubic-bezier(.2,.75,.25,1);
+}
+
+/* Defer off-screen feed cards until the browser needs to paint them. */
+.posts > .post,
+.alerts-list > *,
+.chat-list > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
+
+/* Keep interactive feedback short and consistent. */
+button,
+.btn,
+a,
+.murmur-menu-item,
+.menu-row,
+.fr-pill,
+.nav button {
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease),
+    opacity var(--motion-fast) var(--motion-ease);
+}
+
+button:active,
+.btn:active,
+.murmur-menu-item:active,
+.menu-row:active {
+  transform: scale(.98);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--acc, #14c8a0);
+  outline-offset: 2px;
+}
+
+/* Avoid expensive motion for users who request reduced animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
