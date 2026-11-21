@@ -198,6 +198,17 @@ async function renderNotes() {
     const avatarUrl = profile.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || "";
     const name = profile.display_name || user.user_metadata?.display_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "You";
     const latest = rows[0] || null;
+    // Offer the user's latest text post as a starting point for their first note.
+    let latestPostText = "";
+    if (!latest) {
+      try {
+        const { data: postRow, error: postError } = await supabase.from("posts")
+          .select("content").eq("author_id", user.id)
+          .not("content", "is", null)
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (!postError && postRow?.content) latestPostText = postRow.content;
+      } catch (_) {}
+    }
     root.innerHTML = '<button type="button" class="note-avatar-button" data-add-note title="' + (latest ? 'Edit or delete your note' : 'Create a note') + '" aria-label="' + (latest ? 'Edit or delete your note' : 'Create a note') + '">' +
       '<span class="note-action-label">Create note</span>' +
       '<span class="note-avatar-circle">' + (avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="">' : '<span>' + esc(name.slice(0,1).toUpperCase()) + '</span>') +
@@ -207,7 +218,7 @@ async function renderNotes() {
     root.querySelectorAll("[data-add-note]").forEach(noteButton => noteButton.addEventListener("click", () => {
       const overlay = document.createElement("div");
       overlay.className = "murmur-auth-modal murmur-note-modal";
-      overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="note-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="note-title">' + (latest ? 'Edit your note' : 'Create a note') + '</h2><label for="note-content">Your note</label><textarea id="note-content" maxlength="500" rows="5" placeholder="What’s on your mind?">' + esc(latest?.content || "") + '</textarea><div class="note-editor-footer"><small data-note-count>0 / 500</small><button type="button" class="btn primary" data-save-note>Save note</button></div>' + (latest ? '<button type="button" class="note-delete" data-delete-current>Delete note</button>' : '') + '<p class="murmur-modal-error" role="alert"></p></section>';
+      overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="note-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><h2 id="note-title">' + (latest ? 'Edit your note' : 'Create a note') + '</h2><label for="note-content">Your note</label><textarea id="note-content" maxlength="500" rows="5" placeholder="What’s on your mind?">' + esc(latest?.content || latestPostText || "") + '</textarea><div class="note-editor-footer"><small data-note-count>0 / 500</small><button type="button" class="btn primary" data-save-note>Save note</button></div>' + (latest ? '<button type="button" class="note-delete" data-delete-current>Delete note</button>' : '') + '<p class="murmur-modal-error" role="alert"></p></section>';
       document.body.appendChild(overlay);
       const input = overlay.querySelector("#note-content");
       const save = overlay.querySelector("[data-save-note]");
