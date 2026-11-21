@@ -4,6 +4,7 @@
  */
 import { supabase } from "./supabase-client.js";
 import { posts, profiles, storage, friendships, stories, reels, userNotes, messages, conversations } from "./supabase-data.js";
+import { initSupabaseSocial } from "./supabase-social.js";
 
 const authModalStyles = document.createElement("style");
 authModalStyles.textContent = ".murmur-auth-modal{position:fixed;inset:0;z-index:9999;background:#101828a8;display:grid;place-items:center;padding:18px}.murmur-auth-modal section{position:relative;width:min(100%,440px);max-height:90dvh;overflow:auto;background:var(--panel,#fff);color:var(--text,#17202a);border-radius:20px;padding:26px;box-shadow:0 20px 70px #0004}.murmur-auth-modal h2{margin:0 36px 20px 0}.murmur-auth-modal label{display:grid;gap:6px;margin:12px 0;font-size:14px;font-weight:600}.murmur-auth-modal input{width:100%;min-height:44px;border:1px solid var(--border,#d5dbe3);border-radius:10px;padding:10px;background:var(--input-bg,#fff);color:inherit}.murmur-modal-close{position:absolute;right:14px;top:12px;border:0;background:transparent;font-size:26px}.murmur-modal-error{color:#c62828;font-size:13px;min-height:18px}.murmur-signup-submit{width:100%;min-height:46px}";
@@ -102,6 +103,7 @@ async function enterApp(user) {
     paintIdentity();
     await renderFeed();
     watchFeed();
+    window.dispatchEvent(new CustomEvent("murmur:supabase-user-ready"));
   } catch (error) {
     console.error("[Murmur profile]", error);
     showError(error.message);
@@ -203,6 +205,7 @@ function wireNavigation() {
 }
 
 function wireAuth() {
+  initSupabaseSocial();
   $("loginBtn")?.addEventListener("click", login);
   $("password")?.addEventListener("keydown", event => { if (event.key === "Enter") login(); });
   $("createBtn")?.addEventListener("click", openSignup);
