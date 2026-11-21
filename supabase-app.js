@@ -1,6 +1,6 @@
 /* Murmur — Supabase-only application bootstrap.
  * Authentication and the home feed use Supabase directly through the shared data layer.
- * No Firebase SDK, tokens, identity bridge, or fallback is loaded.
+ * No external identity bridge or fallback is loaded.
  */
 import { supabase } from "./supabase-client.js";
 import { posts, profiles, storage, friendships, stories, reels, userNotes, messages, conversations, accountRestrictions } from "./supabase-data.js";
