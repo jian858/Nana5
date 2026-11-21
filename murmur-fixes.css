@@ -1253,3 +1253,14 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
 #app .murmur-profile-post-stats{display:flex;align-items:center;gap:16px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line,#e5e7eb);color:var(--muted,#667085);font-size:.82rem}
 #app .murmur-profile-post-stats span{display:inline-flex;align-items:center;gap:4px}
 #app .murmur-profile-post-stats strong{color:var(--ink,#172a2b);font-weight:750;font-variant-numeric:tabular-nums}
+
+
+/* Chat tab: show every accepted friend with a live presence label. */
+#app .murmur-friend-chat{gap:11px}
+#app .murmur-friend-chat>.avatar{width:48px;height:48px;flex:0 0 48px}
+#app .murmur-presence{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;font-size:.7rem;font-weight:700;color:var(--muted,#74817f);white-space:nowrap}
+#app .murmur-presence i{display:block;width:7px;height:7px;border-radius:50%;background:#929b99}
+#app .murmur-presence.is-online{color:#15966f}
+#app .murmur-presence.is-online i{background:#19b981;box-shadow:0 0 0 3px rgba(25,185,129,.13)}
+#app .chat-list-copy{min-width:0;flex:1}
+@media(max-width:420px){#app .murmur-presence{font-size:.65rem;gap:4px}}
