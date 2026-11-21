@@ -444,6 +444,9 @@ async function createPost() {
     pendingPostFile = null;
     const status = $("postMediaStatus"); if (status) status.textContent = "";
     if (button) button.hidden = true;
+    const composer = $("postInput")?.closest(".composer");
+    composer?.classList.remove("is-editing");
+    const mediaButton = $("postMediaButton"); if (mediaButton) mediaButton.hidden = true;
     await renderFeed();
   } catch (error) { alert(error.message); }
   finally { if (button) button.disabled = false; }
@@ -683,14 +686,24 @@ function wireNavigation() {
   });
   $("hdrAdd")?.addEventListener("click", () => { switchView("home"); $("postInput")?.focus(); });
   $("hdrSearch")?.addEventListener("click", () => { switchView("friends"); if ($("findBlock")) $("findBlock").hidden = false; $("friendSearch")?.focus(); });
-  if ($("postInput")) $("postInput").removeAttribute("readonly");
-  $("postInput")?.addEventListener("input", () => { if ($("postBtn")) $("postBtn").hidden = !$("postInput").value.trim() && !pendingPostFile; });
+  const postInput = $("postInput");
+  const composer = postInput?.closest(".composer");
+  if (postInput) postInput.removeAttribute("readonly");
+  const openPostComposer = () => {
+    composer?.classList.add("is-editing");
+    if ($("postMediaButton")) $("postMediaButton").hidden = false;
+  };
+  postInput?.addEventListener("focus", openPostComposer);
+  postInput?.addEventListener("click", openPostComposer);
+  postInput?.addEventListener("input", () => {
+    if ($("postBtn")) $("postBtn").hidden = !postInput.value.trim() && !pendingPostFile;
+  });
   $("postBtn")?.addEventListener("click", createPost);
   const composer = $("postInput")?.closest(".composer");
   if (composer && !$("postMediaButton")) {
     const mediaButton = document.createElement("button");
     mediaButton.type = "button"; mediaButton.id = "postMediaButton"; mediaButton.className = "btn secondary";
-    mediaButton.textContent = "Add photo or video";
+    mediaButton.textContent = "Add photo or video"; mediaButton.hidden = true;
     const status = document.createElement("small"); status.id = "postMediaStatus"; status.setAttribute("aria-live", "polite");
     const picker = document.createElement("input"); picker.type = "file"; picker.accept = "image/jpeg,image/png,image/webp,image/avif,video/mp4,video/webm"; picker.hidden = true;
     mediaButton.addEventListener("click", () => picker.click());
