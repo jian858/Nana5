@@ -397,13 +397,10 @@ function watchFeed() {
       // already reflected locally by the Like button, so do not reload the
       // feed (or replace the post cards) for counter-only realtime updates.
       if (payload.eventType === "UPDATE") {
-        const oldRow = payload.old || {};
-        const newRow = payload.new || {};
-        const changed = Object.keys(newRow).filter(key =>
-          JSON.stringify(newRow[key]) !== JSON.stringify(oldRow[key])
-        );
-        const likeFields = new Set(["like_count", "likes_count", "likes", "updated_at"]);
-        if (changed.length && changed.every(key => likeFields.has(key))) return;
+        // Do not rebuild the feed for row updates. Like counters are often
+        // maintained by a database trigger, and the Like handler already
+        // updates this viewer's button and count immediately.
+        return;
       }
       void renderFeed();
     })
