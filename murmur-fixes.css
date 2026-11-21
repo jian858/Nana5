@@ -338,3 +338,11 @@ input,select,textarea{max-width:100%}
 /* Chat toolbar cleanup: remove search bar and plus/new-message affordance. */
 .chat-layout .chat-search,#chatSearchBtn,#newChatBtn{display:none!important}
 .chat-layout .messages-tools{justify-content:flex-end}
+
+
+/* Home post composer: keep media controls hidden until the user opens the composer. */
+.pane[data-pane="home"] .composer:not(.is-editing) #postMediaButton,
+.pane[data-pane="home"] .composer:not(.is-editing) #postMediaStatus{display:none!important}
+.pane[data-pane="home"] .composer.is-editing{flex-wrap:wrap}
+.pane[data-pane="home"] .composer.is-editing #postMediaButton{display:inline-flex!important}
+.pane[data-pane="home"] .composer.is-editing #postMediaStatus{display:block!important}
