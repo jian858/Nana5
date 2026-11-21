@@ -13,84 +13,64 @@ Last updated: 2026-11-21
 - The browser uses only the Supabase project URL and publishable key. Never expose a service-role key.
 
 ## Completed in this pass
-- Removed the Firebase SDK file, Firebase project config file, Firebase Realtime Database rules file, and Firebase script imports from the live `index.html`.
-- Replaced the live startup path with `supabase-app.js`; it no longer loads the Firebase-era classic-script modules.
-- Added `supabase-runtime.js` and `supabase-social.js` as the shared Supabase application/data entry points.
+- The live `index.html` loads `supabase-client.js`, `supabase-runtime.js`, `visitor-tracking.js`, and `supabase-app.js`; it does not load the Firebase-era classic-script modules.
 - Supabase email/password sign-in, signup, Google OAuth initiation, sign-out, password reset, and password reset completion use Supabase Auth.
-- Signup stores full name and username in Supabase Auth metadata; the database trigger creates the profile.
-- Added and applied a database migration for a unique 16-character profile public ID. Existing Supabase Auth users were not deleted.
-- Verified the existing profile has a 16-character public ID.
-- Added Supabase Storage buckets for avatars, posts, stories and reels, with public-read and owner-folder upload/update/delete policies.
-- Enabled Supabase Realtime publication for posts, notifications, stories and reels; messages were already enabled.
-- Live app functions now use Supabase for the home feed, text/photo/video posts, friend search and requests, conversation creation, messages, stories with media, reels with video uploads, notes, notifications and admin announcements in Alerts.\n- Added Supabase profile editing and avatar uploads.\n- Added realtime subscriptions for posts, messages, notifications, stories and reels.\n- Added account restriction checks before opening the signed-in app.
-- Updated public Privacy and Cookie pages to describe Supabase rather than Firebase.
+- Signup stores full name and username in Supabase Auth metadata; a database trigger creates the profile.
+- Profile IDs are linked to Supabase Auth UUIDs and have unique 16-character public IDs.
+- Supabase Storage buckets and owner-folder upload/update/delete policies exist for Murmur media.
+- Supabase Realtime publication includes posts, notifications, stories, reels, and messages.
+- The active home feed, profile, posts, friend search/requests, conversations, messages, stories, reels, notes, notifications, and account-restriction checks use Supabase services.
+- Private visitor tables have RLS enabled and no direct browser-role table grants.
+- Anonymous visitor recording is constrained by per-visitor and optional per-network five-minute rate limits.
+- Admin tables are RLS-enabled and service-role-only; admin actions use the Supabase-authenticated `murmur-admin-supabase` Edge Function.
+- Applied migration `20261121130809_harden_public_table_privileges_and_profile_rls`: revoked browser-role `TRUNCATE`, `REFERENCES`, and `TRIGGER` on all public tables; set the same restrictions for future tables created by `postgres`; revoked anonymous access to account restriction/appeal tables; optimized profile insert/update policies with `(select auth.uid())`.
 
 ## Important remaining work — do not deploy as finished
-- The old Firebase-era feature source files still exist in the repository as inactive legacy code. They are not loaded by the live index, but must be replaced or retired after each corresponding Supabase feature is fully migrated.
-- The new Supabase UI is an initial working slice, not a complete recreation of every previous screen. Remaining UI work includes full profile editing, message attachments/voice, message read receipts/typing, comments/reactions/saved posts, story media and views, richer reels controls, block/report flows, admin tools and device/visitor administration.
+- Firebase-era files and Firebase-named historical database objects still exist. The live index does not load those scripts, but the legacy Edge Functions and historical identity rows still need controlled retirement. Preserve the existing 2 legacy identity links and 3 device-account links until a deliberate migration/archive plan is approved; do not delete them as part of routine cleanup.
+- The Supabase UI is an initial working slice, not a complete recreation of every previous screen. Remaining UI work includes full messaging attachments/voice, read receipts/typing, comments/reactions/saved posts, richer story views, richer reels controls, block/report flows, admin tools and device/visitor administration.
 - Confirm Supabase Auth email-confirmation settings and Google OAuth provider credentials/redirect URLs in the dashboard.
-- Validate every RLS policy and Storage policy with separate test accounts; the security advisor currently reports RLS-enabled private/admin tables with no direct policies (some are intentionally service-only) and warns that the anonymous visitor RPC is SECURITY DEFINER.
-- Enable leaked-password protection in Supabase Auth settings.
-- Verify the Supabase Realtime subscriptions and media uploads in a browser on both desktop and mobile.
-- Test signup, login, Google OAuth, password reset, refresh/reopen session, posts, friend requests, chat, stories, reels, notes and notifications before public deployment.
+- Validate RLS and Storage policies with separate test accounts; run the documented two-user and anonymous tests.
+- Enable leaked-password protection in Supabase Auth settings if the plan supports it.
+- Review public-read media bucket behavior before real user media is uploaded. All current media buckets contain zero objects; do not make private buckets without updating the client to use signed URLs and the corresponding row-aware Storage policies.
+- Verify Realtime subscriptions and media uploads in a browser on desktop and mobile.
+- Test signup, login, Google OAuth, password reset, session restoration, posts, friend requests, chat, stories, reels, notes and notifications before public deployment.
 
 ## Current database setup
 - Profile ID: UUID linked to Supabase Auth.
 - Public account ID: unique 16-character lowercase hex string.
-- Storage buckets: `murmur-avatars`, `murmur-posts`, `murmur-stories`, `murmur-reels`.
-- Realtime publication: `posts`, `notifications`, `stories`, `reels`, and existing `messages`.
+- Storage buckets: `murmur-avatars`, `murmur-posts`, `murmur-stories`, `murmur-reels`; `murmur-media` is also configured private.
+- Realtime publication: `posts`, `notifications`, `stories`, `reels`, and `messages`.
 
 ## Safety
-- Do not delete the existing Supabase test account.
+- Do not delete the existing Supabase test account or historical Firebase-to-Supabase identity/device records until a migration plan preserves their references.
 - Do not place a service-role key in any frontend or Admin file.
-- Do not deploy this migration as complete until the remaining feature screens and RLS tests pass.
-
+- Do not mark the project launch-ready until two-user RLS tests, Storage privacy checks, browser smoke tests and dashboard configuration checks pass.
 
 ## Chatly standards enforcement pass — 2026-11-21
-
-- Added `MURMUR_ENGINEERING_RULES.md` to make both Chatly reference documents mandatory for every Murmur code and database change.
-- Added `.github/pull_request_template.md` with the security, RLS, migration, Realtime, performance, testing and release checklist.
-- Added `.github/workflows/murmur-supabase-guard.yml` to reject Firebase references in the live entrypoint and active Supabase modules, and reject server-only secret patterns in browser modules.
-- The guard is a static architecture check. It does not replace browser tests, two-user RLS tests, Supabase advisors or dashboard configuration checks.
-
-## Verified Supabase security findings — 2026-11-21
-
-A live security-advisor check found the following items. They are not silently treated as fixed:
-
-- RLS is disabled on `private.murmur_visitor_events` and `private.murmur_visitor_devices`. The advisor explicitly warns not to enable RLS without first defining the intended access policies. These tables need a deliberate access-model review before remediation.
-- The advisor reports 10 RLS-enabled tables with no direct policies, including private/admin tables. Confirm each is intentionally inaccessible to browser roles or add narrowly scoped policies where client access is required.
-- `public.record_murmur_visit(p_visitor_id uuid, p_page_path text)` is a SECURITY DEFINER RPC executable by anon and authenticated. Review its input validation, rate limiting and write scope; preserve public visitor tracking only if its constrained behavior is intentional.
-- Leaked-password protection is disabled in Supabase Auth and must be enabled in the project settings.
-
-The live `index.html` loads the Supabase modules, but Firebase-era source and historical database artifacts remain in the repository/database. They are not proof of a fully completed Firebase removal. Do not reconnect legacy Firebase scripts. Audit and retire old source files and Firebase-named database objects through reviewed migrations, preserving required visitor/account data and never editing an already-applied migration.
-
+- `MURMUR_ENGINEERING_RULES.md` makes both Chatly reference documents mandatory for every Murmur code and database change.
+- `.github/pull_request_template.md` and `.github/workflows/murmur-supabase-guard.yml` enforce the repository security and architecture checklist.
+- The guard is static analysis only; it does not replace browser tests, two-user RLS tests, Supabase advisors or dashboard configuration checks.
 
 ## Visitor-table security remediation — 2026-11-21
-
-- Applied Supabase migration `20261121130057_secure_private_visitor_tracking_tables` (repository file: `supabase/migrations/20261121140000_secure_private_visitor_tracking_tables.sql`).
+- Applied Supabase migration `20261121130057_secure_private_visitor_tracking_tables` (repository file: `supabase/migrations/20261121130057_secure_private_visitor_tracking_tables.sql`).
 - Enabled RLS on `private.murmur_visitor_devices` and `private.murmur_visitor_events`.
-- Revoked direct table privileges from `PUBLIC`, `anon` and `authenticated`; verification confirms anonymous and signed-in browser roles cannot SELECT or INSERT directly.
-- Preserved `public.record_murmur_visit(uuid, text)` for anonymous visitor tracking. It is owned by `postgres`, uses an empty search_path and schema-qualified table names, and remains SECURITY DEFINER because it is the controlled write path. The Supabase advisor will continue to flag this intentional public RPC; review abuse/rate-limiting controls before launch.
+- Revoked direct table privileges from `PUBLIC`, `anon` and `authenticated`; anonymous and signed-in browser roles cannot SELECT or INSERT directly.
+- Preserved `public.record_murmur_visit(uuid, text)` as the narrowly scoped anonymous visitor write path. It is SECURITY DEFINER with an empty search_path and schema-qualified table names; its intentional public execution is rate-limited.
 - No visitor rows were deleted or rewritten.
 
-### Remaining security work after visitor-table remediation
-- Review and explicitly classify the RLS-enabled/no-policy tables (including admin-only and private service tables); do not add broad policies merely to silence the advisor.
-- Harden or formally accept the anonymous visitor RPC's abuse/rate-limit exposure.
-- Enable leaked-password protection in Supabase Auth dashboard settings.
-- Continue validating public application table policies with two separate accounts and anonymous access.
-
-
 ## Admin database and visitor RPC security review — 2026-11-21
+- Reviewed admin tables: `public.admin_audit_log`, `public.murmur_admin_allowlist`, `public.murmur_admin_identity_map`, `public.murmur_admin_records`, `public.murmur_error_logs`, and `public.murmur_refresh_cooldowns`. All have RLS enabled; browser roles have no direct SELECT/INSERT access.
+- Admin RPCs inspected are restricted to `service_role`; keep the service-role key server-side only.
+- Applied `20261121130327_rate_limit_public_visitor_recording`: max 40 accepted events per visitor per five-minute window and, when a valid forwarded IP is available, max 200 events per network address per five-minute window.
+- Verified a null visitor ID is rejected without writing an event.
+- The security advisor will continue to flag the anonymous visitor RPC because it intentionally remains a public SECURITY DEFINER endpoint. Review this exception before launch.
 
-- Reviewed admin tables: `public.admin_audit_log`, `public.murmur_admin_allowlist`, `public.murmur_admin_identity_map`, `public.murmur_admin_records`, `public.murmur_error_logs`, and `public.murmur_refresh_cooldowns`. All have RLS enabled. The `anon` and `authenticated` roles have no direct SELECT or INSERT privileges; the inspected table grants are limited to `service_role`.
-- Reviewed admin RPC execution grants. The inspected account restriction and admin identity-list SECURITY DEFINER functions are executable by `service_role`, not `anon` or `authenticated`. Continue to keep the service-role key server-side only.
-- Added and applied `20261121130327_rate_limit_public_visitor_recording`. The public visitor RPC now enforces a maximum of 40 events per visitor per five-minute window and, when a valid forwarded IP is available, 200 events per network address per five-minute window. The RPC returns `false` when throttled. It continues to write only to the private visitor tables.
-- Verified the function definition and execution grants, verified the admin RPC grants, verified direct browser-role table privileges are absent, and confirmed a null visitor ID is rejected without writing an event.
-- The Supabase advisor still flags the visitor RPC because it intentionally remains a public SECURITY DEFINER endpoint for anonymous visitor counting. Its privileged behavior is narrowly scoped, uses an empty search_path and schema-qualified private tables, and is rate-limited. Reassess before launch if anonymous visitor tracking is no longer needed.
-- The advisor also continues to report RLS-enabled tables without policies. These are intentionally private/service-only tables or need further per-feature review; do not add broad client policies to clear informational findings.
-- Leaked-password protection remains a dashboard setting and still needs to be enabled in Supabase Auth.
+## RLS-without-policy classification
+- The RLS-enabled/no-policy tables include private migration/device tables, public admin/system tables and legacy `public.murmur_posts`. A privilege audit confirmed no direct SELECT/INSERT grants to `anon` or `authenticated` for this group. Do not add broad client policies merely to clear informational advisor findings.
+- `public.murmur_posts` is a legacy Firebase-keyed table with zero rows and no browser grants. Keep it inaccessible while its old endpoint is retired; drop it only in a separately reviewed migration after all dependencies are confirmed absent.
 
-
-### RLS-without-policy classification
-
-A follow-up privilege audit of every RLS-enabled table currently reported without a policy found that none grants direct `SELECT` or `INSERT` to `anon` or `authenticated`. The set includes private migration/device tables and public admin/system tables, plus `public.murmur_posts`. These are currently inaccessible through direct browser table access. Do not add user-facing policies unless a reviewed feature explicitly needs direct access; use the intended server-side/service-role or narrowly scoped RPC path. The `murmur_posts` table needs a separate legacy-use check before it is retired or exposed.
+## Public table privilege hardening — 2026-11-21
+- Revoked `TRUNCATE`, `REFERENCES`, and `TRIGGER` from `anon` and `authenticated` on all existing public tables. These privileges bypass row-level access expectations or are not needed by browser clients.
+- Added matching default-privilege revocations for future public tables created by `postgres`.
+- Revoked all anonymous privileges on `account_restrictions` and `account_appeals`; authenticated access remains governed by their existing RLS policies.
+- Recreated profile insert/update policies using `(select auth.uid())`, retaining ownership checks and the update `WITH CHECK`.
