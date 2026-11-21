@@ -25,7 +25,7 @@ function showError(message) {
 function setLoginLoading(active, message = "") {
   const status = $("loginStatus");
   const button = $("loginBtn");
-  if (status) { status.hidden = !active; status.textContent = message; }
+  if (status) { status.hidden = !active; const text = status.querySelector(".login-status-text"); if (text) text.textContent = message; }
   if (button) { button.disabled = active; button.textContent = active ? "Please wait…" : "Log in"; }
 }
 function showAuth() {
