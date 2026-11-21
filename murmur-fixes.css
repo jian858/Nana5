@@ -642,6 +642,8 @@ input,select,textarea{max-width:100%}
   width:100%!important;
 }
 #app:not([hidden])>.main{
+  display:flex!important;
+  flex-direction:column!important;
   flex:1 1 auto!important;
   min-height:0!important;
   height:auto!important;
@@ -791,6 +793,8 @@ input,select,textarea{max-width:100%}
 /* Compact legal links anchored at the bottom edge of the app's scroll area. */
 .main > footer.legal-links{
   position:sticky;
+  flex:0 0 auto;
+  margin-top:auto;
   bottom:0;
   z-index:30;
   display:flex;
@@ -799,6 +803,7 @@ input,select,textarea{max-width:100%}
   justify-content:center;
   gap:5px 9px;
   width:100%;
+  align-self:stretch;
   max-width:100%;
   box-sizing:border-box;
   margin:12px auto 0;
