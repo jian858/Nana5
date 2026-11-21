@@ -951,3 +951,32 @@ input,select,textarea{max-width:100%}
 #app .murmur-menu-pane .menu-accordion-content{
   touch-action:pan-y;
 }
+
+
+/* Polished profile editor and native photo picker. */
+.murmur-profile-edit-modal{padding:18px!important;align-items:center!important;overflow-y:auto!important}
+.murmur-profile-edit-card{position:relative;width:min(100%,520px)!important;max-height:min(90dvh,820px);overflow-y:auto!important;padding:26px!important;border:1px solid var(--line,#e5e9e9)!important;border-radius:22px!important;background:var(--surface,#fff)!important;color:var(--ink,#17202a)!important;box-shadow:0 24px 80px rgba(0,0,0,.24)!important}
+.murmur-profile-edit-heading{padding:2px 38px 18px 0}
+.murmur-profile-edit-eyebrow{font-size:.68rem;font-weight:800;letter-spacing:.14em;color:#0ca987}
+.murmur-profile-edit-heading h2{margin:6px 0;font-size:1.55rem;letter-spacing:-.04em}
+.murmur-profile-edit-heading p{margin:0;color:var(--muted,#718080);font-size:.9rem}
+.murmur-edit-photo-row{display:flex;align-items:center;gap:16px;padding:16px;margin-bottom:20px;border:1px solid var(--line,#e5e9e9);border-radius:17px;background:var(--surface-soft,#f6f9f8)}
+.murmur-edit-avatar{width:82px;height:82px;flex:0 0 82px;display:grid;place-items:center;overflow:hidden;border-radius:50%;border:3px solid var(--surface,#fff);background:#dcece8;color:#167d69;font-size:1.8rem;font-weight:800}
+.murmur-edit-avatar-image{width:100%;height:100%;object-fit:cover}
+.murmur-edit-avatar-fallback{display:grid;place-items:center;width:100%;height:100%}
+.murmur-edit-photo-copy{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:5px}
+.murmur-edit-photo-copy>strong{font-size:.95rem}
+.murmur-edit-photo-copy>span,.murmur-edit-photo-name{font-size:.78rem;color:var(--muted,#718080);overflow-wrap:anywhere}
+.murmur-choose-photo{min-height:36px!important;padding:7px 12px!important;font-size:.82rem}
+.murmur-profile-edit-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.murmur-profile-edit-fields label{display:flex;min-width:0;flex-direction:column;gap:7px;font-size:.84rem;font-weight:700}
+.murmur-profile-edit-fields input,.murmur-profile-edit-fields textarea{width:100%;min-height:44px;border-radius:12px}
+.murmur-profile-edit-fields .murmur-edit-bio-field{grid-column:1/-1}
+.murmur-profile-edit-fields textarea{resize:vertical;min-height:92px}
+.murmur-edit-field-hint{font-size:.72rem;color:var(--muted,#718080);font-weight:400}
+.murmur-edit-optional{font-size:.7rem;color:var(--muted,#718080);font-weight:400}
+.murmur-profile-edit-card .murmur-modal-error{min-height:0;margin:10px 0;color:#c33b45;font-size:.82rem}
+.murmur-profile-edit-card .murmur-profile-save{width:100%;min-height:48px;margin-top:2px}
+html[data-theme="dark"] .murmur-edit-photo-row{background:#101b1e;border-color:var(--line)}
+html[data-theme="dark"] .murmur-profile-edit-card{background:var(--surface)!important;color:var(--ink)!important;border-color:var(--line)!important}
+@media(max-width:520px){.murmur-profile-edit-modal{padding:10px!important;align-items:flex-end!important}.murmur-profile-edit-card{width:100%!important;max-height:92dvh;padding:20px!important;border-radius:22px 22px 16px 16px!important}.murmur-profile-edit-fields{grid-template-columns:1fr;gap:12px}.murmur-profile-edit-fields .murmur-edit-bio-field{grid-column:auto}.murmur-edit-photo-row{padding:12px;gap:12px}.murmur-edit-avatar{width:72px;height:72px;flex-basis:72px}}
