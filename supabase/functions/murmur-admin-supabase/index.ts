@@ -82,18 +82,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "identities") {
-      const { data, error } = await db.rpc("admin_list_firebase_identity_links");
-      if (error) throw error;
-      return reply(200, {
-        identities: (data || []).map((row: Record<string, unknown>) => ({
-          firebase_uid: row.firebase_uid,
-          supabase_id: row.supabase_id,
-          linked_at: row.linked_at,
-          username: row.username || null,
-          display_name: row.display_name || null,
-        })),
-        total: (data || []).length,
-      });
+      return reply(410, { error: "Legacy Firebase identity links are retained privately for audit and are not exposed by the Supabase-only admin API." });
     }
 
     if (action === "users") {
