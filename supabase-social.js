@@ -218,7 +218,7 @@ async function renderAlerts() {
     if (error) throw error;
     if (announcementError) console.warn("[Murmur notifications] Announcements unavailable:", announcementError);
     const uniqueAnnouncements = [...new Map((announcements || []).map(a => [
-      [String(a.title || "").trim(), String(a.body || "").trim(), a.published_at].join("|"), a
+      [String(a.title || "").trim().toLowerCase(), String(a.body || "").trim().toLowerCase()].join("|"), a
     ])).values()];
     const unread = (data || []).filter(n => !n.read_at).length;
     const selectedAnnouncements = activeAlertFilter === "all" ? uniqueAnnouncements : [];
