@@ -63,3 +63,18 @@ A live security-advisor check found the following items. They are not silently t
 - Leaked-password protection is disabled in Supabase Auth and must be enabled in the project settings.
 
 The live `index.html` loads the Supabase modules, but Firebase-era source and historical database artifacts remain in the repository/database. They are not proof of a fully completed Firebase removal. Do not reconnect legacy Firebase scripts. Audit and retire old source files and Firebase-named database objects through reviewed migrations, preserving required visitor/account data and never editing an already-applied migration.
+
+
+## Visitor-table security remediation — 2026-11-21
+
+- Applied Supabase migration `20261121130057_secure_private_visitor_tracking_tables` (repository file: `supabase/migrations/20261121140000_secure_private_visitor_tracking_tables.sql`).
+- Enabled RLS on `private.murmur_visitor_devices` and `private.murmur_visitor_events`.
+- Revoked direct table privileges from `PUBLIC`, `anon` and `authenticated`; verification confirms anonymous and signed-in browser roles cannot SELECT or INSERT directly.
+- Preserved `public.record_murmur_visit(uuid, text)` for anonymous visitor tracking. It is owned by `postgres`, uses an empty search_path and schema-qualified table names, and remains SECURITY DEFINER because it is the controlled write path. The Supabase advisor will continue to flag this intentional public RPC; review abuse/rate-limiting controls before launch.
+- No visitor rows were deleted or rewritten.
+
+### Remaining security work after visitor-table remediation
+- Review and explicitly classify the RLS-enabled/no-policy tables (including admin-only and private service tables); do not add broad policies merely to silence the advisor.
+- Harden or formally accept the anonymous visitor RPC's abuse/rate-limit exposure.
+- Enable leaked-password protection in Supabase Auth dashboard settings.
+- Continue validating public application table policies with two separate accounts and anonymous access.
