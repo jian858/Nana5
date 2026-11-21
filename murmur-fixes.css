@@ -1166,3 +1166,50 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
   object-position:center!important;
   border-radius:50%!important;
 }
+
+
+/* Tap a profile avatar to view the original photo at a larger size. */
+.murmur-profile-avatar-open{
+  display:block!important;
+  padding:0!important;
+  cursor:zoom-in!important;
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  background:transparent!important;
+  color:inherit!important;
+  font:inherit!important;
+}
+.murmur-photo-viewer{
+  position:fixed;
+  inset:0;
+  z-index:12000;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:rgba(0,0,0,.94);
+  cursor:zoom-out;
+}
+.murmur-photo-viewer>img{
+  display:block;
+  max-width:min(94vw,900px);
+  max-height:88dvh;
+  width:auto;
+  height:auto;
+  object-fit:contain;
+  border-radius:8px;
+  cursor:default;
+}
+.murmur-photo-viewer-close{
+  position:absolute;
+  top:max(16px,env(safe-area-inset-top));
+  right:max(16px,env(safe-area-inset-right));
+  width:44px;
+  height:44px;
+  border:0;
+  border-radius:50%;
+  background:rgba(255,255,255,.16);
+  color:#fff;
+  font-size:30px;
+  line-height:1;
+  cursor:pointer;
+}
