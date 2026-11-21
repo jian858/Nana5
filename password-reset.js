@@ -88,22 +88,21 @@ function openForgotPassword() {
         return;
       }
 
-      sendBtn.textContent = 'Sending Firebase reset link…';
-      // Supabase is used only to verify that a Murmur account exists and is eligible.
-      // Firebase is the primary login provider, so its password must be reset here.
-      await sendPasswordResetEmail(auth, email);
-      successBox.textContent = 'Your Murmur account is eligible. A Firebase password reset email has been sent. Check your inbox and spam folder.';
+      sendBtn.textContent = 'Sending reset link…';
+      if (!window.murmurSupabase) throw new Error('Account services are still loading. Please try again.');
+      const { error: resetError } = await window.murmurSupabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/?password-reset=1'
+      });
+      if (resetError) throw resetError;
+      successBox.textContent = 'Your Murmur account is eligible. A password reset email has been sent. Check your inbox and spam folder.';
       successBox.hidden = false;
       sendBtn.textContent = 'Send again';
     } catch (error) {
       const code = String(error && error.code || '');
       console.error('Password reset check/send failed:', code || (error && error.message));
       const resetMessages = {
-        'auth/invalid-email': 'Email is not valid. Please enter a valid email address.',
-        'auth/user-disabled': 'This Firebase account is disabled. Contact Murmur support for help.',
-        'auth/user-not-found': 'This email has no active Firebase login. Check the email or contact Murmur support.',
-        'auth/unauthorized-continue-uri': 'Murmur’s password-reset link domain is not authorized in Firebase Authentication settings.',
-        'auth/invalid-continue-uri': 'The password-reset return address is invalid. Contact Murmur support.'
+        'invalid_email': 'Email is not valid. Please enter a valid email address.',
+        'AuthApiError': 'We could not send the reset link. Please try again or contact Murmur support.'
       };
       errorBox.textContent = resetMessages[code] || friendlyError(error, 'We could not send the reset link. Please try again.');
       sendBtn.textContent = 'Try again';
