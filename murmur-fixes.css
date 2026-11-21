@@ -1248,3 +1248,8 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
   object-position:center!important;
   border-radius:50%!important;
 }
+
+/* Show engagement totals on each post in public profile views. */
+#app .murmur-profile-post-stats{display:flex;align-items:center;gap:16px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line,#e5e7eb);color:var(--muted,#667085);font-size:.82rem}
+#app .murmur-profile-post-stats span{display:inline-flex;align-items:center;gap:4px}
+#app .murmur-profile-post-stats strong{color:var(--ink,#172a2b);font-weight:750;font-variant-numeric:tabular-nums}
