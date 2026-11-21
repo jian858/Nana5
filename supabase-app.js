@@ -267,9 +267,11 @@ async function enterApp(user) {
       showApp();
       paintIdentity();
       enteredUserId = user.id;
-      await renderFeed();
+      // Show the app as soon as the account/profile is ready. Feed queries and
+      // media URL signing must never hold the full-screen startup loader open.
       watchFeed();
       window.dispatchEvent(new CustomEvent("murmur:supabase-user-ready"));
+      void renderFeed();
     } catch (error) {
       enteredUserId = null;
       console.error("[Murmur profile]", error);
