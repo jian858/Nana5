@@ -104,3 +104,93 @@ input,select,textarea{max-width:100%}
 .post-comment-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;margin-top:10px}
 .post-comment-form input{min-width:0;min-height:42px;border:1px solid var(--line,#d5dbe3);border-radius:10px;padding:9px 11px;background:var(--input-bg,#fff);color:inherit}
 .post-comment-form .btn{width:auto;min-height:42px}
+
+
+/* Murmur 2026-11-21 layout refinement: chat, notes, feed and notifications. */
+.chat-layout{gap:18px;align-items:stretch}
+.chat-layout .sidebar,.chat-layout .conversation{border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}
+.sidebar-header{padding:20px 20px 12px}
+.chat-layout .search{padding:0 16px 14px}
+.chat-list{display:grid;gap:3px;padding:4px 10px 12px}
+.chat-list-item{min-height:72px;gap:12px;padding:12px;border-radius:14px;border:0}
+.chat-list-copy{gap:5px}
+.chat-list-copy strong{font-size:.96rem}
+.chat-list-copy small{line-height:1.35}
+.conversation-header{display:flex;align-items:center;gap:12px;min-height:76px;padding:14px 18px}
+.conversation-header .meta{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.conversation-header .meta>div:last-child{min-width:0}
+.conversation-header .meta strong,.conversation-header .meta small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.conv-actions .btn{min-height:38px;padding:8px 12px}
+.messages{gap:12px;padding:18px clamp(12px,3vw,24px)}
+.message-row{max-width:min(78%,620px);padding:11px 15px;line-height:1.5}
+.composer-chat{gap:10px;padding:14px 16px}
+.composer-chat input{height:46px;padding-inline:16px}
+.composer-chat .btn{width:44px;min-width:44px;height:44px}
+.note-row{display:grid;gap:12px;margin:16px 12px 18px;padding:16px;border:1px solid var(--line);border-radius:18px;background:var(--surface-soft,#f6f9f8)}
+.note-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.note-heading>div{display:grid;gap:3px;min-width:0}
+.note-heading strong{font-size:1rem}
+.note-heading small{font-size:.75rem;color:var(--muted)}
+.note-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.note-card{display:flex;flex-direction:column;justify-content:space-between;min-width:0;min-height:112px;padding:13px;border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow-wrap:anywhere}
+.note-card p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45}
+.note-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}
+.note-card-footer small{color:var(--muted);font-size:.72rem}
+.note-delete{border:0;background:transparent;color:var(--muted);font-size:.76rem;padding:5px 7px}
+.note-empty{margin:0;padding:10px 0}
+.note-editor-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+.note-editor-footer small{color:var(--muted)}
+.murmur-note-modal textarea{width:100%;resize:vertical;min-height:120px;line-height:1.5}
+.alerts-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:150px;padding:clamp(20px,4vw,34px);border:1px solid var(--line);border-radius:22px}
+.alerts-heading>div{min-width:0}
+.alerts-heading h1{margin:5px 0 8px}
+.alerts-heading-icon{flex:0 0 auto}
+.alerts-filters{gap:9px;padding:12px 0 16px}
+.alerts-filters button{min-height:42px;padding:9px 18px}
+.alerts-list{display:grid;gap:12px}
+.alert-row{position:relative;min-width:0;padding:18px 20px;border:1px solid var(--line);border-radius:18px;background:var(--surface);overflow-wrap:anywhere}
+.alert-row.is-unread{border-color:rgba(18,185,149,.38);background:linear-gradient(120deg,rgba(18,185,149,.055),var(--surface))}
+.alert-row-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.alert-unread-dot{width:9px;height:9px;flex:0 0 9px;border-radius:50%;background:var(--acc)}
+.alert-row h3{margin:12px 0 8px;font-size:1.12rem}
+.alert-row p{margin:10px 0;line-height:1.55;white-space:pre-wrap}
+.alert-row small{display:block;color:var(--muted);font-size:.78rem;margin-top:10px}
+.alert-row .btn{margin-top:12px}
+.post-card{min-width:0;padding:clamp(16px,2.5vw,22px);border:1px solid var(--line);border-radius:20px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+.post-head{display:flex;align-items:center;gap:12px;min-width:0;margin-bottom:14px}
+.post-head>div{display:grid;gap:3px;min-width:0}
+.post-head small{color:var(--muted);font-size:.78rem;overflow-wrap:anywhere}
+.post-content{margin:8px 0 14px;line-height:1.6;overflow-wrap:anywhere;white-space:pre-wrap}
+.post-media{width:100%;max-height:620px;object-fit:contain;border-radius:15px;background:#101820}
+.stories{display:flex;gap:12px;min-height:0;padding:6px 2px 16px;overflow-x:auto;overscroll-behavior-x:contain}
+.stories>*{flex:0 0 auto}
+.composer{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:14px 16px;margin:4px 0 16px;border:1px solid var(--line);border-radius:20px;background:var(--surface)}
+.composer input{width:100%;min-width:0}
+#savedPostsOpen{margin:0 0 14px}
+.posts{display:grid;gap:16px}
+@media(max-width:780px){
+  .chat-layout{display:block}
+  .chat-layout .sidebar{padding-bottom:8px}
+  .chat-layout.open .conversation{border-radius:0}
+  .chat-layout.open .conversation-header{min-height:66px;gap:8px;padding:10px 12px}
+  .chat-layout.open .conv-actions{gap:5px}
+  .chat-layout.open .conv-actions .btn{padding:7px 9px;font-size:.78rem}
+  .chat-layout.open .messages{padding:14px 12px;gap:10px}
+  .chat-layout.open .composer-chat{gap:7px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px))}
+  .note-row{margin:12px 8px;padding:13px;gap:10px}
+  .note-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .alerts-heading{min-height:124px;padding:19px;border-radius:18px}
+  .alerts-list{gap:10px}
+  .alert-row{padding:15px;border-radius:16px}
+  .composer{gap:9px;padding:12px}
+  .post-card{padding:14px;border-radius:17px}
+}
+@media(max-width:420px){
+  .note-grid{grid-template-columns:1fr}
+  .note-card{min-height:88px}
+  .alerts-filters button{padding:8px 14px}
+  .conversation-header .meta .avatar{width:38px;height:38px}
+  .chat-layout.open .conv-actions #chatProfileBtn{display:none}
+  .message-row{max-width:88%}
+}
