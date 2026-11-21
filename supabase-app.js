@@ -100,7 +100,7 @@ function paintIdentity() {
   const name = currentProfile?.display_name || currentUser?.email || "Murmur user";
   const username = currentProfile?.username ? "@" + currentProfile.username : "";
   if ($("menuName")) $("menuName").textContent = name;
-  if ($("menuUser")) $("menuUser").textContent = [username, currentProfile?.public_id ? "ID: " + currentProfile.public_id : ""].filter(Boolean).join(" · ");
+  if ($("menuUser")) $("menuUser").textContent = username;
   if ($("composerAvatar")) $("composerAvatar").textContent = name.slice(0, 1).toUpperCase();
   if ($("menuAvatar")) $("menuAvatar").textContent = name.slice(0, 1).toUpperCase();
 }
