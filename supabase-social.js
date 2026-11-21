@@ -59,22 +59,39 @@ async function openDirectChat(targetUserId) {
   await openConversation(conversationId);
 }
 
+let peopleSearchRun = 0;
+
 async function searchPeople() {
-  const term = el("friendSearch")?.value.trim();
+  const term = (el("friendSearch")?.value || "").trim().replace(/^@+/, "");
   const target = el("searchResults");
-  if (!term || !target) return;
-  target.innerHTML = "<p>Searching…</p>";
+  if (!target) return;
+  const run = ++peopleSearchRun;
+  if (!term) {
+    target.innerHTML = '<p class="empty-state">Type a name or username to find people.</p>';
+    return;
+  }
+  target.innerHTML = '<p class="empty-state">Searching accounts…</p>';
   try {
-    const safe = term.replace(/[%,()]/g, "");
+    // Search by partial display name OR partial username, so results appear
+    // before the person finishes typing the full name.
+    const safe = term.replace(/[%,()]/g, "").replace(/[,]/g, "");
+    if (!safe) {
+      target.innerHTML = '<p class="empty-state">Enter a name or username to search.</p>';
+      return;
+    }
     const { data, error } = await supabase.from("murmur_public_profiles")
       .select("id,username,display_name,avatar_url")
       .or("username.ilike.%" + safe + "%,display_name.ilike.%" + safe + "%")
       .limit(20);
     if (error) throw error;
-    const { data: authData } = await supabase.auth.getUser();
-    target.innerHTML = (data || []).filter(p => p.id !== authData.user?.id).map(p =>
-      '<div class="friend-row"><div><strong>' + esc(p.display_name || "Murmur user") + '</strong><small>@' + esc(p.username || "") + '</small></div><div class="friend-actions"><button class="btn secondary" type="button" data-chat-user="' + esc(p.id) + '">Message</button><button class="btn secondary" type="button" data-request="' + esc(p.id) + '">Add friend</button></div></div>'
-    ).join("") || '<p class="empty-state">No people found.</p>';
+    if (run !== peopleSearchRun) return;
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    const currentUserId = sessionData?.session?.user?.id;
+    const matches = (data || []).filter(person => person.id !== currentUserId);
+    target.innerHTML = matches.map(person =>
+      '<div class="friend-row"><span class="avatar">' + esc((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</span><div><strong>' + esc(person.display_name || "Murmur user") + '</strong><small>@' + esc(person.username || "") + '</small></div><div class="friend-actions"><button class="btn secondary" type="button" data-chat-user="' + esc(person.id) + '">Message</button><button class="btn secondary" type="button" data-request="' + esc(person.id) + '">Add friend</button></div></div>'
+    ).join("") || '<p class="empty-state">No account found. Try another name or username.</p>';
     target.querySelectorAll("[data-chat-user]").forEach(button => button.addEventListener("click", async () => {
       button.disabled = true;
       try { await openDirectChat(button.dataset.chatUser); }
@@ -86,7 +103,9 @@ async function searchPeople() {
       try { await friendships.request(button.dataset.request); button.textContent = "Request sent"; }
       catch (error) { button.disabled = false; alert(error.message); }
     }));
-  } catch (error) { fail(target, error); }
+  } catch (error) {
+    if (run === peopleSearchRun) fail(target, error);
+  }
 }
 
 async function renderStories() {
@@ -469,8 +488,18 @@ export function initSupabaseSocial() {
     renderAlerts();
   }));
 
+  let peopleSearchTimer = null;
   el("friendSearchBtn")?.addEventListener("click", searchPeople);
-  el("friendSearch")?.addEventListener("keydown", event => { if (event.key === "Enter") searchPeople(); });
+  el("friendSearch")?.addEventListener("input", () => {
+    clearTimeout(peopleSearchTimer);
+    peopleSearchTimer = setTimeout(searchPeople, 250);
+  });
+  el("friendSearch")?.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      clearTimeout(peopleSearchTimer);
+      searchPeople();
+    }
+  });
   el("sendBtn")?.addEventListener("click", sendChatMessage);
   el("chatSettingsBtn")?.addEventListener("click", () => {
     const menu=document.createElement("div"); menu.className="chat-settings-popover";
