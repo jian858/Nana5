@@ -3,7 +3,7 @@
  * Classic scripts share the page's global lexical scope, preserving the
  * existing cross-feature functions and state while keeping files separate.
  */
-const MURMUR_FEATURE_FILES = ["app.js","home-feed.js","friends.js","chat.js","alerts.js","presence.js","navigation.js","registration.js","login.js","password-reset.js","legal.js","stories.js","comments.js","post-composer.js","notes.js","session.js","reels.js","menu.js","profile.js","messaging.js","account-recovery.js","blocking.js","security.js"];
+const MURMUR_FEATURE_FILES = ["app.js","home-feed.js","friends.js","chat.js","alerts.js","presence.js","navigation.js","registration.js","login.js","google-auth.js","password-reset.js","legal.js","stories.js","comments.js","post-composer.js","notes.js","session.js","reels.js","menu.js","profile.js","profile-editor.js","messaging.js","account-recovery.js","blocking.js","security.js"];
 async function loadMurmurScript(src) {
   await new Promise((resolve, reject) => {
     const script = document.createElement("script");
