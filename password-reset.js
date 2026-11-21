@@ -21,8 +21,12 @@ function openForgotPassword() {
       </div>
       <span></span>
     </aside>
-    <section class="forgot-main">
+    <section class="forgot-main" role="tabpanel" aria-labelledby="forgot-tab-reset">
       <div class="forgot-top">
+        <nav class="forgot-tabs" role="tablist" aria-label="Account access">
+          <button type="button" class="forgot-tab" role="tab" aria-selected="false" data-forgot-login>Log in</button>
+          <button type="button" class="forgot-tab active" id="forgot-tab-reset" role="tab" aria-selected="true">Forgot password</button>
+        </nav>
         <button class="close-btn" type="button" aria-label="Close and go back to login">×</button>
       </div>
       <div class="forgot-body">
@@ -33,11 +37,10 @@ function openForgotPassword() {
             <label for="forgot-email">Email address</label>
             <input id="forgot-email" type="email" autocomplete="email" placeholder="you@example.com" />
           </div>
-          <div data-forgot-loading hidden role="status" aria-live="polite" style="display:none;align-items:center;gap:10px;margin:12px 0;color:#64748b">
-            <span aria-hidden="true" style="width:19px;height:19px;border:3px solid #dbe4ec;border-top-color:#14a88a;border-radius:50%;display:inline-block;animation:murmurResetSpin .75s linear infinite"></span>
+          <div class="forgot-loading" data-forgot-loading hidden role="status" aria-live="polite">
+            <span class="forgot-spinner" aria-hidden="true"></span>
             <span>Checking your account…</span>
           </div>
-          <style>@keyframes murmurResetSpin{to{transform:rotate(360deg)}} [data-forgot-loading]:not([hidden]){display:flex!important}</style>
           <div class="error" role="alert" aria-live="polite" data-forgot-error></div>
           <div class="forgot-success" data-forgot-success hidden role="status" aria-live="polite"></div>
           <button class="btn primary" type="button" data-forgot-send>Check account and send link</button>
@@ -113,6 +116,7 @@ function openForgotPassword() {
 
   sendBtn.addEventListener('click', send);
   $('[data-forgot-back]').addEventListener('click', () => closeForgotPassword(false));
+  $('[data-forgot-login]').addEventListener('click', () => closeForgotPassword(false));
   $('.close-btn').addEventListener('click', () => closeForgotPassword(false));
   overlay.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeForgotPassword(false);
