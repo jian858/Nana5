@@ -388,7 +388,6 @@ async function renderChats() {
       button.addEventListener("click", () => openConversation(button.dataset.conversation));
     });
 
-    if (search?.value) search.dispatchEvent(new Event("input"));
   } catch (error) {
     fail(root, error);
     const retry = document.createElement("button");
