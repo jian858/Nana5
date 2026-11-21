@@ -19,7 +19,17 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 
 export async function requireUser() {
   const { data, error } = await supabase.auth.getUser();
-  if (error) throw error;
+  if (error) {
+    const message = String(error.message || "");
+    const code = String(error.code || "");
+    const invalidJwt = code === "bad_jwt" || /invalid JWT|token signature is invalid|signing method RS256 is invalid/i.test(message);
+    if (invalidJwt) {
+      // Clear only the Supabase Auth session; keep Murmur profile/offline data intact.
+      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+      throw new Error("Your sign-in session is no longer valid. Please sign in again with your Murmur account.");
+    }
+    throw error;
+  }
   if (!data.user) throw new Error("Please sign in to continue.");
   return data.user;
 }
