@@ -95,7 +95,7 @@ Last updated: 2026-11-21
 - Security advisor: no publicly executable SECURITY DEFINER functions remain. Remaining findings are informational RLS-enabled private/admin tables with no direct policies, plus leaked-password protection unavailable on the Free plan.
 - Performance advisor: remaining findings are unused-index notices. Do not drop these indexes based on the current short/no-user activity window; collect longer-term usage evidence first.
 - Health advisor returned no findings.
-- Full two-user browser RLS tests, Google OAuth/email delivery checks, end-to-end media upload/download tests, and live Vercel deployment verification remain outstanding. Do not call the app launch-ready until those pass.
+- Full two-user browser RLS tests, Google OAuth/email delivery checks, end-to-end media upload/download tests, and production Cloudflare Pages/Workers smoke tests remain outstanding. Do not call the app launch-ready until those pass.
 
 
 ## Firebase identity RPC retirement — 2026-11-21
@@ -238,4 +238,16 @@ Last updated: 2026-11-21
 - Updated `supabase-social.js` so chat-list failures include a retry action and duplicate admin announcements with identical title, body and publication time render once.
 - Confirmed the six main navigation buttons map to existing panes; the screenshots showed the active state changing, while the underlying feed/chat requests were failing. The database policy repairs address those content failures.
 - Updated `cloudflare-worker.js` so the static-asset cache rule matches CSS, JS, MJS, JSON and web-manifest file extensions.
-- The Cloudflare Worker currently proxies the Vercel origin; Vercel production deployment status still requires team authorization to inspect.
+- The Cloudflare Worker now proxies the Cloudflare Pages production hostname; no Vercel origin is used.
+
+
+## Cloudflare-only hosting — 2026-11-21
+- Created the Cloudflare Pages project `murmur-app`, connected to GitHub repository `jian858/Nana5` on the `main` branch with automatic production deployments.
+- Cloudflare Pages production hostname: `murmur-app-7jm.pages.dev`.
+- Cloudflare Worker `murmur` is deployed on the account's `workers.dev` subdomain and proxies requests to the Cloudflare Pages hostname. The app no longer depends on an external Vercel origin.
+- Updated `index.html` canonical, Open Graph, Twitter image, and structured-data URLs to `https://murmur.jiancarlopadua9.workers.dev/`.
+- Updated `robots.txt` and `sitemap.xml` to use the Cloudflare Workers hostname.
+- Removed the obsolete `vercel.json` deployment configuration.
+- The Cloudflare Pages production build for commit `3637153f` completed successfully; a subsequent metadata-only commit was also queued for production.
+- The custom zone `murmur.social` is still pending activation because its authoritative nameservers do not yet match the Cloudflare-assigned nameservers. The `workers.dev` hostname remains the active app address until that domain is activated.
+- Hosting/deployment verification is separate from Supabase runtime testing; full authenticated browser checks of chat, feed, notifications, and media still need to be completed.
