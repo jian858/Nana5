@@ -217,11 +217,9 @@ async function renderAlerts() {
       [String(a.title || "").trim(), String(a.body || "").trim(), a.published_at].join("|"), a
     ])).values()];
     const unread = (data || []).filter(n => !n.read_at).length;
-    const selectedAnnouncements = activeAlertFilter === "all" || activeAlertFilter === "announcements" ? uniqueAnnouncements : [];
+    const selectedAnnouncements = activeAlertFilter === "all" ? uniqueAnnouncements : [];
     const selectedNotifications = (data || []).filter(n => {
       if (activeAlertFilter === "unread") return !n.read_at;
-      if (activeAlertFilter === "people") return /friend|follow|request|message|chat/i.test(n.kind || "");
-      if (activeAlertFilter === "activity") return !/friend|follow|request|message|chat/i.test(n.kind || "");
       return activeAlertFilter === "all";
     });
     const announcementHtml = selectedAnnouncements.map(a =>
