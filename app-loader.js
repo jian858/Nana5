@@ -16,7 +16,7 @@ async function loadMurmurScript(src) {
 (async function startMurmurFeatureFiles() {
   try {
     for (const file of MURMUR_FEATURE_FILES) {
-      await loadMurmurScript("./" + file + "?v=20261121-16");
+      await loadMurmurScript("./" + file + "?v=20261121-17");
     }
     await loadMurmurScript("./pwa.js?v=20261102-2");
   } catch (error) {
