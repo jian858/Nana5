@@ -55,7 +55,7 @@ Last updated: 2026-11-21
 - Applied Supabase migration `20261121130057_secure_private_visitor_tracking_tables` (repository file: `supabase/migrations/20261121130057_secure_private_visitor_tracking_tables.sql`).
 - Enabled RLS on `private.murmur_visitor_devices` and `private.murmur_visitor_events`.
 - Revoked direct table privileges from `PUBLIC`, `anon` and `authenticated`; anonymous and signed-in browser roles cannot SELECT or INSERT directly.
-- Preserved `public.record_murmur_visit(uuid, text)` as the narrowly scoped anonymous visitor write path. It is SECURITY DEFINER with an empty search_path and schema-qualified table names; its intentional public execution is rate-limited.
+- Preserved `public.record_murmur_visit(uuid, text)` as a narrowly scoped SECURITY DEFINER database function with an empty search_path and schema-qualified table names, but revoked browser-role execution. The `murmur-visitor-track` Edge Function is the only anonymous ingress and calls the RPC with the server-side service role after rate limiting.
 - No visitor rows were deleted or rewritten.
 
 ## Admin database and visitor RPC security review — 2026-11-21
@@ -63,7 +63,7 @@ Last updated: 2026-11-21
 - Admin RPCs inspected are restricted to `service_role`; keep the service-role key server-side only.
 - Applied `20261121130327_rate_limit_public_visitor_recording`: max 40 accepted events per visitor per five-minute window and, when a valid forwarded IP is available, max 200 events per network address per five-minute window.
 - Verified a null visitor ID is rejected without writing an event.
-- The security advisor will continue to flag the anonymous visitor RPC because it intentionally remains a public SECURITY DEFINER endpoint. Review this exception before launch.
+- The visitor RPC is now service-role-only, so the advisor no longer flags it as publicly executable. Anonymous telemetry is accepted only through the rate-limited visitor Edge Function.
 
 ## RLS-without-policy classification
 - The RLS-enabled/no-policy tables include private migration/device tables, public admin/system tables and legacy `public.murmur_posts`. A privilege audit confirmed no direct SELECT/INSERT grants to `anon` or `authenticated` for this group. Do not add broad client policies merely to clear informational advisor findings.
@@ -92,7 +92,7 @@ Last updated: 2026-11-21
 - Verified no `anon` or `authenticated` role has `TRUNCATE`, `REFERENCES`, or `TRIGGER` privileges on any public table.
 - Verified anonymous SELECT/INSERT privileges are absent from `account_restrictions` and `account_appeals`.
 - Verified profile INSERT/UPDATE policies still enforce `id = (select auth.uid())`; Supabase's performance advisor no longer reports the profile RLS init-plan warnings.
-- Security advisor: remaining findings are the intentional public visitor-recording SECURITY DEFINER RPC, RLS-enabled private/admin/legacy tables with no direct policies, and leaked-password protection unavailable on the Free plan.
+- Security advisor: no publicly executable SECURITY DEFINER functions remain. Remaining findings are informational RLS-enabled private/admin tables with no direct policies, plus leaked-password protection unavailable on the Free plan.
 - Performance advisor: remaining findings are unused-index notices. Do not drop these indexes based on the current short/no-user activity window; collect longer-term usage evidence first.
 - Health advisor returned no findings.
 - Full two-user browser RLS tests, Google OAuth/email delivery checks, private-media policy migration, and live Vercel deployment verification remain outstanding. Do not call the app launch-ready until those pass.
@@ -113,7 +113,7 @@ Last updated: 2026-11-21
 - Dropped `public.murmur_posts` only after confirming it had zero rows, no foreign-key dependents, no referencing views/triggers/functions, no browser grants, and no active client or Edge Function callers. Its old post endpoint was already retired.
 - Retired the unused `murmur-public-announcements` Edge Function. The live client reads published announcements directly from Supabase under the existing RLS policy.
 - Changed `murmur-error-log` to require Supabase JWT verification at the Edge gateway; anonymous error logging is no longer accepted. Admin log access still requires an enabled Supabase Super Admin.
-- The remaining public anonymous write path is the narrow, rate-limited visitor RPC; public Edge Functions are no longer used for ordinary app data reads.
+- The only public anonymous ingestion endpoint is `murmur-visitor-track` (Edge JWT verification disabled intentionally for anonymous telemetry); it applies a 200-per-network five-minute limit and calls the service-role-only visitor RPC, which adds a 40-per-visitor five-minute limit. No browser role can execute the database RPC directly.
 
 
 ## Private media and signed URL migration — 2026-11-21
@@ -125,3 +125,13 @@ Last updated: 2026-11-21
 - The client now stores random object paths rather than public or signed URLs, creates short-lived signed URLs at render time, ignores original filenames for object keys, validates MIME type and size, and attempts Storage API deletion when a post/story/reel is deleted.
 - Storage limits: avatars 5 MB, posts 20 MB, stories 20 MB, reels 100 MB. Allowed MIME types are restricted per bucket.
 - Added unique indexes for media paths. Existing media buckets had zero objects, so no old media URLs needed migration.
+
+
+## Anonymous visitor ingress hardening — 2026-11-21
+
+- Applied migration `20261121133300_restrict_visitor_rpc_to_service_role`.
+- Revoked `EXECUTE` on `public.record_murmur_visit(uuid,text)` from `PUBLIC`, `anon`, and `authenticated`; granted it only to `service_role`.
+- Added the public `murmur-visitor-track` Edge Function with JWT verification disabled intentionally because visits must be recorded before sign-in. It validates the visitor UUID and path, rate-limits the forwarded network address to 200 requests per five-minute window, and invokes the visitor RPC with the server-side service-role key.
+- The database RPC retains the 40-per-visitor five-minute limit and optional network limit. The browser now calls the Edge Function through the shared Supabase client rather than calling a public SECURITY DEFINER RPC.
+- Verified `anon_execute=false`, `authenticated_execute=false`, and `service_role_execute=true` for the visitor RPC. The security advisor no longer reports a publicly executable SECURITY DEFINER function.
+- Updated the visitor script to wait for the shared Supabase client-ready event and bumped the service-worker shell cache to v19.
