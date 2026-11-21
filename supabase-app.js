@@ -701,7 +701,6 @@ function wireNavigation() {
     if ($("postBtn")) $("postBtn").hidden = !postInput.value.trim() && !pendingPostFile;
   });
   $("postBtn")?.addEventListener("click", createPost);
-  const composer = $("postInput")?.closest(".composer");
   if (composer && !$("postMediaButton")) {
     const mediaButton = document.createElement("button");
     mediaButton.type = "button"; mediaButton.id = "postMediaButton"; mediaButton.className = "btn secondary";
