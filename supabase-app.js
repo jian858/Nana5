@@ -344,6 +344,7 @@ async function enterApp(user) {
   if (enterAppTask && enteringUserId === user.id) return enterAppTask;
   enteringUserId = user.id;
   currentUser = user;
+  let enterStage = "checking account access";
   enterAppTask = (async () => {
     try {
       const restriction = await accountRestrictions.current();
@@ -352,19 +353,34 @@ async function enterApp(user) {
         await supabase.auth.signOut();
         return;
       }
+      enterStage = "loading your profile";
       currentProfile = await loadProfile(user);
+
+      // Authentication and profile loading are complete. Do not send a valid
+      // signed-in user back to the login form because a non-critical UI module
+      // or realtime subscription fails during startup.
       showApp();
-      paintIdentity();
       enteredUserId = user.id;
-      // Show the app as soon as the account/profile is ready. Feed queries and
-      // media URL signing must never hold the full-screen startup loader open.
-      watchFeed();
+      try {
+        paintIdentity();
+      } catch (uiError) {
+        console.error("[Murmur identity UI]", uiError);
+      }
+      try {
+        watchFeed();
+      } catch (feedError) {
+        console.error("[Murmur realtime]", feedError);
+      }
       window.dispatchEvent(new CustomEvent("murmur:supabase-user-ready"));
-      void renderFeed();
+      void renderFeed().catch(error => console.error("[Murmur feed]", error));
     } catch (error) {
       enteredUserId = null;
-      console.error("[Murmur profile]", error);
-      showError(error.message || "Your account was verified, but Murmur could not load your profile.");
+      console.error("[Murmur profile]", { stage: enterStage, error });
+      const detail = typeof error === "string" ? error :
+        error?.message || error?.details || error?.hint || error?.code;
+      showError(detail
+        ? "You are signed in, but Murmur had a problem " + enterStage + ": " + detail
+        : "You are signed in, but Murmur could not finish " + enterStage + ". Please try again.");
       showAuth();
     } finally {
       enterAppTask = null;
