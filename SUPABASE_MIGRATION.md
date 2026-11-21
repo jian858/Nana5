@@ -27,10 +27,10 @@ Last updated: 2026-11-21
 
 ## Important remaining work — do not deploy as finished
 - The active app and Admin code are Supabase-only. No Firebase references remain in active code, public/private database columns or tables, database functions, or indexes. Historical migration filenames retain their original names for audit history. Two orphaned legacy profile records are kept in a private archive without Firebase identifiers; three device-account links retain only their Supabase IDs.
-- The Supabase UI is an initial working slice, not a complete recreation of every previous screen. Remaining UI work includes full messaging attachments/voice, read receipts/typing, comments/reactions/saved posts, richer story views, richer reels controls, block/report flows, admin tools and device/visitor administration.
+- The Supabase UI is an initial working slice, not a complete recreation of every previous screen. Remaining UI work includes messaging attachments/voice, read receipts/typing, comments/reactions/saved posts, richer story/reel controls, complete block/report workflows, and further UI polish.
 - Confirm Supabase Auth email-confirmation settings and Google OAuth provider credentials/redirect URLs in the dashboard.
 - Validate RLS and Storage policies with separate test accounts; run the documented two-user and anonymous tests.
-- Supabase Auth's leaked-password protection is disabled. The Supabase organization is confirmed on the Free plan; Supabase documents this control as Pro and above, so it cannot currently be enabled in this project.
+- Supabase Auth's leaked-password protection remains disabled. Supabase documents this control as Pro and above; the project's plan entitlement was not returned by project metadata and must be checked in the dashboard.
 - The avatar bucket remains public; post, story, and reel media buckets are private. The client stores object paths and requests short-lived signed URLs; row-aware Storage policies check post visibility, story friendship/expiry, and reel audience. Media buckets were empty when the private-media migration was applied.
 - Verify Realtime subscriptions and media uploads in a browser on desktop and mobile.
 - Test signup, login, Google OAuth, password reset, session restoration, posts, friend requests, chat, stories, reels, notes and notifications before public deployment.
