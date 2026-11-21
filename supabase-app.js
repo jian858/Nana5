@@ -446,10 +446,10 @@ async function createPost() {
     pendingPostFile = null;
     const status = $("postMediaStatus"); if (status) status.textContent = "";
     if (button) button.hidden = true;
-    const composer = $("postInput")?.closest(".composer");
-    composer?.classList.remove("is-editing");
-    const mediaButton = $("postMediaButton"); if (mediaButton) mediaButton.hidden = true;
+    if ($("postMediaPicker")) $("postMediaPicker").value = "";
+    if ($("postMediaStatus")) $("postMediaStatus").textContent = "";
     await renderFeed();
+    switchView("home");
   } catch (error) { alert(error.message); }
   finally { if (button) button.disabled = false; }
 }
@@ -457,6 +457,15 @@ async function createPost() {
 function switchView(view, sourceButton = null) {
   const target = Array.from(document.querySelectorAll("[data-pane]")).find(pane => pane.dataset.pane === view);
   if (!target) return false;
+  if (view !== "post") {
+    const composer = $("postComposer");
+    composer?.classList.remove("is-editing");
+    if ($("postInput")) $("postInput").value = "";
+    if ($("postMediaPicker")) $("postMediaPicker").value = "";
+    if ($("postMediaStatus")) $("postMediaStatus").textContent = "";
+    if ($("postBtn")) $("postBtn").hidden = true;
+    pendingPostFile = null;
+  }
   document.querySelectorAll(".fb-nav [data-view]").forEach(item => {
     const active = item.dataset.view === view;
     item.classList.toggle("active", active);
@@ -686,37 +695,32 @@ function wireNavigation() {
     const { error } = await supabase.auth.signOut();
     if (error) showError(error.message);
   });
-  $("hdrAdd")?.addEventListener("click", () => { switchView("home"); $("postInput")?.focus(); });
+  const openPostView = () => {
+    switchView("post");
+    $("postInput")?.focus();
+  };
+  $("openPostComposer")?.addEventListener("click", openPostView);
+  $("hdrAdd")?.addEventListener("click", openPostView);
   $("hdrSearch")?.addEventListener("click", () => { switchView("friends"); if ($("findBlock")) $("findBlock").hidden = false; $("friendSearch")?.focus(); });
   const postInput = $("postInput");
-  const composer = postInput?.closest(".composer");
-  if (postInput) postInput.removeAttribute("readonly");
-  const openPostComposer = () => {
-    composer?.classList.add("is-editing");
-    if ($("postMediaButton")) $("postMediaButton").hidden = false;
-  };
-  postInput?.addEventListener("focus", openPostComposer);
-  postInput?.addEventListener("click", openPostComposer);
+  const composer = $("postComposer");
+  $("postMediaButton")?.addEventListener("click", () => $("postMediaPicker")?.click());
+  $("postMediaPicker")?.addEventListener("change", event => {
+    const picker = event.currentTarget;
+    const file = picker.files?.[0] || null;
+    if (file && file.size > 20 * 1024 * 1024) {
+      alert("Choose a file under 20 MB.");
+      picker.value = "";
+      return;
+    }
+    pendingPostFile = file;
+    if ($("postMediaStatus")) $("postMediaStatus").textContent = file ? "Selected: " + file.name : "";
+    if ($("postBtn")) $("postBtn").hidden = !postInput?.value.trim() && !pendingPostFile;
+  });
   postInput?.addEventListener("input", () => {
     if ($("postBtn")) $("postBtn").hidden = !postInput.value.trim() && !pendingPostFile;
   });
   $("postBtn")?.addEventListener("click", createPost);
-  if (composer && !$("postMediaButton")) {
-    const mediaButton = document.createElement("button");
-    mediaButton.type = "button"; mediaButton.id = "postMediaButton"; mediaButton.className = "btn secondary";
-    mediaButton.textContent = "Add photo or video"; mediaButton.hidden = true;
-    const status = document.createElement("small"); status.id = "postMediaStatus"; status.setAttribute("aria-live", "polite");
-    const picker = document.createElement("input"); picker.type = "file"; picker.accept = "image/jpeg,image/png,image/webp,image/avif,video/mp4,video/webm"; picker.hidden = true;
-    mediaButton.addEventListener("click", () => picker.click());
-    picker.addEventListener("change", () => {
-      const file = picker.files?.[0] || null;
-      if (file && file.size > 20 * 1024 * 1024) { alert("Choose a file under 20 MB."); picker.value = ""; return; }
-      pendingPostFile = file;
-      status.textContent = file ? "Selected: " + file.name : "";
-      if ($("postBtn")) $("postBtn").hidden = !($("postInput")?.value.trim() || pendingPostFile);
-    });
-    composer.append(mediaButton, picker, status);
-  }
 }
 function wireAuth() {
   initSupabaseSocial();
