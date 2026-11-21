@@ -100,8 +100,24 @@ async function openPublicProfile(userId) {
     // at the top of their own profile without exposing private notes to others.
     const profileNotes = isMe ? await userNotes.listMine() : [];
     const latestNote = profileNotes[0] || null;
-    const postRows = await Promise.all((rows || []).map(async post => ({
+    const rawPosts = rows || [];
+    const postIds = rawPosts.map(post => post.id).filter(Boolean);
+    const [likeRows, commentRows] = postIds.length ? await Promise.all([
+      supabase.from("post_likes").select("post_id").in("post_id", postIds),
+      supabase.from("comments").select("post_id").in("post_id", postIds)
+    ]) : [{ data: [], error: null }, { data: [], error: null }];
+    if (likeRows.error) throw likeRows.error;
+    if (commentRows.error) throw commentRows.error;
+    const countByPost = source => (source || []).reduce((counts, row) => {
+      counts[row.post_id] = (counts[row.post_id] || 0) + 1;
+      return counts;
+    }, {});
+    const likesByPost = countByPost(likeRows.data);
+    const commentsByPost = countByPost(commentRows.data);
+    const postRows = await Promise.all(rawPosts.map(async post => ({
       ...post,
+      likeCount: likesByPost[post.id] || 0,
+      commentCount: commentsByPost[post.id] || 0,
       mediaUrl: post.media_path ? await storage.url("murmur-posts", post.media_path).catch(() => post.media_url || null) : (post.media_url || null)
     })));
     const avatar = person.avatar_url ? '<button type="button" class="murmur-profile-avatar murmur-profile-avatar-open" aria-label="View profile picture"><img class="murmur-profile-avatar-image" src="' + safeText(person.avatar_url) + '" alt=""></button>' : '<div class="murmur-profile-avatar"><span class="murmur-profile-avatar-fallback">' + safeText((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</span></div>';
@@ -112,6 +128,7 @@ async function openPublicProfile(userId) {
       '<p class="murmur-profile-bio">' + safeText(person.bio || "No bio yet.") + '</p><div class="murmur-profile-stats"><strong>' + postRows.length + '</strong> posts</div><h3 class="murmur-profile-post-heading">Posts</h3><div class="murmur-profile-posts">' +
       (postRows.length ? postRows.map(post => '<article class="murmur-profile-post">' + (post.content ? '<p>' + safeText(post.content) + '</p>' : '') +
         (post.mediaUrl ? (post.media_type === "video" ? '<video controls playsinline preload="metadata" src="' + safeText(post.mediaUrl) + '"></video>' : '<img loading="lazy" src="' + safeText(post.mediaUrl) + '" alt="Post photo">') : '') +
+        '<div class="murmur-profile-post-stats"><span><strong>' + post.likeCount + '</strong> likes</span><span><strong>' + post.commentCount + '</strong> comments</span></div>' +
         '<small>' + safeText(new Date(post.created_at).toLocaleString()) + '</small></article>').join("") : '<p class="empty-state">No posts yet.</p>') + '</div>';
     content.querySelector(".murmur-profile-avatar-open")?.addEventListener("click", event => {
       const source = event.currentTarget.querySelector("img")?.src;
