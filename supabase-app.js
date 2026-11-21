@@ -776,6 +776,7 @@ function handleMenuAction(action) {
   if (action === "performance") { openPerformanceInfo(); return; }
   if (action === "permissions") { openAppPermissions(); return; }
   if (action === "privacy") { location.href = "/privacy"; return; }
+  if (action === "cookies") { location.href = "/cookies"; return; }
   if (action === "account-settings") { openAccountSettings(); return; }
   if (action === "help") {
     openMenuDialog("Help centre", '<p>For account access, chat, privacy or technical problems, use <strong>Report a problem</strong> so the Murmur team can review the details.</p><button class="btn primary" type="button" data-open-report>Report a problem</button>')
