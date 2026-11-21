@@ -3,7 +3,7 @@
  * No external identity bridge or fallback is loaded.
  */
 import { supabase } from "./supabase-client.js";
-import { posts, profiles, storage, friendships, stories, reels, userNotes, messages, conversations, comments, postLikes, accountRestrictions } from "./supabase-data.js?v=20261122-1";
+import { posts, profiles, storage, friendships, stories, reels, userNotes, messages, conversations, comments, postLikes, accountRestrictions } from "./supabase-data.js?v=20261122-2";
 import { initSupabaseSocial } from "./supabase-social.js?v=20261122-12";
 
 const authModalStyles = document.createElement("style");
