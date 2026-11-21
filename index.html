@@ -263,12 +263,25 @@
       <section class="pane active" data-pane="home">
         <div id="announceBox"></div>
         <div id="storiesRow" class="stories"></div>
-        <div class="composer">
+        <button class="composer post-entry" id="openPostComposer" type="button" aria-label="Create a post">
           <div class="avatar" id="composerAvatar" aria-label="Your profile" role="img">MC</div>
-          <input id="postInput" type="text" maxlength="200" placeholder="What’s on your mind?" aria-label="Create a post" readonly />
+          <span>What’s on your mind?</span>
+        </button>
+        <button class="btn ghost small" id="savedPostsOpen" type="button">★ Saved posts</button><div class="posts" id="posts"></div>
+      </section>
+
+      <section class="pane post-pane" data-pane="post" hidden>
+        <div class="post-pane-heading">
+          <button class="post-back" type="button" data-view="home" aria-label="Back to home">‹</button>
+          <h1>Create post</h1>
+        </div>
+        <div class="composer is-editing" id="postComposer">
+          <textarea id="postInput" maxlength="2000" placeholder="What’s on your mind?" aria-label="Write your post" rows="4"></textarea>
+          <button class="btn secondary" id="postMediaButton" type="button">Add photo or video</button>
+          <input id="postMediaPicker" type="file" accept="image/jpeg,image/png,image/webp,image/avif,video/mp4,video/webm" hidden />
+          <small id="postMediaStatus" aria-live="polite"></small>
           <button class="btn primary" id="postBtn" type="button" hidden>Post</button>
         </div>
-        <button class="btn ghost small" id="savedPostsOpen" type="button">★ Saved posts</button><div class="posts" id="posts"></div>
       </section>
 
       <section class="pane reels-pane" data-pane="reels">
