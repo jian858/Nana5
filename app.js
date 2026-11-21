@@ -4402,7 +4402,6 @@ setTimeout(finishStartup, SPLASH_MS);
             headers: {
               "Content-Type": "application/json",
               "apikey": publicKey,
-              "Authorization": "Bearer " + publicKey,
               "Prefer": "return=minimal"
             },
             body: JSON.stringify({ p_visitor_id: visitorId, p_page_path: cleanPath }),
