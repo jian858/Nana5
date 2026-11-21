@@ -811,3 +811,18 @@ input,select,textarea{max-width:100%}
 }
 .main > footer.legal-links a:hover,
 .main > footer.legal-links a:focus-visible{text-decoration:underline}
+
+/* Refined profile back control: clear arrow, consistent tap target and feedback. */
+#app .murmur-profile-back{
+ display:inline-flex;align-items:center;justify-content:center;flex:0 0 44px;
+ width:44px;height:44px;padding:0;border:1px solid var(--line,#dce6e4);
+ border-radius:14px;background:var(--surface-soft,#f4f8f7);color:var(--ink,#172a2b);
+ font-family:inherit;font-size:1.55rem;font-weight:600;line-height:1;
+ box-shadow:0 2px 8px rgba(20,45,42,.05);
+ transition:background .18s ease,border-color .18s ease,transform .18s ease,box-shadow .18s ease;
+ -webkit-tap-highlight-color:transparent;
+}
+#app .murmur-profile-back:hover{background:#e8f8f3;border-color:#b9e8dc;transform:translateX(-2px)}
+#app .murmur-profile-back:active{transform:scale(.96)}
+#app .murmur-profile-back:focus-visible{outline:3px solid rgba(20,191,160,.35);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){#app .murmur-profile-back{transition:none}}
