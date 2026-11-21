@@ -245,10 +245,11 @@ export function initSupabaseSocial() {
     if (messageChannel) supabase.removeChannel(messageChannel);
     socialChannel = null; messageChannel = null;
   });
-  document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => {
-    if (button.dataset.view === "friends") renderFriends();
-    if (button.dataset.view === "reels") renderReels();
-    if (button.dataset.view === "chats") renderChats();
-    if (button.dataset.view === "alerts") renderAlerts();
-  }));
+  window.addEventListener("murmur:view-changed", event => {
+    const view = event.detail?.view;
+    if (view === "friends") renderFriends();
+    if (view === "reels") renderReels();
+    if (view === "chats") renderChats();
+    if (view === "alerts") renderAlerts();
+  });
 }
