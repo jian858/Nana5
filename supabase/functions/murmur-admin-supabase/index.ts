@@ -171,7 +171,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "posts") {
-      const { data, error } = await db.from("posts").select("id,author_id,content,visibility,media_url,media_type,created_at").order("created_at", { ascending: false }).limit(200);
+      const { data, error } = await db.from("posts").select("id,author_id,content,visibility,media_path,media_type,created_at").order("created_at", { ascending: false }).limit(200);
       if (error) throw error;
       return reply(200, { posts: data || [] });
     }
