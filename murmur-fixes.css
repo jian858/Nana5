@@ -826,3 +826,31 @@ input,select,textarea{max-width:100%}
 #app .murmur-profile-back:active{transform:scale(.96)}
 #app .murmur-profile-back:focus-visible{outline:3px solid rgba(20,191,160,.35);outline-offset:3px}
 @media(prefers-reduced-motion:reduce){#app .murmur-profile-back{transition:none}}
+
+
+/* Profile note card: prominent, compact, and clearly tappable. */
+#app .murmur-profile-note{
+  display:grid;gap:7px;margin:14px 0 16px;padding:13px 14px;
+  border:1px solid var(--line,#e5e7eb);border-radius:14px;
+  background:var(--surface-soft,#f4f8f7);
+}
+#app .murmur-profile-note-heading{font-size:.78rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+#app .murmur-profile-note-content{
+  display:block;width:100%;padding:0;border:0;background:transparent;color:var(--ink);
+  font:inherit;font-size:1rem;line-height:1.5;text-align:left;white-space:pre-wrap;
+  overflow-wrap:anywhere;cursor:pointer;
+}
+#app .murmur-profile-note-content:hover{text-decoration:underline;text-decoration-color:var(--accent,#14c8a0);text-underline-offset:3px}
+#app .murmur-profile-note small{font-size:.75rem;color:var(--muted)}
+#app .murmur-profile-note-empty{
+  display:block;width:100%;margin:14px 0;padding:13px;border:1px dashed var(--line,#d5dbe3);
+  border-radius:13px;background:transparent;color:var(--accent,#0fae8a);font:inherit;
+  font-weight:700;text-align:left;cursor:pointer;
+}
+.note-saved-preview{
+  max-width:min(54vw,260px);padding:7px 10px;border:1px solid var(--line,#dce6e4);
+  border-radius:12px;background:var(--surface-soft,#f4f8f7);color:var(--ink);
+  font:inherit;font-size:.78rem;line-height:1.3;text-align:left;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;cursor:pointer;
+}
+.note-saved-preview:hover{border-color:var(--accent,#14c8a0)}
