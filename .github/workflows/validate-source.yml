@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - "murmur/**"
+      - "chore/**"
 
 permissions:
   contents: read
