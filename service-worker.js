@@ -1,18 +1,53 @@
-const CACHE_NAME = "murmur-shell-v16";
+/* Murmur offline app shell.
+ * Keep this list in sync with index.html and app-loader.js.
+ * Cache version must change whenever this file's shell contents change.
+ */
+const CACHE_NAME = "murmur-shell-v17";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
+  "/terms",
+  "/privacy",
+  "/cookies",
   "/styles.css?v=20261121-1",
+  "/responsive.css?v=20261121-1",
+  "/performance.css?v=20261121-2",
+  "/legal-auth.css?v=20261121-2",
+  "/support.css?v=20261121-1",
   "/config.js?v=20261102-1",
   "/firebase.js?v=20261118-2",
   "/account-restrictions.js?v=20261102-1",
-  "/app.js?v=20261121-4",
-  "/pwa.js?v=20261102-2",
   "/data-mode.js?v=20261121-1",
+  "/visitor-tracking.js?v=20261121-2",
+  "/app-loader.js?v=20261121-22",
+  "/app.js",
+  "/home-feed.js",
+  "/friends.js",
+  "/chat.js",
+  "/alerts.js",
+  "/presence.js",
+  "/navigation.js",
+  "/registration.js",
+  "/login.js",
+  "/password-reset.js",
+  "/legal.js",
+  "/stories.js",
+  "/comments.js",
+  "/post-composer.js",
+  "/notes.js",
+  "/session.js",
+  "/reels.js",
+  "/menu.js",
+  "/profile.js",
+  "/messaging.js",
+  "/account-recovery.js",
+  "/blocking.js",
+  "/security.js",
+  "/pwa.js?v=20261102-2",
   "/manifest.json?v=20261102-2",
   "/murmur-icon.svg",
-  OFFLINE_URL
+  "/offline.html"
 ];
 
 self.addEventListener("message", event => {
@@ -57,13 +92,12 @@ self.addEventListener("fetch", event => {
         const response = await fetch(request);
         if (response && response.ok) {
           const cache = await caches.open(CACHE_NAME);
-          await cache.put("/index.html", response.clone());
+          await cache.put(request, response.clone());
         }
         return response;
       } catch {
         const cachedPage = await caches.match(request);
         if (cachedPage) return cachedPage;
-
         const fallback = await caches.match(OFFLINE_URL);
         return fallback || Response.error();
       }
