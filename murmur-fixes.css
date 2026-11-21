@@ -775,3 +775,14 @@ input,select,textarea{max-width:100%}
 
 .people-profile-name{display:block;padding:0;border:0;background:transparent;color:var(--ink);font:inherit;font-weight:750;text-align:left;cursor:pointer}
 .people-profile-name:hover{text-decoration:underline}
+
+
+/* Profile is a full Friends-style tab, not a popup overlay. */
+#app .murmur-profile-pane{width:100%;max-width:none;min-height:100%;padding:0 0 calc(24px + env(safe-area-inset-bottom,0px));box-sizing:border-box;background:var(--surface,#fff)}
+#app .murmur-profile-tab-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;min-height:54px;padding:8px 14px;border-bottom:1px solid var(--line,#e5e7eb);background:var(--surface,#fff)}
+#app .murmur-profile-tab-head h1{margin:0;font-size:1.15rem;font-weight:800}
+#app .murmur-profile-back{width:40px;height:40px;border:0;border-radius:12px;background:var(--surface-soft,#f4f7f7);color:var(--ink);font-size:1.8rem;line-height:1;cursor:pointer}
+#app .murmur-profile-view-content{width:100%;max-width:900px;max-height:none;overflow:visible;margin:0 auto;padding:0 16px 24px;box-sizing:border-box}
+#app .murmur-profile-cover{height:clamp(110px,22vw,190px);margin:0 -16px}
+#app .murmur-profile-posts{grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:12px}
+@media(max-width:480px){#app .murmur-profile-view-content{padding-inline:12px}#app .murmur-profile-cover{margin-inline:-12px}}
