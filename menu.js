@@ -199,7 +199,7 @@ function openAppPermissions() {
 function openPerformanceDiagnostics() {
   if (document.querySelector('.murmur-diagnostics-screen')) return;
   const screen = document.createElement('div');
-  screen.className = 'screen-legal np-screen murmur-diagnostics-screen';
+  screen.className = 'screen-legal np-screen permissions-screen murmur-diagnostics-screen';
   screen.setAttribute('role', 'dialog');
   screen.setAttribute('aria-modal', 'true');
   screen.setAttribute('aria-label', 'Performance and connection');
