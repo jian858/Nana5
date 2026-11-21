@@ -19,7 +19,7 @@ const APP_SHELL = [
   "/supabase-client.js?v=20261121-24",
   "/supabase-runtime.js?v=20261121-1",
   "/supabase-data.js",
-  "/supabase-app.js?v=20261121-1",
+  "/supabase-app.js?v=20261121-2",
   "/supabase-social.js",
   "/pwa.js?v=20261121-1",
   "/manifest.json?v=20261102-2",
