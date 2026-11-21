@@ -37,12 +37,12 @@ const LEGAL_PAGES = {
     <h2>1. Information we collect</h2>
     <h3>Information you give us</h3>
     <ul>
-      <li><strong>Account details:</strong> your first, middle and last name, username, email address and password. Your password is handled by Firebase Authentication. We never see it in readable form.</li>
+      <li><strong>Account details:</strong> your first, middle and last name, username, email address and password. Your password is handled securely by Supabase Auth. We never see it in readable form.</li>
       <li><strong>Birthday:</strong> used to check that you are at least 13 years old.</li>
       <li><strong>Optional profile details:</strong> gender, location, school, phone number, bio, interests and profile or cover photos, if you add them.</li>
     </ul>
     <h3>Information created as you use Murmur</h3>
-    <p>Your posts, stories, comments, likes, friend connections, chats, reactions and notifications are stored in Firebase Realtime Database so they can sync between your devices and friends. Photos and videos you upload may be stored in Firebase Storage. Limited interface preferences and cached app state are kept in your browser storage.</p>
+    <p>Your posts, stories, comments, likes, friend connections, chats, reactions and notifications are stored in the Supabase Postgres database so they can sync between your devices and friends. Photos and videos you upload may be stored in Supabase Storage. Limited interface preferences and cached app state are kept in your browser storage.</p>
     <h3>Technical information</h3>
     <p>Our service providers record sign-in information such as your account ID and when you created your account and last signed in. They also process technical data such as your IP address and browser or device type so the service can run and stay secure. Murmur also creates a random first-party visitor ID in your browser and records page paths and visit timestamps when you open the site or move between app sections. This works even if you do not register or log in. The visitor ID is pseudonymous; Murmur does not use it to identify your real name and this visitor tracker does not collect your IP address, password, email address or device fingerprint. Authorized administrators can view visitor statistics and recent anonymous visit records for service analytics and improvement.</p>
 
@@ -58,7 +58,7 @@ const LEGAL_PAGES = {
     <h2>3. Who we share it with</h2>
     <p>We do not sell your personal information. We share it only with:</p>
     <ul>
-      <li><strong>Service providers.</strong> Murmur uses Firebase Authentication for sign-in, Firebase Realtime Database for profiles and social features, and Firebase Storage for uploaded media. Murmur also uses Supabase to create and privately link a separate Supabase account ID to your Firebase account. These providers process information under their own terms and privacy policies.</li>
+      <li><strong>Service providers.</strong> Murmur uses Supabase Auth for sign-in, Supabase Postgres for profiles and social features, and Supabase Storage for uploaded media. These providers process information under their own terms and privacy policies.</li>
       <li><strong>Authorities or other parties</strong> when the law requires it, or to protect the rights and safety of you, others or Murmur.</li>
       <li><strong>A successor</strong> if Murmur is merged with, or sold to, another service. We would tell you first if your information would be handled under a different policy.</li>
     </ul>
@@ -67,10 +67,10 @@ const LEGAL_PAGES = {
     <p>Your name, username and the posts you share are visible to other Murmur users. Think before you post personal details, and only share what you are comfortable with others seeing.</p>
 
     <h2>5. Where your information is stored</h2>
-    <p>Account and social information is stored with Firebase, and a separate account-ID link is stored privately with Supabase. These providers may process information in data centers outside the country where you live. Review their privacy policies for details about their processing and international transfers.</p>
+    <p>Account and social information is stored in Supabase. These providers may process information in data centers outside the country where you live. Review their privacy policies for details about their processing and international transfers.</p>
 
     <h2>6. How long we keep it</h2>
-    <p>Information is retained while needed to operate your account and the service. Deletion requests should cover your Firebase account, related Realtime Database records and uploaded files, and the private account-ID link held in Supabase; some records may remain where retention is required by law or needed for security. Browser-stored preferences and cached state remain until cleared from your device.</p>
+    <p>Information is retained while needed to operate your account and the service. Deletion requests should cover your Supabase Auth account, related database records and uploaded files; some records may remain where retention is required by law or needed for security. Browser-stored preferences and cached state remain until cleared from your device.</p>
 
     <h2>7. Your choices and rights</h2>
     <p>Depending on where you live, you may have the right to:</p>
@@ -112,8 +112,8 @@ const LEGAL_PAGES = {
       <table class="legal-table">
         <thead><tr><th>Name</th><th>Type</th><th>What it does</th><th>How long</th></tr></thead>
         <tbody>
-          <tr><td><code>murmur-state</code></td><td>Local storage</td><td>Keeps limited interface state and cached app data on this device; Firebase remains the shared source for account and social data.</td><td>Until cleared from your browser</td></tr>
-          <tr><td><code>firebaseLocalStorageDb</code></td><td>IndexedDB (Firebase Authentication)</td><td>Keeps you signed in and keeps your login secure.</td><td>Until you log out or clear your browser data</td></tr>
+          <tr><td><code>murmur-state</code></td><td>Local storage</td><td>Keeps limited interface state and cached app data on this device; Supabase is the shared source for account and social data.</td><td>Until cleared from your browser</td></tr>
+          <tr><td><code>Supabase Auth browser session</code></td><td>Browser storage (Supabase Auth)</td><td>Keeps you signed in and keeps your login secure.</td><td>Until you log out or clear your browser data</td></tr>
           <tr><td><code>murmur-cookie-notice</code></td><td>Local storage</td><td>Remembers that you have seen the cookie notice so we do not show it every time.</td><td>Until you clear your browser data</td></tr>
         </tbody>
       </table>
@@ -127,7 +127,7 @@ const LEGAL_PAGES = {
     </ul>
 
     <h2>4. Third parties</h2>
-    <p>Murmur uses Google Firebase to sign you in and store your profile. When your browser connects to Google services it may receive technical information such as your IP address. Google's own privacy policy explains how it handles that information.</p>
+    <p>Murmur uses Supabase Auth to sign you in and Supabase to store your profile. When your browser connects to Google services it may receive technical information such as your IP address. Google's own privacy policy explains how it handles that information.</p>
 
     <h2>5. Managing storage</h2>
     <p>You can delete or block cookies and site data in your browser settings. If you do, you will be logged out and Murmur may forget your settings. Blocking storage completely may stop you from logging in, because the service needs it to keep you signed in.</p>
