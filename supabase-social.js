@@ -198,11 +198,12 @@ async function renderNotes() {
     const avatarUrl = profile.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || "";
     const name = profile.display_name || user.user_metadata?.display_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "You";
     const latest = rows[0] || null;
-    root.innerHTML = '<button type="button" class="note-avatar-button" data-add-note aria-label="Create a note">' +
+    root.innerHTML = '<button type="button" class="note-avatar-button" data-add-note title="' + (latest ? 'Edit or delete your note' : 'Create a note') + '" aria-label="' + (latest ? 'Edit or delete your note' : 'Create a note') + '">' +
       '<span class="note-action-label">Create note</span>' +
       '<span class="note-avatar-circle">' + (avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="">' : '<span>' + esc(name.slice(0,1).toUpperCase()) + '</span>') +
-      '</span></button>' +
-      (latest ? '<button type="button" class="note-saved-preview" data-add-note title="Edit or delete your note" aria-label="Edit or delete your note">' + esc(latest.content) + '</button>' : '');
+      '</span>' +
+      (latest ? '<span class="note-saved-preview">' + esc(latest.content) + '</span>' : '') +
+      '</button>';
     root.querySelectorAll("[data-add-note]").forEach(noteButton => noteButton.addEventListener("click", () => {
       const overlay = document.createElement("div");
       overlay.className = "murmur-auth-modal murmur-note-modal";
