@@ -1034,7 +1034,7 @@ function switchView(view, sourceButton = null) {
     // This preserves loaded media, expanded comments, and the exact scroll point.
     if (!feedRoot?.querySelector("[data-post-id]")) void renderFeed();
     if (returningHome) {
-      requestAnimationFrame(() => window.scrollTo({ top: murmurFeedScrollY, behavior: "instant" }));
+      requestAnimationFrame(() => window.scrollTo({ top: murmurFeedScrollY, behavior: "auto" }));
     } else if (sourceButton?.closest(".fb-nav") && !feedRoot?.querySelector("[data-post-id]")) {
       window.scrollTo({ top: 0, behavior: "instant" });
     }
