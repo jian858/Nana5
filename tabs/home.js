@@ -115,7 +115,7 @@ export async function renderFeed() {
       // The profile query already returns avatar_url; render it on every post
       // so another signed-in account sees the author's actual profile picture.
       const avatar = person.avatar_url
-        ? '<span class="avatar" role="img" aria-label="' + author + ' profile picture" data-fallback="' + initial + '"><img src="' + safeText(person.avatar_url) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.textContent=this.parentElement.dataset.fallback"></span>'
+        ? '<span class="avatar" role="img" aria-label="' + author + ' profile picture" data-fallback="' + initial + '" style="overflow:hidden;border-radius:50%"><img src="' + safeText(person.avatar_url) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent=this.parentElement.dataset.fallback"></span>'
         : '<span class="avatar" role="img" aria-label="' + author + ' profile picture">' + initial + '</span>';
       const media = post.signedMediaUrl ? (post.media_type === "video" ? '<video class="post-media" controls playsinline preload="metadata" src="' + safeText(post.signedMediaUrl) + '"></video>' : '<img class="post-media" loading="lazy" src="' + safeText(post.signedMediaUrl) + '" alt="Post attachment">') : "";
       const likes = likeCounts.get(post.id) || 0;
