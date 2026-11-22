@@ -1287,7 +1287,8 @@ async function openAppPermissions() {
     button.disabled = true;
     message.textContent = "Waiting for your choice…";
     try {
-      const consentGiven = await showPermissionNotice(kind);
+      const alreadyAllowedNotifications = kind === "notifications" && Notification.permission === "granted";
+      const consentGiven = alreadyAllowedNotifications || await showPermissionNotice(kind);
       if (!consentGiven) {
         message.textContent = "Permission request cancelled. Murmur has not accessed this feature.";
         return;
