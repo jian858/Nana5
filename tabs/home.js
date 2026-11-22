@@ -184,7 +184,7 @@ export function stopWatchingFeed() {
   if (feedChannel) { supabase.removeChannel(feedChannel); feedChannel = null; }
 }
 
-function watchFeed() {
+export function watchFeed() {
   if (feedChannel) supabase.removeChannel(feedChannel);
   feedChannel = supabase.channel("murmur-public-posts")
     .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, payload => {
