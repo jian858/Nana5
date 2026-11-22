@@ -1245,6 +1245,78 @@ function openDeleteAccountInfo() {
     '<p>Account deletion must be securely processed on the server so your authentication account and personal data are removed together.</p><p>This app does not currently expose a verified self-service deletion endpoint. Your account has <strong>not</strong> been deleted.</p><p>Use the Help &amp; support section to submit a deletion request.</p>');
 }
 
+
+async function openVerifiedBadgeDialog() {
+  if (!currentUser?.id) return;
+  const overlay = openMenuDialog("Verified badge",
+    '<p>A verified badge helps people recognize authentic accounts on Murmur. Meeting the requirements lets you submit a request for review; a badge is not automatic.</p>' +
+    '<h3>Requirements</h3><ul>' +
+    '<li>Your account has been active for at least 30 days.</li>' +
+    '<li>Your profile has a clear photo, username and a useful bio.</li>' +
+    '<li>Your account represents a real person, creator, organization or public-facing project.</li>' +
+    '<li>Your profile and recent activity follow Murmur Community Guidelines.</li>' +
+    '<li>You provide enough information or a public link to help confirm your identity or presence.</li>' +
+    '</ul><p>Do not send passwords, verification codes or private identity documents in this form.</p>' +
+    '<div class="murmur-verified-request-status" role="status" aria-live="polite">Checking your request…</div>' +
+    '<label>Why should this account be verified?<textarea name="verification_reason" rows="4" maxlength="1500" placeholder="Tell us who you are, what your account represents and where your public presence can be confirmed." required></textarea></label>' +
+    '<label>Public website or profile link (optional)<input name="verification_evidence" type="url" maxlength="500" placeholder="https://example.com"></label>' +
+    '<p class="murmur-modal-error" role="alert"></p><button class="btn primary" type="button" data-submit-verified-request>Send request</button>');
+  const status = overlay.querySelector(".murmur-verified-request-status");
+  const button = overlay.querySelector("[data-submit-verified-request]");
+  const reasonInput = overlay.querySelector('[name="verification_reason"]');
+  const evidenceInput = overlay.querySelector('[name="verification_evidence"]');
+  try {
+    const { data, error } = await supabase.from("verified_badge_requests")
+      .select("id,status,reviewer_note,created_at").eq("user_id", currentUser.id)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) throw error;
+    if (data?.status === "pending") {
+      status.textContent = "Your request is pending review. You will receive a notification when a decision is made.";
+      button.disabled = true;
+      button.textContent = "Request already sent";
+    } else if (data?.status === "approved") {
+      status.textContent = "This account has already been approved for a verified badge.";
+      button.disabled = true;
+      button.hidden = true;
+    } else if (data?.status === "rejected") {
+      status.textContent = "Your previous request was not approved. You may submit an updated request.";
+      if (data.reviewer_note) status.textContent += " Note: " + data.reviewer_note;
+    } else {
+      status.textContent = "No request submitted yet.";
+    }
+  } catch (error) {
+    status.textContent = "Could not check your request status. Please try again later.";
+    button.disabled = true;
+    return;
+  }
+  button.addEventListener("click", async () => {
+    const reason = reasonInput.value.trim();
+    const evidence = evidenceInput.value.trim();
+    const errorBox = overlay.querySelector(".murmur-modal-error");
+    if (reason.length < 30) { errorBox.textContent = "Please write at least 30 characters so we can review your request."; return; }
+    if (evidence && !/^https:\/\//i.test(evidence)) { errorBox.textContent = "Use a secure https:// link."; return; }
+    button.disabled = true;
+    button.textContent = "Sending…";
+    errorBox.textContent = "";
+    try {
+      const { error } = await supabase.from("verified_badge_requests").insert({
+        user_id: currentUser.id, reason, evidence_url: evidence || null
+      });
+      if (error) throw error;
+      status.textContent = "Your request has been sent successfully and is now waiting for review. Murmur will notify you when it is decided.";
+      button.textContent = "Request sent";
+      reasonInput.disabled = true;
+      evidenceInput.disabled = true;
+    } catch (error) {
+      errorBox.textContent = /duplicate|unique/i.test(error.message || "")
+        ? "You already have a request waiting for review."
+        : (error.message || "Could not send your request. Please try again.");
+      button.disabled = false;
+      button.textContent = "Send request";
+    }
+  });
+}
+
 function handleMenuAction(action) {
   const views = { reels: "reels", friends: "friends", chats: "chats", alerts: "alerts", feeds: "home" };
   if (views[action]) { switchView(views[action]); return; }
@@ -1253,6 +1325,7 @@ function handleMenuAction(action) {
   if (action === "privacy") { location.href = "/privacy"; return; }
   if (action === "cookies") { location.href = "/cookies"; return; }
   if (action === "account-settings") { openAccountSettings(); return; }
+  if (action === "verified-badge") { openVerifiedBadgeDialog(); return; }
   if (action === "help") {
     openMenuDialog("Help centre", '<p>For account access, chat, privacy or technical problems, use <strong>Report a problem</strong> so the Murmur team can review the details.</p><button class="btn primary" type="button" data-open-report>Report a problem</button>')
       .querySelector("[data-open-report]")?.addEventListener("click", openReportDialog);
