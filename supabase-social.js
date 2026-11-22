@@ -490,6 +490,7 @@ let conversationOpenRun = 0;
 let typingChannel = null;
 let typingResetTimer = null;
 let typingPeerIsActive = false;
+let typingIsPublished = false;
 
 function showTypingStatus(isTyping) {
   typingPeerIsActive = Boolean(isTyping);
@@ -508,37 +509,33 @@ function stopConversationTyping() {
   if (typingChannel) supabase.removeChannel(typingChannel);
   typingChannel = null;
   typingPeerIsActive = false;
+  typingIsPublished = false;
 }
 
 async function setConversationTyping(isTyping) {
-  if (!typingChannel) return;
+  if (!typingChannel || typingIsPublished === Boolean(isTyping)) return;
+  typingIsPublished = Boolean(isTyping);
   try {
-    await typingChannel.track({ typing: Boolean(isTyping), updated_at: new Date().toISOString() });
+    await typingChannel.send({
+      type: "broadcast",
+      event: "typing",
+      payload: { typing: typingIsPublished }
+    });
   } catch (error) {
-    console.warn("[Murmur typing] Could not update typing status:", error);
+    console.warn("[Murmur typing] Could not broadcast typing status:", error);
   }
 }
 
-function startConversationTyping(conversationId, currentUserId) {
+function startConversationTyping(conversationId) {
   stopConversationTyping();
-  if (!conversationId || !currentUserId) return;
-  const channel = supabase.channel("murmur-typing-" + conversationId, {
-    config: { presence: { key: currentUserId } }
-  });
+  if (!conversationId) return;
+  const channel = supabase.channel("murmur-typing-" + conversationId);
   typingChannel = channel;
-  channel.on("presence", { event: "sync" }, () => {
+  channel.on("broadcast", { event: "typing" }, ({ payload }) => {
     if (typingChannel !== channel) return;
-    const state = channel.presenceState() || {};
-    const peerTyping = Object.entries(state).some(([userId, entries]) =>
-      userId !== currentUserId && (entries || []).some(entry => entry.typing === true)
-    );
-    showTypingStatus(peerTyping);
+    showTypingStatus(payload?.typing === true);
   });
-  channel.subscribe(async status => {
-    if (typingChannel === channel && status === "SUBSCRIBED") {
-      await channel.track({ typing: false, updated_at: new Date().toISOString() });
-    }
-  });
+  channel.subscribe();
 }
 
 async function openConversation(id) {
@@ -587,7 +584,7 @@ async function openConversation(id) {
     const name = activeConversationPerson?.display_name || activeConversationPerson?.username || "Conversation";
     if (el("chatName")) el("chatName").textContent = name;
     if (el("chatStatus")) el("chatStatus").textContent = activeConversationPerson?.username ? "@" + activeConversationPerson.username : "Private chat";
-    startConversationTyping(id, authData.user?.id);
+    startConversationTyping(id);
     const profileButton = el("chatProfileBtn");
     if (profileButton) {
       if (activeConversationPerson?.id) {
@@ -751,7 +748,7 @@ export function initSupabaseSocial() {
     if (typingResetTimer) clearTimeout(typingResetTimer);
     const isTyping = Boolean(messageInput.value.trim());
     void setConversationTyping(isTyping);
-    if (isTyping) typingResetTimer = setTimeout(() => { void setConversationTyping(false); }, 1600);
+    if (isTyping) typingResetTimer = setTimeout(() => { void setConversationTyping(false); }, 1800);
   });
   messageInput?.addEventListener("blur", () => { if (typingResetTimer) clearTimeout(typingResetTimer); typingResetTimer = null; void setConversationTyping(false); });
   messageInput?.addEventListener("keydown", event => {
