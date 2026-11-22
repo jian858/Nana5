@@ -355,10 +355,11 @@
               <div class="conv-actions"><button class="btn ghost" type="button" id="chatProfileBtn">Profile</button><button class="btn ghost block-btn" type="button" id="chatBlockBtn" aria-label="Block this person"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg><span>Block</span></button></div>
             </div>
             <div class="messages" id="messages"></div>
-            <div class="composer-chat">
-              <input id="messageInput" type="text" placeholder="Type a message…" aria-label="Write a message" maxlength="300" autocomplete="off" enterkeyhint="send" />
-              <button class="btn ghost" id="voiceBtn" type="button" aria-label="Record voice message" title="Record voice message"><svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg></button><button class="btn primary" id="sendBtn" type="button" aria-label="Send message"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 20.4l17.4-8.1a.5.5 0 0 0 0-.9L3.4 3.3a.5.5 0 0 0-.7.6L4.9 11l9 1-9 1-2.2 7.1a.5.5 0 0 0 .7.6z"/></svg></button>
-            </div>
+            <form class="composer-chat" id="chatComposer" autocomplete="off">
+              <input id="messageInput" type="text" placeholder="Type a message…" aria-label="Write a message" maxlength="5000" autocomplete="off" enterkeyhint="send" />
+              <button class="btn ghost" id="voiceBtn" type="button" aria-label="Record voice message" title="Record voice message"><svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg></button><button class="btn primary" id="sendBtn" type="submit" aria-label="Send message"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 20.4l17.4-8.1a.5.5 0 0 0 0-.9L4.9 11l9 1-9 1-2.2 7.1a.5.5 0 0 0 .7.6z"/></svg></button>
+              <p id="chatSendStatus" class="chat-send-status" role="status" aria-live="polite"></p>
+            </form>
           </div>
         </div>
       </section>
