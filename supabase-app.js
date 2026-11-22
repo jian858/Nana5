@@ -1115,6 +1115,44 @@ async function openBlockedPeople() {
   }
 }
 
+const MURMUR_VAPID_PUBLIC_KEY = "BCcPe9s4P8TPtkP5UfnsMPaHNnvBKmQMigZPbc0MHMz_U8KVFYx9vYlmBsJruyOPb_4jQ5NkRcEtxVOzLH3x78c";
+
+function murmurPushApplicationKey(value) {
+  const padding = "=".repeat((4 - value.length % 4) % 4);
+  const raw = atob((value + padding).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, char => char.charCodeAt(0));
+}
+
+async function enableMurmurPush() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    throw new Error("Push notifications are not supported by this browser. Try installing Murmur or using a supported browser.");
+  }
+  const registration = await navigator.serviceWorker.ready;
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: murmurPushApplicationKey(MURMUR_VAPID_PUBLIC_KEY)
+    });
+  }
+  const { error } = await supabase.functions.invoke("murmur-push", {
+    body: { action: "subscribe", subscription: subscription.toJSON(), device_label: navigator.userAgent.slice(0, 180) }
+  });
+  if (error) throw error;
+  return subscription;
+}
+
+async function disableMurmurPush() {
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+  if (!subscription) return;
+  const { error } = await supabase.functions.invoke("murmur-push", {
+    body: { action: "unsubscribe", endpoint: subscription.endpoint }
+  });
+  if (error) throw error;
+  await subscription.unsubscribe();
+}
+
 async function openAppPermissions() {
   const overlay = openMenuDialog("App permissions",
     '<p>Control what Murmur can access. Your browser or device will ask before granting access. Murmur only requests a permission when you choose its action.</p>' +
@@ -1148,7 +1186,14 @@ async function openAppPermissions() {
   async function readStatus(definition) {
     if (definition.key === "notifications") {
       if (!("Notification" in window)) return "unsupported";
-      return Notification.permission === "default" ? "prompt" : Notification.permission;
+      if (Notification.permission === "default") return "prompt";
+      if (Notification.permission === "denied") return "denied";
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        return await registration?.pushManager.getSubscription() ? "enabled" : "granted";
+      } catch (_) {
+        return "granted";
+      }
     }
     if (definition.key === "files") return "peruse";
     if (definition.key === "contacts") return ("contacts" in navigator && navigator.contacts?.select) ? "peruse" : "unsupported";
@@ -1166,8 +1211,10 @@ async function openAppPermissions() {
     list.innerHTML = definitions.map((definition, index) => {
       const state = statuses[index];
       const isUnsupported = state === "unsupported";
-      const actionLabel = state === "granted" && ["notifications", "camera", "microphone", "geolocation"].includes(definition.key)
-        ? "Allowed" : definition.action;
+      const actionLabel = definition.key === "notifications"
+        ? (state === "enabled" ? "Disable" : state === "granted" ? "Enable push" : definition.action)
+        : state === "granted" && ["camera", "microphone", "geolocation"].includes(definition.key)
+          ? "Allowed" : definition.action;
       return '<div class="murmur-permission-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line,#ddd)">' +
         '<div style="min-width:0;flex:1"><strong>' + safeText(definition.label) + '</strong>' +
         '<small style="display:block;color:var(--muted);margin-top:3px">' + safeText(definition.detail) + '</small>' +
@@ -1247,12 +1294,20 @@ async function openAppPermissions() {
       if (kind === "notifications") {
         if (!("Notification" in window)) throw new Error("Notifications are not supported by this browser.");
         if (!window.isSecureContext) throw new Error("Notifications require HTTPS.");
-        const permission = await Notification.requestPermission();
-        message.textContent = permission === "granted"
-          ? "Notifications are allowed. Murmur can now send supported browser notifications."
-          : permission === "denied"
-            ? "Notifications were blocked. Change this in your browser's site settings."
-            : "No permission was granted. You can decide later.";
+        if (Notification.permission === "granted") {
+          await disableMurmurPush();
+          message.textContent = "Push notifications are disabled on this device.";
+        } else {
+          const permission = await Notification.requestPermission();
+          if (permission === "granted") {
+            await enableMurmurPush();
+            message.textContent = "Push notifications are enabled on this device.";
+          } else if (permission === "denied") {
+            message.textContent = "Notifications were blocked. Change this in your browser's site settings.";
+          } else {
+            message.textContent = "No permission was granted. You can decide later.";
+          }
+        }
       } else if (kind === "camera" || kind === "microphone") {
         await requestDevicePermission(kind);
         message.textContent = kind === "camera"
