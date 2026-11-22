@@ -60,7 +60,7 @@ async function enforceCurrentRestriction(user, showPopup = true) {
 
     restrictionHandling = true;
     stopRestrictionWatch();
-    if (showPopup) showAccountRestriction(response.data.restriction || {
+    if (showPopup) await showAccountRestriction(response.data.restriction || {
       status: "suspended",
       reason: "This account is restricted by Murmur Admin. Access has been blocked."
     });
@@ -451,35 +451,48 @@ function showAccountRestriction(restriction) {
     '<p class="murmur-restriction-detail"><strong>' + safeText(label) + ':</strong> ' + safeText(value) + '</p>'
   ).join("");
   const appealForm = restriction.appealable !== false && caseId
-    ? '<form id="murmurAppealForm"><p><strong>Appeal this decision</strong></p><p>Enter the email address registered to this account and explain why this case should be reviewed.</p><label>Email address<input name="email" type="email" maxlength="254" autocomplete="email" required></label><label>Appeal message<textarea name="message" minlength="10" maxlength="2000" rows="4" required></textarea></label><button type="submit" class="btn primary">Submit appeal</button><p id="murmurAppealStatus" role="status" aria-live="polite"></p></form>'
+    ? '<form id="murmurAppealForm"><p><strong>Appeal this decision</strong></p><p>Explain why this case should be reviewed. Your appeal is linked to your signed-in account.</p><label>Appeal message<textarea name="message" minlength="10" maxlength="2000" rows="4" required></textarea></label><button type="submit" class="btn primary">Submit appeal</button><p id="murmurAppealStatus" role="status" aria-live="polite"></p></form>'
     : '<p>This decision cannot be appealed through the app.</p>';
   overlay.innerHTML = '<section role="alertdialog" aria-modal="true" aria-labelledby="murmurRestrictionTitle"><h2 id="murmurRestrictionTitle">' + heading + '</h2><p>' + safeText(reason) + '</p><p>' + safeText(detail) + '</p>' + detailMarkup + appealForm + '<button type="button" class="btn secondary" id="closeRestrictionModal">OK</button></section>';
   document.body.appendChild(overlay);
-  overlay.querySelector("#closeRestrictionModal").addEventListener("click", () => overlay.remove());
+  let resolveClosed;
+  const closed = new Promise(resolve => { resolveClosed = resolve; });
+  const closeNotice = () => {
+    overlay.remove();
+    resolveClosed();
+  };
+  overlay.querySelector("#closeRestrictionModal").addEventListener("click", closeNotice);
   const appeal = overlay.querySelector("#murmurAppealForm");
   if (appeal) {
     appeal.addEventListener("submit", async event => {
       event.preventDefault();
       const button = appeal.querySelector('button[type="submit"]');
       const statusNode = overlay.querySelector("#murmurAppealStatus");
-      const email = String(appeal.elements.email.value || "").trim();
       const message = String(appeal.elements.message.value || "").trim();
+      const userId = currentUser?.id;
+      if (!userId) {
+        statusNode.textContent = "Your secure sign-in session is no longer available. Please sign in again before submitting an appeal.";
+        return;
+      }
       button.disabled = true;
       statusNode.textContent = "Submitting appeal…";
       try {
-        const { error } = await supabase.rpc("submit_appeal", {
-          p_email: email, p_case: caseId, p_message: message
+        const { error } = await supabase.from("account_appeals").insert({
+          user_id: userId,
+          restriction_id: restriction.restriction_id || null,
+          message
         });
         if (error) throw error;
         statusNode.textContent = "Your appeal has been submitted. Murmur Admin will review this case.";
-        appeal.reset();
+        button.textContent = "Appeal submitted";
+        appeal.elements.message.disabled = true;
       } catch (error) {
         statusNode.textContent = error.message || "Could not submit your appeal. Please try again.";
-      } finally {
         button.disabled = false;
       }
     });
   }
+  return closed;
 }
 
 let enteringUserId = null;
@@ -522,7 +535,7 @@ async function enterApp(user) {
         throw new Error("Murmur could not verify your account restriction status. Sign-in is blocked until the secure check is available. " + (accessError?.message || ""));
       }
       if (accessResult?.allowed !== true) {
-        showAccountRestriction(accessResult?.restriction || {
+        await showAccountRestriction(accessResult?.restriction || {
           status: "suspended",
           reason: "This account is restricted by Murmur Admin. Sign-in is blocked."
         });
@@ -531,7 +544,7 @@ async function enterApp(user) {
       }
       const restriction = await withAuthTimeout(accountRestrictions.current(user.id), "Account access confirmation");
       if (restriction) {
-        showAccountRestriction(restriction);
+        await showAccountRestriction(restriction);
         await supabase.auth.signOut();
         return;
       }
@@ -545,7 +558,7 @@ async function enterApp(user) {
         accountRestrictions.current(user.id), "Final account access check"
       );
       if (finalRestriction) {
-        showAccountRestriction(finalRestriction);
+        await showAccountRestriction(finalRestriction);
         await supabase.auth.signOut();
         return;
       }
