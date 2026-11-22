@@ -2,7 +2,7 @@
  * Keep cache URLs aligned with the entry points and versioned assets in index.html.
  * A single shared Supabase client module prevents competing refresh-token rotations.
  */
-const CACHE_NAME = "murmur-shell-v80";
+const CACHE_NAME = "murmur-shell-v81";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/", "/index.html", "/terms", "/privacy", "/cookies",
@@ -12,7 +12,7 @@ const APP_SHELL = [
   "/murmur-fixes.css?v=20261122-16", "/visitor-tracking.js?v=20261121-3",
   "/supabase-client.js", "/supabase-runtime.js?v=20261121-1",
   "/supabase-data.js", "/supabase-data.js?v=20261122-3", "/supabase-data.js?v=20261122-4",
-  "/supabase-app.js?v=20261122-46", "/supabase-social.js?v=20261122-39",
+  "/supabase-app.js?v=20261122-47", "/supabase-social.js?v=20261122-39",
   "/tabs/stories.js", "/tabs/reels.js", "/tabs/notes.js", "/tabs/notifications.js",
   "/tabs/friends.js", "/tabs/friends.js?v=20261122-2", "/tabs/home.js?v=20261122-2",
   "/pwa.js?v=20261122-2", "/manifest.json?v=20261102-2",
