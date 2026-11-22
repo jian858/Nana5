@@ -31,14 +31,30 @@ export async function renderPostComments(postId, panel) {
       const button = form.querySelector("button");
       const content = input.value.trim();
       if (!content) return;
+      const list = panel.querySelector(".post-comments-list");
+      const empty = list?.querySelector(".empty-state");
+      empty?.remove();
+      const optimistic = document.createElement("article");
+      optimistic.className = "post-comment is-pending";
+      optimistic.dataset.optimisticComment = "true";
+      optimistic.innerHTML = "<strong>You</strong><p></p><small>Sending…</small>";
+      optimistic.querySelector("p").textContent = content;
+      list?.append(optimistic);
+      const count = panel.closest("[data-post-id]")?.querySelector("[data-comment-count]");
+      const previousCount = Number(count?.textContent || 0);
+      if (count) count.textContent = String(previousCount + 1);
+      input.value = "";
       button.disabled = true;
       try {
         await comments.create(postId, content);
         await renderPostComments(postId, panel);
-        const count = panel.closest("[data-post-id]")?.querySelector("[data-comment-count]");
-        if (count) count.textContent = String(Number(count.textContent || 0) + 1);
       } catch (error) {
-        alert(error.message || "Your comment could not be sent.");
+        optimistic.remove();
+        if (count) count.textContent = String(previousCount);
+        if (list && !list.querySelector(".post-comment")) list.innerHTML = '<p class="empty-state">No comments yet. Start the conversation.</p>';
+        input.value = content;
+        alert(error.message || "Your comment could not be sent. Your comment was restored.");
+      } finally {
         button.disabled = false;
       }
     });
