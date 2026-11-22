@@ -208,3 +208,37 @@ html[data-theme="dark"] .fb-actions button{
 html[data-theme="dark"] .empty,
 html[data-theme="dark"] small,
 html[data-theme="dark"] .muted{color:var(--muted)}
+
+
+/* Trusted Murmur App system messages in private chats. */
+.message-row.message-system {
+  display: block;
+  width: fit-content;
+  max-width: min(88%, 520px);
+  margin: 12px auto;
+  padding: 10px 14px;
+  text-align: center;
+  border: 1px solid var(--line, #dfe8e4);
+  border-radius: 14px;
+  background: var(--surface-soft, #eef4f2);
+  color: var(--ink, #17202a);
+  box-shadow: none;
+}
+.message-row.message-system .message-sender {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted, #71807c);
+  font-size: .72rem;
+  font-weight: 800;
+}
+.message-row.message-system p { margin: 0 0 4px; }
+.message-row.message-system time {
+  display: block;
+  color: var(--muted, #71807c);
+  font-size: .68rem;
+}
+html[data-theme="dark"] .message-row.message-system {
+  background: #1a2a2d;
+  border-color: var(--line, #304144);
+  color: var(--ink, #e7f0ef);
+}
