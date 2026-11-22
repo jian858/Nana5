@@ -81,7 +81,8 @@ export async function openDirectChat(targetUserId) {
   const root = el("messages");
   if (root) {
     root.dataset.conversationId = "";
-    root.innerHTML = '<p class="empty-state">Opening conversation…</p>';
+    root.setAttribute("aria-busy", "true");
+    root.innerHTML = '<div class="murmur-chat-loading" role="status"><span class="murmur-chat-loader" aria-hidden="true"></span><span>Opening conversation…</span></div>';
   }
   const status = el("chatSendStatus");
   if (status) status.textContent = "Opening conversation…";
@@ -465,6 +466,7 @@ async function renderConversationMessages(conversationId) {
     if (run !== messageRenderRun || root.dataset.conversationId !== conversationId) return;
     if (authError) throw authError;
     const currentUserId = authData.user?.id;
+    root.removeAttribute("aria-busy");
     root.innerHTML = rows.length ? rows.slice().reverse().map(message => {
       const mine = message.sender_id === currentUserId;
       return '<article class="message-row' + (mine ? ' mine' : '') + '" data-message-id="' + esc(message.id) + '">' +
@@ -554,7 +556,8 @@ async function openConversation(id) {
       delete button.dataset.blockUserId;
     }
   }
-  root.innerHTML = '<p class="empty-state">Loading conversation…</p>';
+  root.setAttribute("aria-busy", "true");
+  root.innerHTML = '<div class="murmur-chat-loading" role="status"><span class="murmur-chat-loader" aria-hidden="true"></span><span>Loading conversation…</span></div>';
   document.body.classList.add("chat-open");
   document.querySelector(".chat-layout")?.classList.add("open");
   el("chatName") && (el("chatName").textContent = "Loading chat…");
@@ -644,6 +647,9 @@ async function sendChatMessage() {
     input?.focus();
     return;
   }
+  if (typingResetTimer) clearTimeout(typingResetTimer);
+  typingResetTimer = null;
+  sendingMessage = true;
   await setConversationTyping(false);
   if (button) {
     button.disabled = true;
