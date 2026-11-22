@@ -376,18 +376,52 @@ function paintIdentity() {
 function showAccountRestriction(restriction) {
   const overlay = document.createElement("div");
   overlay.className = "murmur-auth-modal";
-  const terminated = restriction.status === "terminated";
-  const scheduled = restriction.status === "scheduled_deletion";
-  const until = restriction.ends_at ? new Date(restriction.ends_at).toLocaleString() : "until further notice";
-  const heading = terminated ? "Account terminated" : scheduled ? "Account deletion scheduled" : "Account suspended";
+  const status = restriction.status || "suspension";
+  const terminated = status === "terminated" || status === "termination";
+  const banned = status === "ban";
+  const scheduled = status === "scheduled_deletion";
+  const until = restriction.ends_at ? new Date(restriction.ends_at).toLocaleString() : "permanently";
+  const heading = terminated ? "Account terminated" : banned ? "Account banned" : scheduled ? "Account deletion scheduled" : status === "mute" ? "Account muted" : "Account suspended";
   const detail = terminated
-    ? "This Murmur account has been terminated and permanently disabled. Password resets cannot restore access."
-    : scheduled
-      ? "This Murmur account is scheduled for permanent deletion. Contact Murmur support if you believe this is a mistake."
-      : "This Murmur account is temporarily suspended. Access is restricted " + until + ".";
-  overlay.innerHTML = '<section role="alertdialog" aria-modal="true"><h2>' + heading + '</h2><p>' + safeText(restriction.reason || detail) + '</p><p>' + safeText(detail) + '</p><button type="button" class="btn primary">Close</button></section>';
+    ? "This Murmur account has been terminated and permanently disabled."
+    : banned
+      ? "This Murmur account is banned and cannot sign in " + until + "."
+      : scheduled
+        ? "This Murmur account is scheduled for permanent deletion."
+        : "This Murmur account is restricted " + until + ".";
+  const caseId = restriction.case_id || restriction.id || "";
+  const appealForm = restriction.appealable !== false && caseId
+    ? '<form id="murmurAppealForm"><p><strong>Appeal this decision</strong></p><p>Enter the email address registered to this account and explain why this case should be reviewed.</p><label>Email address<input name="email" type="email" maxlength="254" autocomplete="email" required></label><label>Appeal message<textarea name="message" minlength="10" maxlength="2000" rows="4" required></textarea></label><button type="submit" class="btn primary">Submit appeal</button><p id="murmurAppealStatus" role="status" aria-live="polite"></p></form>'
+    : '<p>This decision cannot be appealed through the app.</p>';
+  overlay.innerHTML = '<section role="alertdialog" aria-modal="true"><h2>' + heading + '</h2><p>' + safeText(restriction.reason || detail) + '</p><p>' + safeText(detail) + '</p>' +
+    (caseId ? '<p>Case ID: <code>' + safeText(caseId) + '</code></p>' : '') +
+    appealForm + '<button type="button" class="btn secondary" id="closeRestrictionModal">Close</button></section>';
   document.body.appendChild(overlay);
-  overlay.querySelector("button").addEventListener("click", () => overlay.remove());
+  overlay.querySelector("#closeRestrictionModal").addEventListener("click", () => overlay.remove());
+  const appeal = overlay.querySelector("#murmurAppealForm");
+  if (appeal) {
+    appeal.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const button = appeal.querySelector('button[type="submit"]');
+      const statusNode = overlay.querySelector("#murmurAppealStatus");
+      const email = String(appeal.elements.email.value || "").trim();
+      const message = String(appeal.elements.message.value || "").trim();
+      button.disabled = true;
+      statusNode.textContent = "Submitting appeal…";
+      try {
+        const { error } = await supabase.rpc("submit_appeal", {
+          p_email: email, p_case: caseId, p_message: message
+        });
+        if (error) throw error;
+        statusNode.textContent = "Your appeal has been submitted. Murmur Admin will review this case.";
+        appeal.reset();
+      } catch (error) {
+        statusNode.textContent = error.message || "Could not submit your appeal. Please try again.";
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
 }
 
 let enteringUserId = null;
