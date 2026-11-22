@@ -1266,6 +1266,20 @@ async function openVerifiedBadgeDialog() {
   const reasonInput = overlay.querySelector('[name="verification_reason"]');
   const evidenceInput = overlay.querySelector('[name="verification_evidence"]');
   try {
+    const { data: profile, error: profileError } = await supabase.from("profiles")
+      .select("created_at,username,avatar_url,bio,is_suspended").eq("id", currentUser.id).maybeSingle();
+    if (profileError) throw profileError;
+    const requirementsMissing = [];
+    const accountAgeDays = profile?.created_at ? (Date.now() - new Date(profile.created_at).getTime()) / 86400000 : 0;
+    if (accountAgeDays < 30) requirementsMissing.push("Your account must be at least 30 days old.");
+    if (!profile?.username) requirementsMissing.push("Add a username to your profile.");
+    if (!profile?.avatar_url) requirementsMissing.push("Add a clear profile photo.");
+    if ((profile?.bio || "").trim().length < 20) requirementsMissing.push("Add a profile bio of at least 20 characters.");
+    if (profile?.is_suspended) requirementsMissing.push("Your account must be in good standing.");
+    if (requirementsMissing.length) {
+      status.textContent = "Before applying, complete these requirements: " + requirementsMissing.join(" ");
+      button.disabled = true;
+    }
     const { data, error } = await supabase.from("verified_badge_requests")
       .select("id,status,reviewer_note,created_at").eq("user_id", currentUser.id)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -1281,8 +1295,8 @@ async function openVerifiedBadgeDialog() {
     } else if (data?.status === "rejected") {
       status.textContent = "Your previous request was not approved. You may submit an updated request.";
       if (data.reviewer_note) status.textContent += " Note: " + data.reviewer_note;
-    } else {
-      status.textContent = "No request submitted yet.";
+    } else if (!requirementsMissing.length) {
+      status.textContent = "You meet the basic profile requirements. Submit your request for review.";
     }
   } catch (error) {
     status.textContent = "Could not check your request status. Please try again later.";
