@@ -87,6 +87,11 @@ Deno.serve(async (req: Request) => {
       if (messageError) throw messageError;
       if (!latestMessage) return json({ ok: true, sent: 0 });
 
+      const { error: claimError } = await admin.from("murmur_push_delivery_claims")
+        .insert({ message_id: latestMessage.id });
+      if (claimError?.code === "23505") return json({ ok: true, sent: 0, duplicate: true });
+      if (claimError) throw claimError;
+
       const recipientIds = memberIds.filter((id: string) => id !== user.id);
       if (!recipientIds.length) return json({ ok: true, sent: 0 });
 
