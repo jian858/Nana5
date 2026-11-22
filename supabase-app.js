@@ -402,35 +402,63 @@ function paintIdentity() {
 }
 
 function showAccountRestriction(restriction) {
+  document.querySelector(".murmur-account-restriction-modal")?.remove();
   const overlay = document.createElement("div");
-  overlay.className = "murmur-auth-modal";
-  const status = restriction.status || "suspension";
+  overlay.className = "murmur-auth-modal murmur-account-restriction-modal";
+  const status = String(restriction.status || "suspended").toLowerCase();
   const terminated = status === "terminated" || status === "termination";
-  const banned = status === "ban";
+  const banned = status === "ban" || status === "banned";
+  const deleted = status === "deleted";
   const scheduled = status === "scheduled_deletion";
-  const until = restriction.ends_at ? new Date(restriction.ends_at).toLocaleString() : "permanently";
-  const heading = terminated ? "Account terminated" : banned ? "Account banned" : scheduled ? "Account deletion scheduled" : status === "mute" ? "Account muted" : "Account suspended";
-  const detail = terminated
-    ? "This Murmur account has been terminated and permanently disabled."
-    : banned
-      ? "This Murmur account is banned and cannot sign in " + until + "."
-      : scheduled
-        ? "This Murmur account is scheduled for permanent deletion."
-        : status === "suspended"
-          ? (restriction.ends_at ? "This Murmur account is suspended until " + until + "." : "This Murmur account is suspended until Murmur Admin lifts the restriction.")
-          : "This Murmur account is restricted " + until + ".";
+  const muted = status === "mute" || status === "muted";
+  const heading = terminated ? "Account terminated"
+    : banned ? "Account banned"
+    : deleted ? "Account deleted"
+    : scheduled ? "Account deletion scheduled"
+    : muted ? "Account muted"
+    : "Account suspended";
+  const formatDate = value => {
+    if (!value) return "";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+  };
+  const date = formatDate(restriction.date || restriction.starts_at);
+  const ends = formatDate(restriction.endsOn || restriction.ends_at);
+  const exportBy = formatDate(restriction.exportBy || restriction.export_by);
+  const restoreBy = formatDate(restriction.restoreBy || restriction.restore_by || restriction.scheduled_delete_at);
   const caseId = restriction.case_id || restriction.id || "";
+  const reason = restriction.reason || "This account has been restricted by Murmur Admin.";
+  const detail = terminated
+    ? "This Murmur account has been terminated and cannot be used."
+    : banned
+      ? (ends ? "This Murmur account is banned until " + ends + "." : "This Murmur account is permanently banned.")
+      : deleted
+        ? "This Murmur account has been deleted and cannot be used."
+        : scheduled
+          ? (restoreBy ? "This account is scheduled for deletion. Recovery deadline: " + restoreBy + "." : "This account is scheduled for deletion.")
+          : muted
+            ? "Some account features have been disabled by Murmur Admin."
+            : (ends ? "This Murmur account is suspended until " + ends + "." : "This Murmur account is suspended until Murmur Admin lifts the restriction.");
+  const details = [
+    date ? ["Date", date] : null,
+    restriction.policy ? ["Policy category", restriction.policy] : null,
+    ends ? ["Ends", ends] : null,
+    exportBy ? ["Download data by", exportBy] : null,
+    restoreBy && !scheduled ? ["Restore by", restoreBy] : null,
+    caseId ? ["Case ID", caseId] : null
+  ].filter(Boolean);
+  const detailMarkup = details.map(([label, value]) =>
+    '<p class="murmur-restriction-detail"><strong>' + safeText(label) + ':</strong> ' + safeText(value) + '</p>'
+  ).join("");
   const appealForm = restriction.appealable !== false && caseId
     ? '<form id="murmurAppealForm"><p><strong>Appeal this decision</strong></p><p>Enter the email address registered to this account and explain why this case should be reviewed.</p><label>Email address<input name="email" type="email" maxlength="254" autocomplete="email" required></label><label>Appeal message<textarea name="message" minlength="10" maxlength="2000" rows="4" required></textarea></label><button type="submit" class="btn primary">Submit appeal</button><p id="murmurAppealStatus" role="status" aria-live="polite"></p></form>'
     : '<p>This decision cannot be appealed through the app.</p>';
-  overlay.innerHTML = '<section role="alertdialog" aria-modal="true"><h2>' + heading + '</h2><p>' + safeText(restriction.reason || detail) + '</p><p>' + safeText(detail) + '</p>' +
-    (caseId ? '<p>Case ID: <code>' + safeText(caseId) + '</code></p>' : '') +
-    appealForm + '<button type="button" class="btn secondary" id="closeRestrictionModal">Close</button></section>';
+  overlay.innerHTML = '<section role="alertdialog" aria-modal="true" aria-labelledby="murmurRestrictionTitle"><h2 id="murmurRestrictionTitle">' + heading + '</h2><p>' + safeText(reason) + '</p><p>' + safeText(detail) + '</p>' + detailMarkup + appealForm + '<button type="button" class="btn secondary" id="closeRestrictionModal">OK</button></section>';
   document.body.appendChild(overlay);
   overlay.querySelector("#closeRestrictionModal").addEventListener("click", () => overlay.remove());
   const appeal = overlay.querySelector("#murmurAppealForm");
   if (appeal) {
-    appeal.addEventListener("submit", async (event) => {
+    appeal.addEventListener("submit", async event => {
       event.preventDefault();
       const button = appeal.querySelector('button[type="submit"]');
       const statusNode = overlay.querySelector("#murmurAppealStatus");
