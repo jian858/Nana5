@@ -1328,7 +1328,8 @@ function wireNavigation() {
   $("postBtn")?.addEventListener("click", createPost);
 }
 function wireAuth() {
-  initSupabaseSocial();
+  // Bind the sign-in controls before initializing optional social features.
+  // A social-module startup error must never leave every login button inert.
   $("loginBtn")?.addEventListener("click", login);
   $("password")?.addEventListener("keydown", event => { if (event.key === "Enter") login(); });
   $("createBtn")?.addEventListener("click", openSignup);
@@ -1367,6 +1368,12 @@ function wireAuth() {
         if (googleLabel) googleLabel.textContent = "Continue with Google";
       }
     });
+  }
+  try {
+    initSupabaseSocial();
+  } catch (error) {
+    console.error("[Murmur social initialization]", error);
+    showError("Sign-in is available, but some social features could not load. Please reload Murmur.");
   }
 }
 
