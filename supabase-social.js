@@ -5,7 +5,7 @@ import { renderStories } from "./tabs/stories.js";
 import { renderReels } from "./tabs/reels.js";
 import { renderNotes } from "./tabs/notes.js";
 import { renderAlerts, setAlertFilter } from "./tabs/notifications.js";
-import { renderFriends, searchPeople } from "./tabs/friends.js";
+import { renderFriends, searchPeople } from "./tabs/friends.js?v=20261122-3";
 
 const el = id => document.getElementById(id);
 let socialChannel = null;
