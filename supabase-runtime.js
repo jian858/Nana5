@@ -2,7 +2,7 @@
  * This is the single browser entry point for Postgres, Auth, Realtime and Storage.
  * Feature modules consume window.MurmurData through the shared Supabase client.
  */
-import * as data from "./supabase-data.js";
+import * as data from "./supabase-data.js?v=20261122-3";
 import { supabase, requireUser } from "./supabase-client.js?v=20261122-2";
 
 window.MurmurData = Object.freeze(data);
