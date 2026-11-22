@@ -123,6 +123,18 @@
       window.location.reload();
     }
 
+    async function checkForUpdates() {
+      if (!navigator.onLine) return;
+      try {
+        if (!updateRegistration) {
+          updateRegistration = await navigator.serviceWorker.getRegistration("/");
+        }
+        if (updateRegistration) await updateRegistration.update();
+      } catch (error) {
+        console.warn("Murmur update check failed:", error);
+      }
+    }
+
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (!reloading) {
         reloadPending = true;
@@ -133,7 +145,14 @@
     window.addEventListener("load", async () => {
       try {
         updateRegistration = await navigator.serviceWorker.register("/service-worker.js");
-        await updateRegistration.update();
+        await checkForUpdates();
+
+        // Check again immediately after reconnecting, returning to the app, or focusing its window.
+        window.addEventListener("online", checkForUpdates);
+        window.addEventListener("focus", checkForUpdates);
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") checkForUpdates();
+        });
 
         // Check periodically while Murmur is open, without repeatedly reloading.
         window.setInterval(() => {
