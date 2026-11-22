@@ -19,7 +19,36 @@ const authError = $("authError");
 let currentUser = null;
 let currentProfile = null;
 let authSubscription = null;
+let restrictionWatchTimer = null;
+let restrictionCheckInFlight = false;
 let pendingPostFile = null;
+
+function stopRestrictionWatch() {
+  if (restrictionWatchTimer) clearInterval(restrictionWatchTimer);
+  restrictionWatchTimer = null;
+  restrictionCheckInFlight = false;
+}
+
+function startRestrictionWatch(user) {
+  stopRestrictionWatch();
+  if (!user?.id) return;
+  restrictionWatchTimer = setInterval(async () => {
+    if (restrictionCheckInFlight || currentUser?.id !== user.id || !appPanel || appPanel.hidden) return;
+    restrictionCheckInFlight = true;
+    try {
+      const restriction = await accountRestrictions.current(user.id);
+      if (restriction && currentUser?.id === user.id) {
+        stopRestrictionWatch();
+        showAccountRestriction(restriction);
+        await supabase.auth.signOut();
+      }
+    } catch (error) {
+      console.warn("[Murmur account restriction check]", error);
+    } finally {
+      restrictionCheckInFlight = false;
+    }
+  }, 20000);
+}
 
 function showError(message) {
   if (!authError) return;
@@ -356,6 +385,7 @@ async function enterApp(user) {
       setLoginLoading(false);
       showApp();
       enteredUserId = user.id;
+      startRestrictionWatch(user);
       void syncMurmurPushForSignedInUser();
       try {
         paintIdentity();
@@ -1412,6 +1442,7 @@ async function boot() {
       return;
     }
     if (event === "SIGNED_OUT" || !session?.user) {
+      stopRestrictionWatch();
       currentUser = null; currentProfile = null; enteredUserId = null;
       stopWatchingFeed();
       window.dispatchEvent(new CustomEvent("murmur:supabase-signed-out"));
