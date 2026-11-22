@@ -3,6 +3,7 @@ import { supabase } from "../supabase-client.js?v=20261122-2";
 const el = id => document.getElementById(id);
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fail = (container, error) => { if (container) container.innerHTML = '<p class="empty-state">' + esc(error.message || "Could not load this section.") + '</p>'; };
+const cleanNoticeText = value => String(value ?? "").replace(/\\r\\n?/g, "\\n").replace(/[\\t ]+/g, " ").replace(/ *\\n */g, "\\n").replace(/\\n{3,}/g, "\\n\\n").trim();
 
 let activeAlertFilter = "all";
 export function setAlertFilter(filter) {
@@ -45,11 +46,11 @@ export async function renderAlerts() {
       '<div class="alert-row-heading"><strong>Murmur announcement</strong></div><h3>' + esc(a.title) + '</h3><p>' + esc(a.body) + '</p><small>' + esc(new Date(a.published_at).toLocaleString()) + '</small><button class="btn secondary" type="button" data-open-alert>View notification</button></article>'
     ).join("");
     const notificationHtml = selectedNotifications.map(n => {
-      const title = n.kind === "admin_post_removed" ? "Post removed by Murmur Admin" : (n.kind || "Murmur notification").replace(/[_-]/g, " ");
-      return '<article class="alert-row murmur-notification' + (n.read_at ? '' : ' is-unread') + '" tabindex="0" data-alert-open data-alert-id="' + esc(n.id) + '" data-alert-title="' + esc(title) + '" data-alert-content="' + esc(n.content || "") + '" data-alert-date="' + esc(n.created_at || "") + '" data-alert-source="Murmur">' +
+      const title = n.kind === "admin_post_removed" ? "Post removed by Murmur Admin" : (n.kind || "Murmur notification").replace(/[_-]/g, " ");\n      const body = cleanNoticeText(n.content);
+      return '<article class="alert-row murmur-notification' + (n.read_at ? '' : ' is-unread') + '" tabindex="0" data-alert-open data-alert-id="' + esc(n.id) + '" data-alert-title="' + esc(title) + '" data-alert-content="' + esc(body) + '" data-alert-date="' + esc(n.created_at || "") + '" data-alert-source="Murmur">' +
         '<div class="alert-row-heading"><strong>Murmur · ' + esc(title) + '</strong>' +
         (!n.read_at ? '<span class="alert-unread-dot" aria-label="Unread"></span>' : '') + '</div>' +
-        '<p>' + esc(n.content) + '</p><small>' + esc(new Date(n.created_at).toLocaleString()) + (n.read_at ? ' · Read' : ' · Unread') + '</small>' +
+        '<p>' + esc(body) + '</p><small>' + esc(new Date(n.created_at).toLocaleString()) + (n.read_at ? ' · Read' : ' · Unread') + '</small>' +
         '<button class="btn secondary" type="button" data-open-alert>View notification</button>' +
         (!n.read_at ? '<button class="btn secondary" type="button" data-mark-alert="' + esc(n.id) + '">Mark read</button>' : '') + '</article>';
     }).join("");
@@ -60,10 +61,10 @@ export async function renderAlerts() {
       const date = card.dataset.alertDate ? new Date(card.dataset.alertDate).toLocaleString() : "Date unavailable";
       const overlay = document.createElement("div");
       overlay.className = "murmur-auth-modal murmur-notification-modal";
-      overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="murmur-notice-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><p class="alerts-eyebrow">MURMUR NOTIFICATION</p><h2 id="murmur-notice-title"></h2><p class="murmur-notification-detail"></p><small class="murmur-notification-date"></small><a class="btn primary murmur-notification-home" href="https://murmur.chat" target="_blank" rel="noopener noreferrer">murmur.chat</a></section>';
+      overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="murmur-notice-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><p class="alerts-eyebrow">MURMUR NOTIFICATION</p><h2 id="murmur-notice-title"></h2><p class="murmur-notification-detail"></p><small class="murmur-notification-date"></small><a class="btn primary murmur-notification-home" href="https://murmur.app" target="_blank" rel="noopener noreferrer">murmur.app</a></section>';
       document.body.appendChild(overlay);
       overlay.querySelector("#murmur-notice-title").textContent = title;
-      overlay.querySelector(".murmur-notification-detail").textContent = content;
+      overlay.querySelector(".murmur-notification-detail").textContent = cleanNoticeText(content);
       overlay.querySelector(".murmur-notification-date").textContent = "Received " + date;
       const close = () => overlay.remove();
       overlay.querySelector(".murmur-modal-close")?.addEventListener("click", close);
