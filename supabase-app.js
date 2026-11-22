@@ -464,13 +464,57 @@ function showAccountRestriction(restriction) {
   document.body.appendChild(overlay);
   let resolveClosed;
   const closed = new Promise(resolve => { resolveClosed = resolve; });
+  let liftCheckTimer = null;
+  let liftCheckInFlight = false;
+  let noticeLifted = false;
+  const showLiftedNotice = () => {
+    if (noticeLifted || !overlay.isConnected) return;
+    noticeLifted = true;
+    if (liftCheckTimer) clearInterval(liftCheckTimer);
+    liftCheckTimer = null;
+    const title = overlay.querySelector("#murmurRestrictionTitle");
+    if (title) title.textContent = "Account lifted";
+    const tabs = overlay.querySelector(".murmur-restriction-tabs");
+    if (tabs) tabs.hidden = true;
+    overlay.querySelectorAll(".murmur-restriction-panel").forEach(panel => {
+      panel.hidden = panel.dataset.panel !== "details";
+    });
+    const details = overlay.querySelector("[data-panel=\"details\"]");
+    if (details) details.innerHTML = "<h3>Your account has been lifted</h3><p>Your account restriction has been removed. You can now log in to Murmur again.</p>";
+    const closeButton = overlay.querySelector("#restrictionDone");
+    if (closeButton) closeButton.textContent = "Log in again";
+    const closeIcon = overlay.querySelector("#closeRestrictionModal");
+    if (closeIcon) closeIcon.setAttribute("aria-label", "Continue to log in");
+  };
+  const checkWhetherLifted = async () => {
+    if (liftCheckInFlight || noticeLifted || !overlay.isConnected || !currentUser?.id) return;
+    liftCheckInFlight = true;
+    try {
+      const response = await withAuthTimeout(
+        supabase.functions.invoke("murmur-account-access"),
+        "Refresh account notice status",
+        12000
+      );
+      if (!response.error && response.data?.allowed === true) showLiftedNotice();
+    } catch (error) {
+      console.warn("[Murmur account notice refresh]", error);
+    } finally {
+      liftCheckInFlight = false;
+    }
+  };
   const closeNotice = () => {
+    if (liftCheckTimer) clearInterval(liftCheckTimer);
+    liftCheckTimer = null;
     overlay.remove();
     style.remove();
     resolveClosed();
   };
   overlay.querySelector("#closeRestrictionModal").addEventListener("click", closeNotice);
   overlay.querySelector("#restrictionDone").addEventListener("click", closeNotice);
+  // Keep the notice synchronized with the trusted server while it is open.
+  // When Admin lifts or expires the restriction, replace the warning immediately.
+  void checkWhetherLifted();
+  liftCheckTimer = setInterval(checkWhetherLifted, 5000);
   overlay.querySelectorAll("[data-tab]").forEach(tab => {
     tab.addEventListener("click", () => {
       const selected = tab.dataset.tab;
