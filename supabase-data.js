@@ -286,12 +286,14 @@ export const stories = {
 };
 
 export const accountRestrictions = {
-  current: async () => {
-    const user = await requireUser();
+  current: async (userId = null) => {
+    // The caller can pass the already-authenticated session user ID, avoiding
+    // an extra auth.getUser() network round trip during application startup.
+    const targetUserId = userId || (await requireUser()).id;
     const now = new Date().toISOString();
     return throwIfError(await supabase.from("account_restrictions")
       .select("id,user_id,status,reason_code,reason,starts_at,ends_at,scheduled_delete_at,created_at,lifted_at")
-      .eq("user_id", user.id)
+      .eq("user_id", targetUserId)
       .in("status", ["suspended", "terminated", "scheduled_deletion", "deleted"])
       .lte("starts_at", now)
       .or("ends_at.is.null,ends_at.gt." + now)
