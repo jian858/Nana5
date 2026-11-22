@@ -31,12 +31,7 @@ async function renderFriends() {
       const p = row.person || {};
       return '<article class="friend-row">' + avatarMarkup(p, "Friend profile picture") + '<div><strong>' + esc(p.display_name || "Murmur user") + '</strong><small>@' + esc(p.username || "") + '</small></div><button class="btn secondary" type="button" data-chat-user="' + esc(p.id) + '">Message</button></article>';
     }).join("") : '<p class="empty-state">Your friends will appear here.</p>';
-    list?.querySelectorAll("[data-chat-user]").forEach(button => button.addEventListener("click", async () => {
-      button.disabled = true;
-      try { await openDirectChat(button.dataset.chatUser); }
-      catch (error) { alert(error.message); }
-      finally { button.disabled = false; }
-    }));
+
     if (search) search.innerHTML = "";
     const incoming = await friendships.incoming();
     const reqList = el("reqList");
@@ -61,38 +56,56 @@ async function renderFriends() {
 }
 
 export async function openDirectChat(targetUserId) {
-  if (!targetUserId) throw new Error("Choose an account before opening a conversation.");
-  const chatsTab = document.querySelector(".fb-nav [data-view=\"chats\"]") ||
-    document.querySelector('[data-view="chats"]');
-  chatsTab?.click();
+  const targetId = String(targetUserId || "").trim();
+  if (!targetId) throw new Error("Choose an account before opening a conversation.");
 
+  // Switch views directly instead of relying on a navigation click. This also
+  // works when opening a chat from a dynamically-created profile pane.
   const chatsPane = document.querySelector('[data-pane="chats"]');
-  if (chatsPane && !chatsPane.classList.contains("active")) {
-    document.querySelectorAll("[data-pane]").forEach(pane => {
-      const active = pane === chatsPane;
-      pane.classList.toggle("active", active);
-      pane.hidden = !active;
-    });
-    document.querySelectorAll(".fb-nav [data-view]").forEach(item => {
-      const active = item.dataset.view === "chats";
-      item.classList.toggle("active", active);
-      item.setAttribute("aria-current", active ? "page" : "false");
-    });
-    window.dispatchEvent(new CustomEvent("murmur:view-changed", { detail: { view: "chats" } }));
-  }
+  if (!chatsPane) throw new Error("The Chats screen is unavailable. Reload Murmur and try again.");
+  document.querySelectorAll("[data-pane]").forEach(pane => {
+    const active = pane === chatsPane;
+    pane.classList.toggle("active", active);
+    pane.hidden = !active;
+  });
+  document.querySelectorAll(".fb-nav [data-view]").forEach(item => {
+    const active = item.dataset.view === "chats";
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-current", active ? "page" : "false");
+  });
+  window.dispatchEvent(new CustomEvent("murmur:view-changed", { detail: { view: "chats" } }));
 
+  const layout = document.querySelector(".chat-layout");
+  layout?.classList.add("open");
   const root = el("messages");
   if (root) {
     root.dataset.conversationId = "";
     root.innerHTML = '<p class="empty-state">Opening conversation…</p>';
   }
-  const { data: conversationId, error } = await supabase.rpc("start_murmur_direct_conversation", {
-    p_target_user_id: targetUserId
-  });
-  if (error) throw error;
-  const resolvedId = typeof conversationId === "string" ? conversationId : conversationId?.id;
-  if (!resolvedId) throw new Error("Murmur did not return a conversation ID. Please try again.");
-  await openConversation(resolvedId);
+  const status = el("chatSendStatus");
+  if (status) status.textContent = "Opening conversation…";
+
+  try {
+    const { data, error } = await supabase.rpc("start_murmur_direct_conversation", {
+      p_target_user_id: targetId
+    });
+    if (error) throw error;
+    const resolvedId = typeof data === "string" ? data : Array.isArray(data) ? data[0] : data?.id;
+    if (!resolvedId || typeof resolvedId !== "string") {
+      throw new Error("Murmur could not create or find this conversation. Please try again.");
+    }
+    await openConversation(resolvedId);
+    if (status) status.textContent = "";
+    return resolvedId;
+  } catch (error) {
+    const message = error?.message || "Could not open this conversation. Please try again.";
+    if (root) {
+      root.dataset.conversationId = "";
+      root.innerHTML = '<div class="empty-state" role="alert"><p>Could not open this chat.</p><small>' + esc(message) + '</small><button type="button" class="btn secondary" data-retry-chat-user="' + esc(targetId) + '">Try again</button></div>';
+    }
+    if (status) status.textContent = message;
+    throw error;
+  }
 }
 
 let peopleSearchRun = 0;
@@ -141,12 +154,7 @@ async function searchPeople() {
     target.innerHTML = matches.map(person =>
       '<div class="friend-row"><button class="avatar" type="button" data-open-profile="' + esc(person.id) + '" aria-label="View profile" style="padding:0;overflow:hidden;border-radius:50%;flex:0 0 auto">' + (person.avatar_url ? '<img src="' + esc(person.avatar_url) + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.remove();this.parentElement.textContent=\'' + esc((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '\'">' : esc((person.display_name || person.username || "?").slice(0,1).toUpperCase())) + '</button><div><button class="people-profile-name" type="button" data-open-profile="' + esc(person.id) + '">' + esc(person.display_name || "Murmur user") + '</button><small>@' + esc(person.username || "") + '</small></div><div class="friend-actions"><button class="btn secondary" type="button" data-chat-user="' + esc(person.id) + '">Message</button><button class="btn secondary" type="button" data-request="' + esc(person.id) + '">Add friend</button></div></div>'
     ).join("") || '<p class="empty-state">No account found. Try another name or username.</p>';
-    target.querySelectorAll("[data-chat-user]").forEach(action => action.addEventListener("click", async () => {
-      action.disabled = true;
-      try { await openDirectChat(action.dataset.chatUser); }
-      catch (error) { alert(error.message); }
-      finally { action.disabled = false; }
-    }));
+
     target.querySelectorAll("[data-request]").forEach(action => action.addEventListener("click", async () => {
       action.disabled = true;
       try { await friendships.request(action.dataset.request); action.textContent = "Request sent"; }
@@ -425,12 +433,7 @@ async function renderChats() {
     if (run !== chatListRenderRun) return;
     root.innerHTML = friendItems.concat(otherItems).join("") || '<p class="empty-state">Add friends to see them here and start a chat.</p>';
     root.querySelectorAll("[data-conversation]").forEach(button => button.addEventListener("click", () => openConversation(button.dataset.conversation)));
-    root.querySelectorAll("[data-chat-user]").forEach(button => button.addEventListener("click", async () => {
-      button.disabled = true;
-      try { await openDirectChat(button.dataset.chatUser); }
-      catch (error) { alert(error.message || "Could not open this chat."); }
-      finally { button.disabled = false; }
-    }));
+
   } catch (error) {
     if (run !== chatListRenderRun) return;
     fail(root, error);
@@ -630,6 +633,28 @@ export function initSupabaseSocial() {
     renderAlerts();
   }));
 
+  // One delegated handler supports account rows created after async searches,
+  // friend-list refreshes, and profile navigation.
+  document.addEventListener("click", async event => {
+    const action = event.target.closest("[data-chat-user], [data-retry-chat-user]");
+    if (!action || action.disabled) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const targetId = action.dataset.chatUser || action.dataset.retryChatUser;
+    action.disabled = true;
+    const originalText = action.textContent;
+    try {
+      await openDirectChat(targetId);
+    } catch (error) {
+      console.error("[Murmur open chat]", error);
+      const status = el("chatSendStatus");
+      if (status) status.textContent = error?.message || "Could not open this chat.";
+    } finally {
+      action.disabled = false;
+      if (action.dataset.retryChatUser) action.textContent = "Try again";
+      else if (originalText) action.textContent = originalText;
+    }
+  });
   el("friendSearchBtn")?.addEventListener("click", searchPeople);
   el("friendSearch")?.addEventListener("keydown", event => {
     if (event.key === "Enter") { event.preventDefault(); searchPeople(); }
