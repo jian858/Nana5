@@ -92,9 +92,22 @@ export async function searchPeople() {
     ).join("") || '<p class="empty-state">No account found. Try another name or username.</p>';
 
     target.querySelectorAll("[data-request]").forEach(action => action.addEventListener("click", async () => {
+      if (action.disabled) return;
+      const previous = action.textContent;
       action.disabled = true;
-      try { await friendships.request(action.dataset.request); action.textContent = "Request sent"; }
-      catch (error) { action.disabled = false; alert(error.message); }
+      action.textContent = "Sending…";
+      action.setAttribute("aria-busy", "true");
+      try {
+        await friendships.request(action.dataset.request);
+        action.textContent = "Request sent";
+        action.classList.add("is-confirmed");
+      } catch (error) {
+        action.disabled = false;
+        action.textContent = previous;
+        alert(error.message || "Friend request could not be sent.");
+      } finally {
+        action.removeAttribute("aria-busy");
+      }
     }));
   } catch (error) {
     if (run === peopleSearchRun) fail(target, error);
