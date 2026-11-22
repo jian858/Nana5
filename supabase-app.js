@@ -1336,13 +1336,37 @@ function wireAuth() {
   $("resendConfirmationBtn")?.addEventListener("click", resendSignupConfirmation);
   const googleButton = $("googleCreateBtn");
   if (googleButton) {
-    // Supabase Auth logs confirmed Google is not enabled for this project.
-    // Do not send users into a guaranteed 400 OAuth failure until provider credentials are configured.
-    googleButton.disabled = true;
-    googleButton.setAttribute("aria-disabled", "true");
-    googleButton.title = "Google sign-in is not configured yet. Use your email and password.";
+    // Keep the existing Google sign-in action wired. Supabase must have the
+    // Google provider enabled and its OAuth credentials configured in the
+    // project dashboard for this redirect to succeed.
+    googleButton.disabled = false;
+    googleButton.removeAttribute("aria-disabled");
+    googleButton.title = "Continue with Google";
     const googleLabel = googleButton.querySelector("span:last-child");
-    if (googleLabel) googleLabel.textContent = "Google sign-in unavailable";
+    if (googleLabel) googleLabel.textContent = "Continue with Google";
+    googleButton.addEventListener("click", async () => {
+      if (googleButton.disabled) return;
+      showError("");
+      googleButton.disabled = true;
+      googleButton.setAttribute("aria-busy", "true");
+      if (googleLabel) googleLabel.textContent = "Connecting to Google…";
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: window.location.origin + "/",
+            queryParams: { prompt: "select_account" }
+          }
+        });
+        if (error) throw error;
+      } catch (error) {
+        console.error("[Murmur Google sign-in]", error);
+        showError(error.message || "Google sign-in could not start. Check the Google provider settings in Supabase.");
+        googleButton.disabled = false;
+        googleButton.removeAttribute("aria-busy");
+        if (googleLabel) googleLabel.textContent = "Continue with Google";
+      }
+    });
   }
 }
 
