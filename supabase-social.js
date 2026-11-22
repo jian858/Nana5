@@ -1,6 +1,6 @@
 /* Supabase-only social features for Murmur. */
 import { supabase } from "./supabase-client.js";
-import { friendships, stories, reels, userNotes, conversations, messages, storage } from "./supabase-data.js?v=20261122-2";
+import { friendships, stories, reels, userNotes, conversations, messages, storage } from "./supabase-data.js?v=20261122-3";
 
 const el = id => document.getElementById(id);
 let socialChannel = null;
