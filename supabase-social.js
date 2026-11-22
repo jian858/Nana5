@@ -7,6 +7,9 @@ let socialChannel = null;
 let messageChannel = null;
 let presenceChannel = null;
 let onlineUserIds = new Set();
+let chatListRenderRun = 0;
+let messageRenderRun = 0;
+let sendingMessage = false;
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fail = (container, error) => { if (container) container.innerHTML = '<p class="empty-state">' + esc(error.message || "Could not load this section.") + '</p>'; };
 const avatarMarkup = (person, label = "View profile") => {
@@ -365,7 +368,8 @@ async function getConversationPeople(conversationIds, currentUserId) {
 async function renderChats() {
   const root = el("chatList");
   if (!root) return;
-  root.innerHTML = '<p class="empty-state">Loading friends and conversations…</p>';
+  const run = ++chatListRenderRun;
+  if (!root.innerHTML.trim()) root.innerHTML = '<p class="empty-state">Loading friends and conversations…</p>';
   try {
     const [{ data: authData, error: authError }, rows, friendRows] = await Promise.all([
       supabase.auth.getUser(), conversations.list(), friendships.people("accepted")
@@ -380,6 +384,7 @@ async function renderChats() {
         .in("conversation_id", ids).is("deleted_at", null).order("created_at", { ascending: false }).limit(100)
         : Promise.resolve({ data: [], error: null })
     ]);
+    if (run !== chatListRenderRun) return;
     if (latestResult.error) throw latestResult.error;
     const latestByConversation = new Map();
     for (const message of latestResult.data || []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
@@ -417,6 +422,7 @@ async function renderChats() {
         avatarMarkup(person, "Profile picture") + '<span class="chat-list-copy"><strong>' + esc(name) + '</strong><small>' + esc(preview) + '</small></span>' +
         '<span class="murmur-presence ' + (online ? 'is-online' : 'is-offline') + '"><i></i>' + (online ? 'Online' : 'Offline') + '</span></button>';
     });
+    if (run !== chatListRenderRun) return;
     root.innerHTML = friendItems.concat(otherItems).join("") || '<p class="empty-state">Add friends to see them here and start a chat.</p>';
     root.querySelectorAll("[data-conversation]").forEach(button => button.addEventListener("click", () => openConversation(button.dataset.conversation)));
     root.querySelectorAll("[data-chat-user]").forEach(button => button.addEventListener("click", async () => {
@@ -426,6 +432,7 @@ async function renderChats() {
       finally { button.disabled = false; }
     }));
   } catch (error) {
+    if (run !== chatListRenderRun) return;
     fail(root, error);
     const retry = document.createElement("button"); retry.type = "button"; retry.className = "btn secondary"; retry.textContent = "Try again";
     retry.addEventListener("click", renderChats, { once: true }); root.appendChild(retry);
@@ -435,11 +442,13 @@ async function renderChats() {
 async function renderConversationMessages(conversationId) {
   const root = el("messages");
   if (!root || root.dataset.conversationId !== conversationId) return;
+  const run = ++messageRenderRun;
   try {
     const [{ data: authData, error: authError }, rows] = await Promise.all([
       supabase.auth.getUser(),
       messages.list(conversationId)
     ]);
+    if (run !== messageRenderRun || root.dataset.conversationId !== conversationId) return;
     if (authError) throw authError;
     const currentUserId = authData.user?.id;
     root.innerHTML = rows.length ? rows.slice().reverse().map(message => {
@@ -450,7 +459,14 @@ async function renderConversationMessages(conversationId) {
     }).join("") : '<p class="empty-state">No messages yet. Send the first message.</p>';
     root.scrollTop = root.scrollHeight;
   } catch (error) {
+    if (run !== messageRenderRun || root.dataset.conversationId !== conversationId) return;
     fail(root, error);
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "btn secondary";
+    retry.textContent = "Reload messages";
+    retry.addEventListener("click", () => renderConversationMessages(conversationId), { once: true });
+    root.appendChild(retry);
   }
 }
 
@@ -490,6 +506,26 @@ async function openConversation(id) {
     const name = activeConversationPerson?.display_name || activeConversationPerson?.username || "Conversation";
     if (el("chatName")) el("chatName").textContent = name;
     if (el("chatStatus")) el("chatStatus").textContent = activeConversationPerson?.username ? "@" + activeConversationPerson.username : "Private chat";
+    const profileButton = el("chatProfileBtn");
+    if (profileButton) {
+      if (activeConversationPerson?.id) {
+        profileButton.dataset.openProfile = activeConversationPerson.id;
+        profileButton.hidden = false;
+      } else {
+        delete profileButton.dataset.openProfile;
+        profileButton.hidden = true;
+      }
+    }
+    const blockButton = el("chatBlockBtn");
+    if (blockButton) {
+      if (activeConversationPerson?.id) {
+        blockButton.dataset.blockUserId = activeConversationPerson.id;
+        blockButton.hidden = false;
+      } else {
+        delete blockButton.dataset.blockUserId;
+        blockButton.hidden = true;
+      }
+    }
     if (el("chatAvatar")) {
       const person = activeConversationPerson;
       el("chatAvatar").innerHTML = person?.avatar_url
@@ -514,13 +550,18 @@ async function openConversation(id) {
 }
 
 async function sendChatMessage() {
+  if (sendingMessage) return;
   const root = el("messages");
   const id = root?.dataset.conversationId;
   const input = el("messageInput");
   const button = el("sendBtn");
   const content = input?.value.trim();
   if (!id || !content) return;
-  if (button) button.disabled = true;
+  sendingMessage = true;
+  if (button) {
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+  }
   try {
     await messages.send({ conversationId: id, content });
     input.value = "";
@@ -529,7 +570,11 @@ async function sendChatMessage() {
   } catch (error) {
     alert(error.message || "Your message could not be sent. Please try again.");
   } finally {
-    if (button) button.disabled = false;
+    sendingMessage = false;
+    if (button) {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+    }
     input?.focus();
   }
 }
@@ -576,8 +621,43 @@ export function initSupabaseSocial() {
     menu.querySelector("[data-chat-settings-close]")?.addEventListener("click",()=>menu.remove());
   });
 
-  el("chatBack")?.addEventListener("click", () => { document.querySelector(".chat-layout")?.classList.remove("open"); });
-  el("messageInput")?.addEventListener("keydown", event => { if (event.key === "Enter") sendChatMessage(); });
+  el("chatBack")?.addEventListener("click", () => {
+    document.querySelector(".chat-layout")?.classList.remove("open");
+    void renderChats();
+  });
+  el("chatBlockBtn")?.addEventListener("click", async event => {
+    const button = event.currentTarget;
+    const targetId = button.dataset.blockUserId;
+    if (!targetId || button.disabled) return;
+    const name = el("chatName")?.textContent || "this account";
+    if (!window.confirm("Block " + name + "? They will no longer be able to message you.")) return;
+    button.disabled = true;
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!authData.user?.id) throw new Error("Sign in again to block this account.");
+      const { error } = await supabase.from("blocks").upsert(
+        { blocker_id: authData.user.id, blocked_id: targetId },
+        { onConflict: "blocker_id,blocked_id", ignoreDuplicates: true }
+      );
+      if (error) throw error;
+      if (messageChannel) supabase.removeChannel(messageChannel);
+      messageChannel = null;
+      activeConversationId = null;
+      document.querySelector(".chat-layout")?.classList.remove("open");
+      await renderChats();
+    } catch (error) {
+      alert(error.message || "This account could not be blocked.");
+    } finally {
+      button.disabled = false;
+    }
+  });
+  el("messageInput")?.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void sendChatMessage();
+    }
+  });
   el("reelCreateBtn")?.addEventListener("click", () => {
     const picker = document.createElement("input");
     picker.type = "file"; picker.accept = "video/mp4,video/webm"; picker.hidden = true;
@@ -601,13 +681,18 @@ export function initSupabaseSocial() {
     if (presenceChannel) supabase.removeChannel(presenceChannel);
     onlineUserIds = new Set();
     if (presenceUserId) {
-      presenceChannel = supabase.channel("murmur-presence", { config: { presence: { key: presenceUserId } } })
+      const channel = supabase.channel("murmur-presence", { config: { presence: { key: presenceUserId } } });
+      presenceChannel = channel;
+      channel
         .on("presence", { event: "sync" }, () => {
-          onlineUserIds = new Set(Object.keys(presenceChannel?.presenceState?.() || {}));
-          renderChats();
+          if (presenceChannel !== channel) return;
+          onlineUserIds = new Set(Object.keys(channel.presenceState() || {}));
+          void renderChats();
         })
         .subscribe(async status => {
-          if (status === "SUBSCRIBED") await presenceChannel.track({ user_id: presenceUserId, online_at: new Date().toISOString() });
+          if (presenceChannel === channel && status === "SUBSCRIBED") {
+            await channel.track({ user_id: presenceUserId, online_at: new Date().toISOString() });
+          }
         });
     }
     if (socialChannel) supabase.removeChannel(socialChannel);
