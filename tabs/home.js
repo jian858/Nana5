@@ -63,69 +63,54 @@ export async function renderPostComments(postId, panel) {
   }
 }
 
+let feedRenderSequence = 0;
+
 export async function renderFeed() {
   const root = $("posts");
   if (!root) return;
-  // Keep the current feed visible during background refreshes. Only show the
-  // initial loading state when there are no posts rendered yet.
+  const renderId = ++feedRenderSequence;
+  // Preserve already-rendered posts during refresh. First-time visitors get a
+  // lightweight loading state while only the essential feed data is fetched.
   if (!root.querySelector("[data-post-id]")) {
-    root.innerHTML = '<p class="empty-state">Loading posts…</p>';
+    root.innerHTML = '<p class="empty-state" role="status">Loading your home feed…</p>';
   }
   try {
     const rows = await posts.feed(0);
+    if (renderId !== feedRenderSequence) return;
     if (!rows.length) {
       root.innerHTML = '<p class="empty-state">No posts yet. Share the first update.</p>';
       return;
     }
-    const ids = [...new Set(rows.map(row => row.author_id))];
-    const postIds = rows.map(row => row.id);
-    const [{ data: people, error: peopleError }, { data: userData, error: userError }, likeRows, commentRows] = await Promise.all([
+
+    const ids = [...new Set(rows.map(row => row.author_id).filter(Boolean))];
+    const [{ data: people, error: peopleError }, { data: userData, error: userError }] = await Promise.all([
       supabase.from("murmur_public_profiles").select("id,display_name,username,avatar_url").in("id", ids),
-      supabase.auth.getSession(),
-      postLikes.listForPosts(postIds),
-      supabase.from("comments").select("post_id").in("post_id", postIds)
+      supabase.auth.getSession()
     ]);
+    if (renderId !== feedRenderSequence) return;
     if (peopleError) throw peopleError;
     if (userError) throw userError;
-    if (commentRows.error) throw commentRows.error;
+
     const byId = new Map((people || []).map(person => [person.id, person]));
-    const likeCounts = new Map();
-    const likedByMe = new Set();
-    for (const like of likeRows) {
-      likeCounts.set(like.post_id, (likeCounts.get(like.post_id) || 0) + 1);
-      if (like.user_id === userData.session?.user?.id) likedByMe.add(like.post_id);
-    }
-    const commentCounts = new Map();
-    for (const comment of commentRows.data || []) commentCounts.set(comment.post_id, (commentCounts.get(comment.post_id) || 0) + 1);
-    let signedByPath = new Map();
-    const mediaPaths = rows.map(post => post.media_path).filter(Boolean);
-    if (mediaPaths.length) {
-      const { data: signedRows, error: signedError } = await supabase.storage.from("murmur-posts").createSignedUrls([...new Set(mediaPaths)], 3600);
-      if (!signedError) signedByPath = new Map((signedRows || []).map(item => [item.path, item.signedUrl]));
-    }
-    const displayRows = rows.map(post => ({
-      ...post,
-      signedMediaUrl: post.media_path ? (signedByPath.get(post.media_path) || null) : null
-    }));
-    root.innerHTML = displayRows.map(post => {
+    const currentUserId = userData.session?.user?.id;
+    // Paint the useful part of the feed now. Counts, liked state and signed
+    // media URLs are deliberately hydrated after the cards are on screen.
+    root.innerHTML = rows.map(post => {
       const person = byId.get(post.author_id) || {};
       const author = safeText(person.display_name || "Murmur user");
       const handle = person.username ? "@" + safeText(person.username) : "";
       const initial = safeText(author.slice(0, 1).toUpperCase());
-      // The profile query already returns avatar_url; render it on every post
-      // so another signed-in account sees the author's actual profile picture.
       const avatar = person.avatar_url
         ? '<span class="avatar" role="img" aria-label="' + author + ' profile picture" data-fallback="' + initial + '" style="overflow:hidden;border-radius:50%"><img src="' + safeText(person.avatar_url) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent=this.parentElement.dataset.fallback"></span>'
         : '<span class="avatar" role="img" aria-label="' + author + ' profile picture">' + initial + '</span>';
-      const media = post.signedMediaUrl ? (post.media_type === "video" ? '<video class="post-media" controls playsinline preload="metadata" src="' + safeText(post.signedMediaUrl) + '"></video>' : '<img class="post-media" loading="lazy" src="' + safeText(post.signedMediaUrl) + '" alt="Post attachment">') : "";
-      const likes = likeCounts.get(post.id) || 0;
-      const commentCount = commentCounts.get(post.id) || 0;
-      const liked = likedByMe.has(post.id);
+      const media = post.media_path
+        ? '<div class="post-media-pending" data-post-media aria-label="Loading post media"></div>'
+        : "";
       return '<article class="post-card" data-post-id="' + safeText(post.id) + '">' +
         '<header class="post-head" data-open-profile="' + safeText(post.author_id) + '">' + avatar + '<div><strong>' + author + '</strong><small>' + handle + ' · ' + safeText(new Date(post.created_at).toLocaleString()) + '</small></div></header>' +
         (post.content ? '<p class="post-content">' + safeText(post.content) + '</p>' : '') + media +
-        '<div class="murmur-post-stats"><span><strong data-like-count>' + likes + '</strong> likes</span><span><strong data-comment-count>' + commentCount + '</strong> comments</span></div>' +
-        '<div class="murmur-post-actions"><button type="button" data-like-post="' + safeText(post.id) + '" aria-pressed="' + liked + '" class="' + (liked ? "is-liked" : "") + '">' + (liked ? "Liked" : "Like") + '</button><button type="button" data-open-comments="' + safeText(post.id) + '">Comment</button><button type="button" data-share-post="' + safeText(post.id) + '">Share</button></div>' +
+        '<div class="murmur-post-stats"><span><strong data-like-count>—</strong> likes</span><span><strong data-comment-count>—</strong> comments</span></div>' +
+        '<div class="murmur-post-actions"><button type="button" data-like-post="' + safeText(post.id) + '" aria-pressed="false" class="">Like</button><button type="button" data-open-comments="' + safeText(post.id) + '">Comment</button><button type="button" data-share-post="' + safeText(post.id) + '">Share</button></div>' +
         '<div class="murmur-post-comments" data-comments hidden></div></article>';
     }).join("");
 
@@ -138,7 +123,6 @@ export async function renderFeed() {
       const wasLiked = button.getAttribute("aria-pressed") === "true";
       const nextLiked = !wasLiked;
       const previousCount = Number(count?.textContent || 0);
-      // Update this post immediately. A Like must never replace or reload the feed.
       button.setAttribute("aria-pressed", String(nextLiked));
       button.classList.toggle("is-liked", nextLiked);
       button.textContent = nextLiked ? "Liked" : "Like";
@@ -147,7 +131,6 @@ export async function renderFeed() {
       try {
         await postLikes.toggle(button.dataset.likePost);
       } catch (error) {
-        // Roll back only this button if the database rejects the change.
         button.setAttribute("aria-pressed", String(wasLiked));
         button.classList.toggle("is-liked", wasLiked);
         button.textContent = wasLiked ? "Liked" : "Like";
@@ -157,6 +140,7 @@ export async function renderFeed() {
         button.disabled = false;
       }
     }));
+
     root.querySelectorAll("[data-open-comments]").forEach(button => button.addEventListener("click", async () => {
       const card = button.closest("[data-post-id]");
       const panel = card?.querySelector("[data-comments]");
@@ -164,6 +148,7 @@ export async function renderFeed() {
       panel.hidden = !panel.hidden;
       if (!panel.hidden) await renderPostComments(button.dataset.openComments, panel);
     }));
+
     root.querySelectorAll("[data-share-post]").forEach(button => button.addEventListener("click", async () => {
       const url = location.origin + "/?post=" + encodeURIComponent(button.dataset.sharePost);
       try {
@@ -172,7 +157,84 @@ export async function renderFeed() {
         else prompt("Copy this post link:", url);
       } catch (error) { if (error.name !== "AbortError") alert("Could not share this post."); }
     }));
+
+    // Hydrate secondary information without blocking the first paint.
+    const postIds = rows.map(post => post.id);
+    const mediaPaths = [...new Set(rows.map(post => post.media_path).filter(Boolean))];
+    void Promise.allSettled([
+      postLikes.listForPosts(postIds),
+      supabase.from("comments").select("post_id").in("post_id", postIds),
+      mediaPaths.length
+        ? supabase.storage.from("murmur-posts").createSignedUrls(mediaPaths, 3600)
+        : Promise.resolve({ data: [], error: null })
+    ]).then(results => {
+      if (renderId !== feedRenderSequence || !root.isConnected) return;
+      const [likesResult, commentsResult, mediaResult] = results;
+      if (likesResult.status === "fulfilled") {
+        const likeCounts = new Map();
+        const likedByMe = new Set();
+        for (const like of likesResult.value || []) {
+          likeCounts.set(like.post_id, (likeCounts.get(like.post_id) || 0) + 1);
+          if (like.user_id === currentUserId) likedByMe.add(like.post_id);
+        }
+        for (const post of rows) {
+          const card = root.querySelector('[data-post-id="' + CSS.escape(post.id) + '"]');
+          const count = card?.querySelector("[data-like-count]");
+          const button = card?.querySelector("[data-like-post]");
+          if (count) count.textContent = String(likeCounts.get(post.id) || 0);
+          if (button && !button.disabled) {
+            const liked = likedByMe.has(post.id);
+            button.setAttribute("aria-pressed", String(liked));
+            button.classList.toggle("is-liked", liked);
+            button.textContent = liked ? "Liked" : "Like";
+          }
+        }
+      } else console.warn("[Murmur feed likes]", likesResult.reason);
+
+      if (commentsResult.status === "fulfilled" && !commentsResult.value.error) {
+        const commentCounts = new Map();
+        for (const comment of commentsResult.value.data || []) {
+          commentCounts.set(comment.post_id, (commentCounts.get(comment.post_id) || 0) + 1);
+        }
+        for (const post of rows) {
+          const count = root.querySelector('[data-post-id="' + CSS.escape(post.id) + '"] [data-comment-count]');
+          if (count) count.textContent = String(commentCounts.get(post.id) || 0);
+        }
+      } else if (commentsResult.status === "rejected") {
+        console.warn("[Murmur feed comments]", commentsResult.reason);
+      }
+
+      if (mediaResult.status === "fulfilled" && !mediaResult.value.error) {
+        const signedByPath = new Map((mediaResult.value.data || []).map(item => [item.path, item.signedUrl]));
+        for (const post of rows) {
+          if (!post.media_path) continue;
+          const url = signedByPath.get(post.media_path);
+          const holder = root.querySelector('[data-post-id="' + CSS.escape(post.id) + '"] [data-post-media]');
+          if (!holder || !url) continue;
+          if (post.media_type === "video") {
+            const video = document.createElement("video");
+            video.className = "post-media";
+            video.controls = true;
+            video.playsInline = true;
+            video.preload = "none";
+            video.src = url;
+            holder.replaceWith(video);
+          } else {
+            const img = document.createElement("img");
+            img.className = "post-media";
+            img.loading = "lazy";
+            img.decoding = "async";
+            img.alt = "Post attachment";
+            img.src = url;
+            holder.replaceWith(img);
+          }
+        }
+      } else if (mediaResult.status === "rejected") {
+        console.warn("[Murmur feed media]", mediaResult.reason);
+      }
+    });
   } catch (error) {
+    if (renderId !== feedRenderSequence) return;
     console.error("[Murmur feed]", error);
     root.innerHTML = '<div class="empty-state" role="alert"><p>Posts could not be loaded.</p><small>' + safeText(error?.message || "Please try again.") + '</small><button class="btn secondary" type="button" data-retry-feed>Try again</button></div>';
     root.querySelector("[data-retry-feed]")?.addEventListener("click", renderFeed, { once: true });
