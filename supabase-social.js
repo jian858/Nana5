@@ -1,6 +1,6 @@
 /* Supabase-only social features for Murmur. */
 import { supabase } from "./supabase-client.js?v=20261122-2";
-import { friendships, reels, conversations, messages, storage } from "./supabase-data.js?v=20261122-4";
+import { friendships, reels, conversations, messages, storage } from "./supabase-data.js?v=20261122-5";
 import { renderStories } from "./tabs/stories.js";
 import { renderReels } from "./tabs/reels.js";
 import { renderNotes } from "./tabs/notes.js";
