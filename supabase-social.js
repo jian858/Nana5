@@ -28,7 +28,7 @@ const avatarMarkup = (person = {}, label = "Profile picture") => {
   const image = person.avatar_url
     ? '<img class="avatar chat-list-avatar-image" src="' + esc(person.avatar_url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">'
     : "";
-  return '<span class="chat-list-avatar" role="img" aria-label="' + esc(label) + '">' + fallback + image + '</span>';
+  return '<span class="chat-list-avatar" role="img" aria-label="' + esc(label) + '" style="display:inline-grid;position:relative;flex:0 0 42px;width:42px;height:42px;border-radius:50%;overflow:hidden;vertical-align:middle">' + fallback.replace('class="avatar chat-list-avatar-fallback"', 'class="avatar chat-list-avatar-fallback" style="grid-area:1/1;width:100%;height:100%;display:grid;place-items:center"') + image.replace('class="avatar chat-list-avatar-image"', 'class="avatar chat-list-avatar-image" style="grid-area:1/1;position:absolute;inset:0;width:100%;height:100%;object-fit:cover"') + '</span>';
 };
 
 export async function openDirectChat(targetUserId) {
