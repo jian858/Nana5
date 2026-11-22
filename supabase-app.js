@@ -407,6 +407,17 @@ async function enterApp(user) {
       setLoginLoading(true, "Account found. Loading your Murmur profile…");
       currentProfile = await withAuthTimeout(loadProfile(user), 'Profile loading');
 
+      // Re-check immediately before revealing the app so a restriction created
+      // while the profile was loading cannot slip through the login race.
+      const finalRestriction = await withAuthTimeout(
+        accountRestrictions.current(user.id), "Final account access check"
+      );
+      if (finalRestriction) {
+        showAccountRestriction(finalRestriction);
+        await supabase.auth.signOut();
+        return;
+      }
+
       // Authentication and profile loading are complete. Do not send a valid
       // signed-in user back to the login form because a non-critical UI module
       // or realtime subscription fails during startup.
