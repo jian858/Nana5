@@ -1,0 +1,27 @@
+# Keep local/CI deployments aligned with the deployed function JWT settings.
+[functions.murmur-admin-supabase]
+verify_jwt = true
+
+[functions.murmur-account-access]
+verify_jwt = true
+
+[functions.murmur-error-log]
+verify_jwt = true
+
+[functions.murmur-password-reset-check]
+verify_jwt = false
+
+[functions.murmur-posts]
+verify_jwt = true
+
+[functions.murmur-identity]
+verify_jwt = true
+
+[functions.murmur-public-announcements]
+verify_jwt = true
+
+[functions.murmur-push]
+verify_jwt = true
+
+[functions.murmur-visitor-track]
+verify_jwt = false
