@@ -634,9 +634,25 @@ export function initSupabaseSocial() {
   el("friendSearch")?.addEventListener("keydown", event => {
     if (event.key === "Enter") { event.preventDefault(); searchPeople(); }
   });
-  el("chatComposer")?.addEventListener("submit", event => {
+  const chatComposer = el("chatComposer");
+  const sendButton = el("sendBtn");
+  const messageInput = el("messageInput");
+  // Handle both the explicit Send tap and native form submission. Some mobile
+  // browsers/PWA keyboards do not consistently dispatch submit for this
+  // dynamically displayed composer, so the button has its own guarded path.
+  sendButton?.addEventListener("click", event => {
     event.preventDefault();
     void sendChatMessage();
+  });
+  chatComposer?.addEventListener("submit", event => {
+    event.preventDefault();
+    void sendChatMessage();
+  });
+  messageInput?.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      void sendChatMessage();
+    }
   });
   el("chatSettingsBtn")?.addEventListener("click", () => {
     const menu=document.createElement("div"); menu.className="chat-settings-popover";
