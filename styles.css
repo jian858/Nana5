@@ -2155,3 +2155,9 @@ html[data-theme="dark"] .murmur-menu-pane .menu-add-account:hover{background:#26
   #alertsList .alert-row{gap:7px;padding:12px 13px}
   #alertsList .alert-row p{font-size:.92rem;line-height:1.48}
 }
+
+/* Official Murmur account verification mark */
+.murmur-verified-badge{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;vertical-align:-3px;margin-left:4px;color:#1877f2;flex:0 0 auto}
+.murmur-verified-badge svg{display:block;width:100%;height:100%;fill:currentColor;stroke:#fff;stroke-width:1.15;stroke-linecap:round;stroke-linejoin:round}
+.murmur-verified-badge svg path:last-child{fill:none;stroke-width:1.8}
+.chat-list-copy strong .murmur-verified-badge{width:15px;height:15px;vertical-align:-2px}
