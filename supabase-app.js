@@ -20,34 +20,62 @@ let currentUser = null;
 let currentProfile = null;
 let authSubscription = null;
 let restrictionWatchTimer = null;
+let restrictionChannel = null;
 let restrictionCheckInFlight = false;
+let restrictionHandling = false;
 let pendingPostFile = null;
 
 function stopRestrictionWatch() {
   if (restrictionWatchTimer) clearInterval(restrictionWatchTimer);
   restrictionWatchTimer = null;
+  if (restrictionChannel) {
+    supabase.removeChannel(restrictionChannel).catch(() => {});
+    restrictionChannel = null;
+  }
   restrictionCheckInFlight = false;
+}
+
+async function enforceCurrentRestriction(user, showPopup = true) {
+  if (!user?.id || restrictionHandling || currentUser?.id !== user.id) return false;
+  restrictionCheckInFlight = true;
+  try {
+    const restriction = await accountRestrictions.current(user.id);
+    if (!restriction || currentUser?.id !== user.id) return false;
+    restrictionHandling = true;
+    stopRestrictionWatch();
+    if (showPopup) showAccountRestriction(restriction);
+    await supabase.auth.signOut();
+    return true;
+  } catch (error) {
+    console.warn("[Murmur account restriction check]", error);
+    return false;
+  } finally {
+    restrictionCheckInFlight = false;
+    if (!currentUser?.id) restrictionHandling = false;
+  }
 }
 
 function startRestrictionWatch(user) {
   stopRestrictionWatch();
+  restrictionHandling = false;
   if (!user?.id) return;
-  restrictionWatchTimer = setInterval(async () => {
-    if (restrictionCheckInFlight || currentUser?.id !== user.id || !appPanel || appPanel.hidden) return;
-    restrictionCheckInFlight = true;
-    try {
-      const restriction = await accountRestrictions.current(user.id);
-      if (restriction && currentUser?.id === user.id) {
-        stopRestrictionWatch();
-        showAccountRestriction(restriction);
-        await supabase.auth.signOut();
-      }
-    } catch (error) {
-      console.warn("[Murmur account restriction check]", error);
-    } finally {
-      restrictionCheckInFlight = false;
+  const check = () => {
+    if (!restrictionCheckInFlight && currentUser?.id === user.id && appPanel && !appPanel.hidden) {
+      void enforceCurrentRestriction(user);
     }
-  }, 20000);
+  };
+  restrictionChannel = supabase
+    .channel("murmur-account-restrictions-" + user.id)
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "account_restrictions",
+      filter: "user_id=eq." + user.id
+    }, check)
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") check();
+    });
+  restrictionWatchTimer = setInterval(check, 1500);
 }
 
 function showError(message) {
@@ -437,6 +465,13 @@ async function login() {
       }
       if (error.status === 400 || error.code === "invalid_credentials") {
         throw new Error("Email or password is incorrect. Check both fields and try again.");
+      }
+      if (/user[_ ]?banned|banned until|account.*(suspend|terminat|restrict)|forbidden.*banned/i.test((error.code || "") + " " + (error.message || ""))) {
+        showAccountRestriction({
+          status: "suspended",
+          reason: "This account is banned or restricted by Murmur Admin. You cannot sign in while this restriction is active."
+        });
+        throw new Error("This account is restricted by Murmur Admin. Sign-in is blocked.");
       }
       if (/fetch|network|timeout/i.test(error.message || "")) {
         throw new Error("Cannot reach Supabase right now. Check your internet connection and try again.");
