@@ -72,3 +72,9 @@ select:focus-visible {
 .murmur-diagnostics-note{font-size:.82rem;line-height:1.55;color:var(--muted,#687386);margin:16px 0}
 html[data-theme="dark"] .murmur-diagnostic-card{background:#1c2430;border-color:#334155;color:#e9eef6}
 @media(max-width:420px){.murmur-diagnostics-grid{gap:9px}.murmur-diagnostic-card{padding:12px;gap:7px}}
+
+
+/* Lightweight placeholder while feed media URLs are prepared. */
+.post-media-pending{display:block;width:100%;min-height:120px;aspect-ratio:16/9;border-radius:12px;background:linear-gradient(100deg,var(--surface-soft,#eef2f4) 20%,var(--surface,#f8fafb) 45%,var(--surface-soft,#eef2f4) 70%);background-size:200% 100%;animation:murmur-feed-shimmer 1.2s ease-in-out infinite}
+@keyframes murmur-feed-shimmer{to{background-position-x:-200%}}
+@media(prefers-reduced-motion:reduce){.post-media-pending{animation:none}}
