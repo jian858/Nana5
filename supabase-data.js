@@ -295,6 +295,7 @@ export const accountRestrictions = {
       .select("id,user_id,status,reason_code,reason,starts_at,ends_at,scheduled_delete_at,created_at,lifted_at")
       .eq("user_id", targetUserId)
       .in("status", ["suspended", "terminated", "scheduled_deletion", "deleted"])
+      .is("lifted_at", null)
       .lte("starts_at", now)
       .or("ends_at.is.null,ends_at.gt." + now)
       .order("starts_at", { ascending: false })
