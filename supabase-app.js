@@ -473,18 +473,21 @@ function showAccountRestriction(restriction) {
     if (liftCheckTimer) clearInterval(liftCheckTimer);
     liftCheckTimer = null;
     const title = overlay.querySelector("#murmurRestrictionTitle");
-    if (title) title.textContent = "Account lifted";
+    if (title) title.textContent = "Account access restored";
     const tabs = overlay.querySelector(".murmur-restriction-tabs");
     if (tabs) tabs.hidden = true;
     overlay.querySelectorAll(".murmur-restriction-panel").forEach(panel => {
       panel.hidden = panel.dataset.panel !== "details";
     });
     const details = overlay.querySelector("[data-panel=\"details\"]");
-    if (details) details.innerHTML = "<h3>Your account has been lifted</h3><p>Your account restriction has been removed. You can now log in to Murmur again.</p>";
+    if (details) {
+      details.classList.add("murmur-restriction-recovery");
+      details.innerHTML = "<h3>Thank you for waiting.</h3><p>Your temporary ban has expired and your account access has been restored.</p><p>You can now continue to Murmur. Please follow the Community Guidelines to help keep Murmur safe for everyone.</p>";
+    }
     const closeButton = overlay.querySelector("#restrictionDone");
-    if (closeButton) closeButton.textContent = "Log in again";
+    if (closeButton) closeButton.textContent = "Continue to Murmur";
     const closeIcon = overlay.querySelector("#closeRestrictionModal");
-    if (closeIcon) closeIcon.setAttribute("aria-label", "Continue to log in");
+    if (closeIcon) closeIcon.setAttribute("aria-label", "Continue to Murmur");
   };
   const checkWhetherLifted = async () => {
     if (liftCheckInFlight || noticeLifted || !overlay.isConnected || !currentUser?.id) return;
