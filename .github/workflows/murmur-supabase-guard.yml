@@ -20,12 +20,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          for required in 'supabase-client.js' 'supabase-runtime.js' 'supabase-app.js'; do
+          for required in 'supabase-runtime.js' 'supabase-app.js'; do
             grep -Fq "$required" index.html || {
               echo "Missing required Supabase startup module: $required"
               exit 1
             }
           done
+
+          grep -Fq 'supabase-client.js' supabase-runtime.js supabase-app.js supabase-data.js || {
+            echo "The active modules must import the shared Supabase client."
+            exit 1
+          }
 
           if grep -Ein 'firebase(app|auth|database|storage|functions)|firebaseio\.com|firebase\.googleapis\.com' index.html; then
             echo "Firebase SDK or Firebase service reference found in the live HTML entrypoint."
