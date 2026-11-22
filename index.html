@@ -430,14 +430,14 @@
         splash.hidden = true;
         auth.hidden = false;
         var error = document.getElementById("authError");
-        if (error) error.textContent = "Murmur is taking too long to connect. Check your internet connection and sign in again.";
+        if (error) error.textContent = "Murmur is still loading. Please wait a little longer or check your internet connection.";
       }
-    }, 12000);
+    }, 30000);
   </script>
   <script type="module" src="./supabase-client.js?v=20261122-1"></script>
   <script type="module" src="./supabase-runtime.js?v=20261121-1"></script>
   <script src="./visitor-tracking.js?v=20261121-3"></script>
-  <script type="module" src="./supabase-app.js?v=20261122-43"></script>
+  <script type="module" src="./supabase-app.js?v=20261122-44"></script>
   <script src="./pwa.js?v=20261122-2"></script>
 </body>
 </html>
