@@ -217,11 +217,18 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "delete_post") {
       const postId = typeof body.post_id === "string" ? body.post_id : "";
+      const reasonCode = typeof body.reason_code === "string" ? body.reason_code : "";
       if (!postId) return reply(400, { error: "A post ID is required." });
-      const { error } = await db.from("posts").delete().eq("id", postId);
-      if (error) throw error;
-      await audit(db, user.id, "delete_post", null, "", { post_id: postId });
-      return reply(200, { ok: true });
+      const { data, error } = await db.rpc("admin_delete_post_with_notice", {
+        p_admin_id: user.id, p_post_id: postId, p_reason_code: reasonCode,
+      });
+      if (error) {
+        if (error.code === "P0002") return reply(404, { error: "Post not found." });
+        if (error.code === "22023") return reply(400, { error: error.message });
+        if (error.code === "42501") return reply(403, { error: "Super Admin permission is required." });
+        throw error;
+      }
+      return reply(200, data || { ok: true });
     }
 
     if (action === "appeals") {
