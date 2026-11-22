@@ -47,13 +47,14 @@ export async function renderAlerts() {
         '<div class="alert-row-heading"><strong>Murmur Admin</strong></div><h3>' + esc(cleanNoticeText(a.title)) + '</h3><p>' + esc(body) + '</p><small>' + esc(a.published_at ? new Date(a.published_at).toLocaleString() : "Date unavailable") + '</small><div class="alert-row-actions"><button class="btn secondary" type="button" data-open-alert>View notification</button></div></article>';
     }).join("");
     const notificationHtml = selectedNotifications.map(n => {
-      const title = n.kind === "admin_post_removed" ? "Post removed by Murmur Admin" : (n.kind || "Murmur notification").replace(/[_-]/g, " ");\n      const body = cleanNoticeText(n.content);
+      const title = n.kind === "admin_post_removed" ? "Post removed by Murmur Admin" : (n.kind || "Murmur notification").replace(/[_-]/g, " ");
+      const body = cleanNoticeText(n.content);
       return '<article class="alert-row murmur-notification' + (n.read_at ? '' : ' is-unread') + '" tabindex="0" data-alert-open data-alert-id="' + esc(n.id) + '" data-alert-title="' + esc(title) + '" data-alert-content="' + esc(body) + '" data-alert-date="' + esc(n.created_at || "") + '" data-alert-source="Murmur">' +
         '<div class="alert-row-heading"><strong>Murmur · ' + esc(title) + '</strong>' +
         (!n.read_at ? '<span class="alert-unread-dot" aria-label="Unread"></span>' : '') + '</div>' +
         '<p>' + esc(body) + '</p><small>' + esc(new Date(n.created_at).toLocaleString()) + (n.read_at ? ' · Read' : ' · Unread') + '</small>' +
-        '<button class="btn secondary" type="button" data-open-alert>View notification</button>' +
-        (!n.read_at ? '<button class="btn secondary" type="button" data-mark-alert="' + esc(n.id) + '">Mark read</button>' : '') + '</article>';
+        '<div class="alert-row-actions"><button class="btn secondary" type="button" data-open-alert>View notification</button>' +
+        (!n.read_at ? '<button class="btn secondary" type="button" data-mark-alert="' + esc(n.id) + '">Mark read</button>' : '') + '</div></article>';
     }).join("");
     root.innerHTML = announcementHtml + notificationHtml || '<p class="empty-state">No notifications in this filter.</p>';
     const openAlertDetails = card => {
