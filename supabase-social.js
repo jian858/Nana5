@@ -107,7 +107,7 @@ async function getConversationPeople(conversationIds, currentUserId) {
   let people = [];
   if (otherIds.length) {
     const { data, error } = await supabase.from("murmur_public_profiles")
-      .select("id,username,display_name,avatar_url")
+      .select("id,username,display_name,avatar_url,is_verified")
       .in("id", otherIds);
     if (error) throw error;
     people = data || [];
@@ -176,7 +176,7 @@ async function renderChats() {
         (conversation ? 'data-conversation="' + esc(conversation.id) + '"' : 'data-chat-user="' + esc(person.id) + '"') +
         ' aria-label="Message ' + esc(person.display_name || person.username || "friend") + '">' +
         avatarMarkup(person, "Friend profile picture") +
-        '<span class="chat-list-copy"><strong>' + esc(person.display_name || (person.username ? "@" + person.username : "Friend")) + '</strong><small>' + esc(preview) + '</small></span>' +
+        '<span class="chat-list-copy"><strong>' + esc(person.display_name || (person.username ? "@" + person.username : "Friend")) + (person.is_verified ? ' <span class="murmur-verified-badge" title="Verified by Murmur" aria-label="Verified by Murmur"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.5 12.2 3l2.7-.1 1.1 2.5 2.3 1.4-.6 2.7.6 2.7-2.3 1.4-1.1 2.5-2.7-.1L10 17.5 7.8 16l-2.7.1L4 13.6l-2.3-1.4.6-2.7-.6-2.7L4 5.4l1.1-2.5 2.7.1z"/><path d="m6.6 10 2.2 2.2 4.7-4.7"/></svg></span>' : '') + '</strong><small>' + esc(preview) + '</small></span>' +
         '<span class="murmur-presence ' + (online ? 'is-online' : 'is-offline') + '"><i></i>' + (online ? 'Online' : 'Offline') + '</span></button>';
     });
     const otherItems = rows.filter(conversation => {
@@ -189,7 +189,7 @@ async function renderChats() {
       const preview = last ? (last.sender_id === currentUserId ? "You: " : "") + (last.content || "Attachment") : "Start a conversation";
       const online = person.id && onlineUserIds.has(person.id);
       return '<button class="chat-list-item' + (activeConversationId === conversation.id ? ' active' : '') + '" type="button" data-conversation="' + esc(conversation.id) + '" aria-label="Open chat with ' + esc(name) + '">' +
-        avatarMarkup(person, "Profile picture") + '<span class="chat-list-copy"><strong>' + esc(name) + '</strong><small>' + esc(preview) + '</small></span>' +
+        avatarMarkup(person, "Profile picture") + '<span class="chat-list-copy"><strong>' + esc(name) + (person.is_verified ? ' <span class="murmur-verified-badge" title="Verified by Murmur" aria-label="Verified by Murmur"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.5 12.2 3l2.7-.1 1.1 2.5 2.3 1.4-.6 2.7.6 2.7-2.3 1.4-1.1 2.5-2.7-.1L10 17.5 7.8 16l-2.7.1L4 13.6l-2.3-1.4.6-2.7-.6-2.7L4 5.4l1.1-2.5 2.7.1z"/><path d="m6.6 10 2.2 2.2 4.7-4.7"/></svg></span>' : '') + '</strong><small>' + esc(preview) + '</small></span>' +
         '<span class="murmur-presence ' + (online ? 'is-online' : 'is-offline') + '"><i></i>' + (online ? 'Online' : 'Offline') + '</span></button>';
     });
     if (run !== chatListRenderRun) return;
