@@ -1416,24 +1416,39 @@ async function boot() {
   authSubscription = listener.subscription;
 
   let session = null;
+  const sessionRead = supabase.auth.getSession();
   try {
-    // Bound the initial auth read so a stalled refresh/session request cannot
-    // hold the splash screen indefinitely. The independent HTML watchdog also
-    // reveals the login form if this module or its imports fail to execute.
+    // Keep startup responsive on slow mobile networks. If session restoration
+    // is slow, show the login screen immediately while the original read may
+    // still complete in the background.
     const { data, error } = await withAuthTimeout(
-      supabase.auth.getSession(),
+      sessionRead,
       "Murmur startup",
-      25000
+      10000
     );
     if (error) throw error;
     session = data.session;
   } catch (error) {
     const staleSession = error?.status === 400 ||
       /invalid refresh token|refresh token.*(not found|invalid|already used)|refresh_token_not_found/i.test(String(error?.message || ""));
-    if (!staleSession) throw error;
-    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
-    showAuth();
-    showError("Your saved sign-in session expired. Please sign in again.");
+    const startupTimedOut = /taking too long|timed out/i.test(String(error?.message || ""));
+    if (staleSession) {
+      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+      showAuth();
+      showError("Your saved sign-in session expired. Please sign in again.");
+    } else if (startupTimedOut) {
+      showAuth();
+      showError("Murmur is taking longer than expected to restore your session. You can sign in now; if your saved session finishes loading, Murmur will open automatically.");
+      sessionRead.then(({ data }) => {
+        const restoredUser = data?.session?.user;
+        if (restoredUser?.id && !currentUser) {
+          void enterApp(restoredUser);
+        }
+      }).catch(sessionError => console.warn("[Murmur delayed session restore]", sessionError));
+      return;
+    } else {
+      throw error;
+    }
   }
 
   if (isPasswordRecoveryRoute()) {
