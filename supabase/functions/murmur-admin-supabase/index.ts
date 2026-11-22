@@ -29,6 +29,54 @@ async function audit(db: ReturnType<typeof makeDb>, adminId: string, action: str
   if (error) throw error;
 }
 
+async function notifyAccountRecovered(db: ReturnType<typeof makeDb>, userId: string, caseId: string | null = null) {
+  const since = new Date(Date.now() - 60_000).toISOString();
+  const { data: recent, error: recentError } = await db.from("notifications")
+    .select("id")
+    .eq("recipient_id", userId)
+    .eq("kind", "account_recovered")
+    .gte("created_at", since)
+    .limit(1);
+  if (recentError) throw recentError;
+  if (recent?.length) return;
+
+  const restoredAt = new Date();
+  const when = restoredAt.toLocaleString("en-US", {
+    timeZone: "UTC", dateStyle: "long", timeStyle: "short"
+  });
+  const caseText = caseId ? " Case ID: " + caseId : "";
+  const { error } = await db.from("notifications").insert({
+    recipient_id: userId,
+    actor_id: null,
+    kind: "account_recovered",
+    entity_id: caseId,
+    content: "Your Murmur account was restored on " + when +
+      " UTC. All account restrictions have been lifted, and you can now sign in and use Murmur again." + caseText
+  });
+  if (error) throw error;
+}
+async function recordModerationCase(
+  db: ReturnType<typeof makeDb>,
+  adminId: string,
+  targetUserId: string,
+  type: "suspension" | "ban" | "termination",
+  reason: string,
+  restrictionId: string,
+  expiresAt: string | null
+) {
+  const { data, error } = await db.from("moderation_actions").insert({
+    user_id: targetUserId,
+    type,
+    reason,
+    expires_at: expiresAt,
+    appealable: type !== "termination",
+    issued_by: adminId,
+    restriction_id: restrictionId,
+  }).select("id").single();
+  if (error) throw error;
+  return data;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return reply(405, { error: "Method not allowed." });
@@ -92,12 +140,18 @@ Deno.serve(async (req: Request) => {
       const search = typeof body.q === "string" ? body.q.trim().slice(0, 80) : "";
       const status = ["all","active","suspended"].includes(body.status) ? body.status : "all";
       let usersQuery = db.from("profiles")
-        .select("id,public_id,username,display_name,bio,avatar_url,created_at,is_suspended,suspension_reason", { count: "exact" });
+        .select("id,public_id,username,display_name,bio,avatar_url,created_at,is_suspended,suspension_reason,is_verified", { count: "exact" });
       if (search) {
-        if (/^[0-9a-f-]{36}$/i.test(search)) usersQuery = usersQuery.eq("id", search);
+        if (search.includes("@")) {
+          const { data: authUsers, error: authUsersError } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          if (authUsersError) throw authUsersError;
+          const match = (authUsers.users || []).find((candidate: any) => (candidate.email || "").toLowerCase() === search.toLowerCase());
+          if (!match) return reply(200, { users: [], page, page_size: pageSize, total: 0, total_pages: 1 });
+          usersQuery = usersQuery.eq("id", match.id);
+        } else if (/^[0-9a-f-]{36}$/i.test(search)) usersQuery = usersQuery.eq("id", search);
         else {
           const safeSearch = search.replace(/[^a-zA-Z0-9 _.-]/g, " ").trim().slice(0, 80);
-          if (safeSearch) usersQuery = usersQuery.or("username.ilike.%"+safeSearch+"%,display_name.ilike.%"+safeSearch+"%");
+          if (safeSearch) usersQuery = usersQuery.or("username.ilike.%"+safeSearch+"%,display_name.ilike.%"+safeSearch+"%,public_id.ilike.%"+safeSearch+"%");
         }
       }
       if (status === "active") usersQuery = usersQuery.eq("is_suspended", false);
@@ -107,55 +161,237 @@ Deno.serve(async (req: Request) => {
         .range(from, from + pageSize - 1);
       if (error) throw error;
       const total = count || 0;
-      return reply(200, { users: data || [], page, page_size: pageSize, total, total_pages: Math.max(1, Math.ceil(total / pageSize)) });
+      const users = await Promise.all((data || []).map(async (profile: any) => {
+        const [{ data: authResult, error: authLookupError }, { data: terminated, error: restrictionError }] = await Promise.all([
+          db.auth.admin.getUserById(profile.id),
+          db.from("account_restrictions").select("id").eq("user_id", profile.id).eq("status", "terminated").limit(1).maybeSingle()
+        ]);
+        if (authLookupError) throw authLookupError;
+        if (restrictionError) throw restrictionError;
+        const bannedUntil = authResult.user?.banned_until || null;
+        return { ...profile, email: authResult.user?.email || null, is_terminated: !!terminated, is_banned: !!bannedUntil && new Date(bannedUntil).getTime() > Date.now(), banned_until: bannedUntil };
+      }));
+      return reply(200, { users, page, page_size: pageSize, total, total_pages: Math.max(1, Math.ceil(total / pageSize)) });
+    }
+
+    if (action === "set_user_verified") {
+      const userId = typeof body.user_id === "string" ? body.user_id : "";
+      const verified = body.verified === true;
+      if (!userId || userId === user.id) return reply(400, { error: "Choose a valid account. You cannot change your own admin badge here." });
+      const { data, error } = await db.from("profiles")
+        .update({ is_verified: verified, updated_at: new Date().toISOString() })
+        .eq("id", userId).select("id,is_verified").maybeSingle();
+      if (error) throw error;
+      if (!data) return reply(404, { error: "User profile not found." });
+      await audit(db, user.id, verified ? "verify_user" : "unverify_user", userId,
+        verified ? "Granted official Verified by Murmur badge" : "Removed Verified by Murmur badge",
+        { is_verified: verified });
+      return reply(200, { ok: true, user: data });
+    }
+
+    if (action === "ban_user") {
+      const userId = typeof body.user_id === "string" ? body.user_id : "";
+      const reasonCode = typeof body.reason_code === "string" ? body.reason_code : "";
+      const allowed = ["spam","harassment","hate_speech","impersonation","fraud","sexual_content","violence","child_safety","repeated_violations","other"];
+      const policyHours: Record<string, number> = { spam: 24, harassment: 72, hate_speech: 168, impersonation: 168, fraud: 720, sexual_content: 168, violence: 720, child_safety: 876000, repeated_violations: 720, other: 24 };
+      const reasonLabels: Record<string, string> = { spam: "Spam or fake engagement", harassment: "Harassment or bullying", hate_speech: "Hate speech or discriminatory content", impersonation: "Impersonation", fraud: "Scams or fraud", sexual_content: "Sexual or explicit content", violence: "Violence or threats", child_safety: "Child safety concern", repeated_violations: "Repeated policy violations", other: "Other policy violation" };
+      const hours = policyHours[reasonCode] || 0;
+      const reason = "Automated moderation: " + (reasonLabels[reasonCode] || "Policy violation") + ".";
+      if (!userId || userId === user.id) return reply(400, { error: "Choose a valid user. You cannot ban your own admin account." });
+      if (!reason || !allowed.includes(reasonCode) || !Number.isFinite(hours) || hours <= 0 || hours > 876000) return reply(400, { error: "Choose a valid ban duration and one of the approved reasons." });
+      const { data: targetAdmin, error: targetAdminError } = await db.from("murmur_admin_allowlist").select("user_id").eq("user_id", userId).maybeSingle();
+      if (targetAdminError) throw targetAdminError;
+      if (targetAdmin) return reply(400, { error: "Administrator accounts cannot be banned here." });
+      const { data: terminated, error: terminatedError } = await db.from("account_restrictions").select("id").eq("user_id", userId).eq("status", "terminated").limit(1).maybeSingle();
+      if (terminatedError) throw terminatedError;
+      if (terminated) return reply(409, { error: "This account is already terminated." });
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const endsAt = new Date(now.getTime() + hours * 3600000).toISOString();
+      const { data: authResult, error: authError } = await db.auth.admin.updateUserById(userId, { ban_duration: hours >= 876000 ? "876000h" : hours + "h" });
+      if (authError || !authResult?.user) return reply(400, { error: authError?.message || "Supabase Auth could not apply the ban." });
+      const { error: liftError } = await db.from("account_restrictions").update({ status: "lifted", lifted_at: nowIso }).eq("user_id", userId).in("status", ["suspended","scheduled_deletion"]);
+      if (liftError) throw liftError;
+      const { data: restriction, error: restrictionError } = await db.from("account_restrictions").insert({
+        user_id: userId, status: "suspended", reason_code: reasonCode, reason,
+        starts_at: nowIso, ends_at: endsAt, created_by: user.id
+      }).select("id").single();
+      if (restrictionError) throw restrictionError;
+      await recordModerationCase(db, user.id, userId, "ban", reason, restriction.id, endsAt);
+      const { data: profile, error: profileError } = await db.from("profiles").update({
+        is_suspended: true, suspension_reason: reason, updated_at: nowIso
+      }).eq("id", userId).select("id").maybeSingle();
+      if (profileError) throw profileError;
+      if (!profile) return reply(404, { error: "User profile not found; no profile restriction was saved." });
+      await audit(db, user.id, "ban_user", userId, reason, { reason_code: reasonCode, duration_hours: hours, ends_at: endsAt });
+      return reply(200, { ok: true, banned: true, ends_at: endsAt });
+    }
+
+    if (action === "unban_user") {
+      const userId = typeof body.user_id === "string" ? body.user_id : "";
+      if (!userId || userId === user.id) return reply(400, { error: "Choose a valid user." });
+      const { data: targetAdmin, error: targetAdminError } = await db.from("murmur_admin_allowlist").select("user_id").eq("user_id", userId).maybeSingle();
+      if (targetAdminError) throw targetAdminError;
+      if (targetAdmin) return reply(400, { error: "Administrator accounts cannot be changed here." });
+      const { data: terminated, error: terminatedError } = await db.from("account_restrictions").select("id").eq("user_id", userId).eq("status", "terminated").limit(1).maybeSingle();
+      if (terminatedError) throw terminatedError;
+      if (terminated) return reply(409, { error: "A terminated account cannot be restored using Unban." });
+      const nowIso = new Date().toISOString();
+      const { error: moderationLiftError } = await db.from("moderation_actions").update({ revoked_at: nowIso })
+        .eq("user_id", userId).in("type", ["suspension","ban"]).is("revoked_at", null);
+      if (moderationLiftError) throw moderationLiftError;
+      const { error: restrictionError } = await db.from("account_restrictions").update({ status: "lifted", lifted_at: nowIso }).eq("user_id", userId).eq("status", "suspended");
+      if (restrictionError) throw restrictionError;
+      const { error: profileError } = await db.from("profiles").update({
+        is_suspended: false, suspension_reason: null, updated_at: nowIso
+      }).eq("id", userId);
+      if (profileError) throw profileError;
+      const { error: authError } = await db.auth.admin.updateUserById(userId, { ban_duration: "none" });
+      if (authError) return reply(400, { error: authError.message || "The app restriction was removed, but Supabase Auth could not clear the ban." });
+      const [{ data: remainingRestrictions, error: remainingRestrictionsError }, { data: remainingActions, error: remainingActionsError }] = await Promise.all([
+        db.from("account_restrictions").select("id").eq("user_id", userId).is("lifted_at", null)
+          .in("status", ["suspended","terminated","scheduled_deletion","deleted"]).lte("starts_at", nowIso)
+          .or("ends_at.is.null,ends_at.gt." + nowIso).limit(1),
+        db.from("moderation_actions").select("id").eq("user_id", userId).is("revoked_at", null)
+          .in("type", ["suspension","ban","termination"]).or("expires_at.is.null,expires_at.gt." + nowIso).limit(1)
+      ]);
+      if (remainingRestrictionsError) throw remainingRestrictionsError;
+      if (remainingActionsError) throw remainingActionsError;
+      if (!remainingRestrictions?.length && !remainingActions?.length) {
+        // The database trigger handles restriction rows; this also covers legacy ban-only cases.
+        await notifyAccountRecovered(db, userId);
+      }
+      await audit(db, user.id, "unban_user", userId, "Removed account ban and app restriction");
+      return reply(200, { ok: true });
+    }
+
+    if (action === "delete_user") {
+      const userId = typeof body.user_id === "string" ? body.user_id : "";
+      if (!userId || userId === user.id || body.confirm !== "DELETE") return reply(400, { error: "A valid target and DELETE confirmation are required." });
+      const { data: targetAdmin, error: targetAdminError } = await db.from("murmur_admin_allowlist").select("user_id").eq("user_id", userId).maybeSingle();
+      if (targetAdminError) throw targetAdminError;
+      if (targetAdmin) return reply(400, { error: "Administrator accounts cannot be terminated here." });
+      const { data: target, error: targetError } = await db.auth.admin.getUserById(userId);
+      if (targetError || !target.user) return reply(404, { error: "Auth user not found." });
+      const { data: existing, error: existingError } = await db.from("account_restrictions").select("id").eq("user_id", userId).eq("status", "terminated").limit(1).maybeSingle();
+      if (existingError) throw existingError;
+      if (existing) return reply(409, { error: "This account is already terminated." });
+      const nowIso = new Date().toISOString();
+      const reasonCode = typeof body.reason_code === "string" ? body.reason_code : "other";
+      const policyHours: Record<string, number> = { spam: 24, harassment: 72, hate_speech: 168, impersonation: 168, fraud: 720, sexual_content: 168, violence: 720, child_safety: 876000, repeated_violations: 720, other: 24 };
+      const reasonLabels: Record<string, string> = { spam: "Spam or fake engagement", harassment: "Harassment or bullying", hate_speech: "Hate speech or discriminatory content", impersonation: "Impersonation", fraud: "Scams or fraud", sexual_content: "Sexual or explicit content", violence: "Violence or threats", child_safety: "Child safety concern", repeated_violations: "Repeated policy violations", other: "Other policy violation" };
+      if (!Object.prototype.hasOwnProperty.call(reasonLabels, reasonCode)) return reply(400, { error: "Choose a valid termination reason." });
+      const reason = "Permanently terminated by Murmur Admin. Reason: " + reasonLabels[reasonCode] + ".";
+      const { error: authError } = await db.auth.admin.updateUserById(userId, { ban_duration: "876000h" });
+      if (authError) return reply(400, { error: authError.message || "Supabase Auth could not disable this account." });
+      const { error: liftError } = await db.from("account_restrictions").update({ status: "lifted", lifted_at: nowIso }).eq("user_id", userId).in("status", ["suspended","scheduled_deletion"]);
+      if (liftError) throw liftError;
+      const { data: restriction, error: restrictionError } = await db.from("account_restrictions").insert({
+        user_id: userId, status: "terminated", reason_code: reasonCode, reason,
+        starts_at: nowIso, created_by: user.id
+      }).select("id").single();
+      if (restrictionError) throw restrictionError;
+      await recordModerationCase(db, user.id, userId, "termination", reason, restriction.id, null);
+      const { data: profile, error: profileError } = await db.from("profiles").update({
+        is_suspended: true, suspension_reason: reason, updated_at: nowIso
+      }).eq("id", userId).select("id").maybeSingle();
+      if (profileError) throw profileError;
+      if (!profile) return reply(404, { error: "User profile not found." });
+      await audit(db, user.id, "terminate_user", userId, reason, { preserves_content_for_audit: true });
+      return reply(200, { ok: true, terminated: true });
     }
 
     if (action === "set_user_status") {
       const userId = typeof body.user_id === "string" ? body.user_id : "";
       const suspended = body.suspended === true;
-      const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : "";
       const reasonCode = typeof body.reason_code === "string" ? body.reason_code : "";
-      const allowedReasonCodes = ["spam","harassment","hate_speech","impersonation","fraud","sexual_content","violence","child_safety","repeated_violations","other"];
-      const hours = body.duration_hours == null || body.duration_hours === "" ? null : Number(body.duration_hours);
-      if (!userId || userId === user.id) return reply(400, { error: "Choose a valid user. You cannot suspend your own admin account." });
-      if (suspended && !reason) return reply(400, { error: "A suspension reason is required." });
-      if (suspended && !allowedReasonCodes.includes(reasonCode)) return reply(400, { error: "Choose one of the ten approved restriction reasons." });
-      if (suspended && (!Number.isFinite(hours) || hours <= 0 || hours > 8760)) {
-        return reply(400, { error: "Choose a suspension duration between 1 and 8760 hours." });
+      const allowed = ["spam","harassment","hate_speech","impersonation","fraud","sexual_content","violence","child_safety","repeated_violations","other"];
+      const policyHours: Record<string, number> = { spam: 24, harassment: 72, hate_speech: 168, impersonation: 168, fraud: 720, sexual_content: 168, violence: 720, child_safety: 8760, repeated_violations: 720, other: 24 };
+      const reasonLabels: Record<string, string> = { spam: "Spam or fake engagement", harassment: "Harassment or bullying", hate_speech: "Hate speech or discriminatory content", impersonation: "Impersonation", fraud: "Scams or fraud", sexual_content: "Sexual or explicit content", violence: "Violence or threats", child_safety: "Child safety concern", repeated_violations: "Repeated policy violations", other: "Other policy violation" };
+      const hours = policyHours[reasonCode] || null;
+      const reason = "Automated moderation: " + (reasonLabels[reasonCode] || "Policy violation") + ".";
+      if (!userId || userId === user.id) return reply(400, { error: "Choose a valid user." });
+      const { data: targetAdmin, error: targetAdminError } = await db.from("murmur_admin_allowlist").select("user_id").eq("user_id", userId).maybeSingle();
+      if (targetAdminError) throw targetAdminError;
+      if (targetAdmin) return reply(400, { error: "Administrator accounts cannot be changed here." });
+      const { data: terminated, error: terminatedError } = await db.from("account_restrictions").select("id").eq("user_id", userId).eq("status", "terminated").limit(1).maybeSingle();
+      if (terminatedError) throw terminatedError;
+      if (terminated) return reply(409, { error: "A terminated account cannot be restored or suspended again." });
+      const nowIso = new Date().toISOString();
+      if (suspended) {
+        if (!reason || !allowed.includes(reasonCode) || !Number.isFinite(hours) || hours! <= 0 || hours! > 8760) {
+          return reply(400, { error: "A valid reason and suspension duration between 1 and 8760 hours are required." });
+        }
+        const { error: authError } = await db.auth.admin.updateUserById(userId, { ban_duration: hours + "h" });
+        if (authError) return reply(400, { error: authError.message || "Supabase Auth could not suspend this account." });
+        const { error: liftError } = await db.from("account_restrictions").update({ status: "lifted", lifted_at: nowIso }).eq("user_id", userId).eq("status", "suspended");
+        if (liftError) throw liftError;
+        const suspensionEndsAt = new Date(Date.now() + hours! * 3600000).toISOString();
+        const { data: restriction, error: insertError } = await db.from("account_restrictions").insert({
+          user_id: userId, status: "suspended", reason_code: reasonCode, reason,
+          starts_at: nowIso, ends_at: suspensionEndsAt, created_by: user.id
+        }).select("id").single();
+        if (insertError) throw insertError;
+        await recordModerationCase(db, user.id, userId, "suspension", reason, restriction.id, suspensionEndsAt);
+        const { data: profile, error: profileError } = await db.from("profiles").update({
+          is_suspended: true, suspension_reason: reason, updated_at: nowIso
+        }).eq("id", userId).select("id").maybeSingle();
+        if (profileError) throw profileError;
+        if (!profile) return reply(404, { error: "User profile not found." });
+        await audit(db, user.id, "suspend_user", userId, reason, { reason_code: reasonCode, duration_hours: hours });
+        return reply(200, { ok: true, suspended: true });
       }
-      const { data, error } = await db.rpc("admin_set_account_status", {
-        p_admin_id: user.id, p_user_id: userId, p_suspended: suspended,
-        p_reason: reason || null, p_duration_hours: suspended ? hours : null,
-        p_reason_code: suspended ? reasonCode : "other",
-      });
-      if (error) {
-        if (error.code === "P0002") return reply(404, { error: "User profile not found." });
-        if (error.code === "22023") return reply(400, { error: error.message });
-        throw error;
-      }
-      return reply(200, { ok: true, user: data });
+      const { error: moderationLiftError } = await db.from("moderation_actions").update({ revoked_at: nowIso })
+        .eq("user_id", userId).in("type", ["suspension","ban"]).is("revoked_at", null);
+      if (moderationLiftError) throw moderationLiftError;
+      const { error: authError } = await db.auth.admin.updateUserById(userId, { ban_duration: "none" });
+      if (authError) return reply(400, { error: authError.message || "Supabase Auth could not restore this account." });
+      const { error: liftError } = await db.from("account_restrictions").update({ status: "lifted", lifted_at: nowIso })
+        .eq("user_id", userId).in("status", ["suspended","scheduled_deletion"]);
+      if (liftError) throw liftError;
+      const { data: profile, error: profileError } = await db.from("profiles").update({
+        is_suspended: false, suspension_reason: null, updated_at: nowIso
+      }).eq("id", userId).select("id").maybeSingle();
+      if (profileError) throw profileError;
+      if (!profile) return reply(404, { error: "User profile not found." });
+      await audit(db, user.id, "restore_user", userId, "Removed account suspension");
+      return reply(200, { ok: true, suspended: false });
     }
 
     if (action === "schedule_delete") {
       const userId = typeof body.user_id === "string" ? body.user_id : "";
-      const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : "";
       const reasonCode = typeof body.reason_code === "string" ? body.reason_code : "";
-      const allowedReasonCodes = ["spam","harassment","hate_speech","impersonation","fraud","sexual_content","violence","child_safety","repeated_violations","other"];
-      const deleteAt = typeof body.delete_at === "string" ? new Date(body.delete_at) : null;
-      if (!userId || userId === user.id) return reply(400, { error: "Choose a valid user." });
-      if (!reason || !allowedReasonCodes.includes(reasonCode) || !deleteAt || !Number.isFinite(deleteAt.getTime()) || deleteAt.getTime() <= Date.now()) {
-        return reply(400, { error: "Choose a valid reason and a future deletion date." });
+      const allowed = ["spam","harassment","hate_speech","impersonation","fraud","sexual_content","violence","child_safety","repeated_violations","other"];
+      const reasonLabels: Record<string, string> = { spam: "Spam or fake engagement", harassment: "Harassment or bullying", hate_speech: "Hate speech or discriminatory content", impersonation: "Impersonation", fraud: "Scams or fraud", sexual_content: "Sexual or explicit content", violence: "Violence or threats", child_safety: "Child safety concern", repeated_violations: "Repeated policy violations", other: "Other policy violation" };
+      const deletionDays: Record<string, number> = { spam: 7, harassment: 14, hate_speech: 30, impersonation: 14, fraud: 7, sexual_content: 14, violence: 7, child_safety: 1, repeated_violations: 7, other: 30 };
+      const reason = "Automated moderation: " + (reasonLabels[reasonCode] || "Policy violation") + ".";
+      const deleteAt = allowed.includes(reasonCode) ? new Date(Date.now() + deletionDays[reasonCode] * 86400000) : null;
+      if (!userId || userId === user.id || !deleteAt) {
+        return reply(400, { error: "Choose a valid account and reason." });
       }
-      const { data, error } = await db.rpc("admin_schedule_account_deletion", {
-        p_admin_id: user.id, p_user_id: userId, p_reason: reason,
-        p_delete_at: deleteAt.toISOString(), p_reason_code: reasonCode,
+      const { data: targetAdmin, error: targetAdminError } = await db.from("murmur_admin_allowlist").select("user_id").eq("user_id", userId).maybeSingle();
+      if (targetAdminError) throw targetAdminError;
+      if (targetAdmin) return reply(400, { error: "Administrator accounts cannot be scheduled for deletion here." });
+      const { data: terminated, error: terminatedError } = await db.from("account_restrictions").select("id").eq("user_id", userId).eq("status", "terminated").limit(1).maybeSingle();
+      if (terminatedError) throw terminatedError;
+      if (terminated) return reply(409, { error: "This account is already terminated." });
+      const nowIso = new Date().toISOString();
+      const { error: authError } = await db.auth.admin.updateUserById(userId, { ban_duration: "876000h" });
+      if (authError) return reply(400, { error: authError.message || "Could not disable sign-in for this account." });
+      const { error: liftError } = await db.from("account_restrictions").update({ status: "lifted", lifted_at: nowIso }).eq("user_id", userId).in("status", ["suspended","scheduled_deletion"]);
+      if (liftError) throw liftError;
+      const { error: insertError } = await db.from("account_restrictions").insert({
+        user_id: userId, status: "scheduled_deletion", reason_code: reasonCode, reason,
+        starts_at: nowIso, scheduled_delete_at: deleteAt.toISOString(), created_by: user.id
       });
-      if (error) {
-        if (error.code === "P0002") return reply(404, { error: "User profile not found." });
-        if (error.code === "22023") return reply(400, { error: error.message });
-        throw error;
-      }
-      return reply(200, data);
+      if (insertError) throw insertError;
+      const { data: profile, error: profileError } = await db.from("profiles").update({
+        is_suspended: true, suspension_reason: reason, updated_at: nowIso
+      }).eq("id", userId).select("id").maybeSingle();
+      if (profileError) throw profileError;
+      if (!profile) return reply(404, { error: "User profile not found." });
+      await audit(db, user.id, "schedule_delete", userId, reason, { reason_code: reasonCode, scheduled_delete_at: deleteAt.toISOString() });
+      return reply(200, { ok: true, scheduled_delete_at: deleteAt.toISOString() });
     }
 
     if (action === "blocked_users") {
@@ -231,10 +467,232 @@ Deno.serve(async (req: Request) => {
       return reply(200, data || { ok: true });
     }
 
-    if (action === "appeals") {
-      const { data, error } = await db.from("account_appeals").select("id,user_id,restriction_id,message,status,admin_response,created_at,reviewed_at").order("created_at", { ascending: false }).limit(200);
+    if (action === "verified_requests") {
+      const { data: requests, error } = await db.from("verified_badge_requests")
+        .select("id,user_id,reason,evidence_url,status,reviewer_note,created_at,reviewed_at")
+        .order("created_at", { ascending: false }).limit(300);
       if (error) throw error;
-      return reply(200, { appeals: data || [] });
+      const ids = Array.from(new Set((requests || []).map((item: any) => item.user_id)));
+      const { data: profiles, error: profileError } = ids.length
+        ? await db.from("profiles").select("id,username,display_name,avatar_url,is_verified").in("id", ids)
+        : { data: [], error: null };
+      if (profileError) throw profileError;
+      const byId = new Map((profiles || []).map((profile: any) => [profile.id, profile]));
+      return reply(200, { requests: (requests || []).map((item: any) => ({ ...item, profile: byId.get(item.user_id) || null })) });
+    }
+    if (action === "review_verified_request") {
+      const requestId = typeof body.request_id === "string" ? body.request_id : "";
+      const status = typeof body.status === "string" ? body.status : "";
+      const reviewerNote = typeof body.reviewer_note === "string" ? body.reviewer_note.trim().slice(0, 1000) : "";
+      if (!requestId || !["approved", "rejected"].includes(status)) {
+        return reply(400, { error: "Choose a valid request and decision." });
+      }
+      const { data: request, error: requestError } = await db.from("verified_badge_requests")
+        .select("id,user_id,status").eq("id", requestId).maybeSingle();
+      if (requestError) throw requestError;
+      if (!request) return reply(404, { error: "Verified badge request not found." });
+      if (request.status !== "pending") return reply(409, { error: "This request has already been reviewed." });
+      const now = new Date().toISOString();
+      const { data: updated, error: updateError } = await db.from("verified_badge_requests")
+        .update({ status, reviewer_id: user.id, reviewer_note: reviewerNote || null, reviewed_at: now })
+        .eq("id", requestId).eq("status", "pending")
+        .select("id,user_id,status").maybeSingle();
+      if (updateError) throw updateError;
+      if (!updated) return reply(409, { error: "This request has already been reviewed." });
+      if (status === "approved") {
+        const { error: profileError } = await db.from("profiles")
+          .update({ is_verified: true, updated_at: now }).eq("id", request.user_id);
+        if (profileError) throw profileError;
+        const { error: publicProfileError } = await db.from("murmur_public_profiles")
+          .update({ is_verified: true }).eq("id", request.user_id);
+        if (publicProfileError) throw publicProfileError;
+      }
+      const noticeText = status === "approved"
+        ? "Your verified badge request was approved. Your Murmur profile is now verified."
+        : "Your verified badge request was not approved. " + (reviewerNote || "You can update your information and apply again.");
+      const { error: notificationError } = await db.from("notifications").insert({
+        recipient_id: request.user_id, actor_id: user.id,
+        kind: status === "approved" ? "verified_badge_approved" : "verified_badge_declined",
+        content: noticeText
+      });
+      if (notificationError) throw notificationError;
+      await audit(db, user.id, status === "approved" ? "approve_verified_badge_request" : "decline_verified_badge_request",
+        request.user_id, reviewerNote, { request_id: requestId });
+      return reply(200, { ok: true, request: updated });
+    }
+
+    if (action === "moderate_user") {
+      const userId = typeof body.user_id === "string" ? body.user_id : "";
+      const type = typeof body.type === "string" ? body.type : "";
+      const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 2000) : "";
+      const hours = body.duration_hours == null ? null : Number(body.duration_hours);
+      const appealable = body.appealable !== false && type !== "termination";
+      if (!userId || userId === user.id) return reply(400, { error: "Choose a valid account. You cannot moderate your own admin account." });
+      if (!["warning","mute","suspension","ban","termination"].includes(type)) return reply(400, { error: "Choose a valid moderation action." });
+      if (!reason) return reply(400, { error: "A moderation reason is required." });
+      // Resolve the target by the immutable Supabase Auth UUID, never by username.
+      const { data: targetAuth, error: targetAuthError } = await db.auth.admin.getUserById(userId);
+      if (targetAuthError || !targetAuth?.user) return reply(404, { error: "The selected account ID was not found in Supabase Auth." });
+      const targetEmail = targetAuth.user.email?.trim().toLowerCase() || null;
+      if (type === "suspension" && (!Number.isInteger(hours) || hours < 1 || hours > 8760)) return reply(400, { error: "Suspensions must be between 1 and 8760 hours." });
+      if (["mute","ban"].includes(type) && hours !== null && (!Number.isInteger(hours) || hours < 1 || hours > 876000)) return reply(400, { error: "Choose a valid duration in hours." });
+      const { data: targetAdmin, error: targetAdminError } = await db.from("murmur_admin_allowlist").select("user_id").eq("user_id", userId).eq("enabled", true).maybeSingle();
+      if (targetAdminError) throw targetAdminError;
+      if (targetAdmin) return reply(403, { error: "Administrator accounts cannot be moderated here." });
+      const now = new Date();
+      const expiresAt = hours == null ? null : new Date(now.getTime() + hours * 3600000).toISOString();
+      let restrictionId: string | null = null;
+      if (["suspension","ban","termination"].includes(type)) {
+        const { data: restriction, error: restrictionError } = await db.from("account_restrictions").insert({
+          user_id: userId,
+          status: type === "termination" ? "terminated" : "suspended",
+          reason_code: typeof body.reason_code === "string" ? body.reason_code.slice(0, 80) : "other",
+          reason,
+          starts_at: now.toISOString(),
+          ends_at: type === "termination" ? null : expiresAt,
+          created_by: user.id
+        }).select("id").single();
+        if (restrictionError) throw restrictionError;
+        restrictionId = restriction.id;
+        const banDuration = type === "suspension" ? hours + "h" : (type === "ban" && hours != null ? hours + "h" : "876000h");
+        const { error: authBanError } = await db.auth.admin.updateUserById(userId, { ban_duration: banDuration });
+        if (authBanError) {
+          await db.from("account_restrictions").update({ status: "lifted", lifted_at: new Date().toISOString() }).eq("id", restrictionId);
+          throw authBanError;
+        }
+        const { error: profileError } = await db.from("profiles").update({
+          is_suspended: true, suspension_reason: reason, updated_at: now.toISOString()
+        }).eq("id", userId);
+        if (profileError) throw profileError;
+      }
+      const { data: caseRow, error: caseError } = await db.from("moderation_actions").insert({
+        user_id: userId, type, reason, expires_at: expiresAt, appealable,
+        issued_by: user.id, restriction_id: restrictionId
+      }).select("id,type,user_id,reason,expires_at,appealable,created_at").single();
+      if (caseError) throw caseError;
+      const noticeText = type === "warning"
+        ? "Murmur has issued an account warning. Reason: " + reason
+        : type === "mute"
+          ? "Murmur has muted your account. Reason: " + reason + (expiresAt ? " This action ends at " + new Date(expiresAt).toLocaleString() + "." : "")
+          : "Murmur has applied an account restriction. Reason: " + reason;
+      const { error: notificationError } = await db.from("notifications").insert({
+        recipient_id: userId, actor_id: user.id,
+        kind: "moderation_" + type, content: noticeText + " Case ID: " + caseRow.id
+      });
+      if (notificationError) throw notificationError;
+      await audit(db, user.id, "moderate_user", userId, reason, {
+        case_id: caseRow.id, type, duration_hours: hours, appealable, target_email: targetEmail
+      });
+      return reply(200, { ok: true, case: caseRow, target: { user_id: userId, email: targetEmail } });
+    }
+
+    if (action === "lift_moderation_case") {
+      const caseId = typeof body.case_id === "string" ? body.case_id : "";
+      if (!caseId) return reply(400, { error: "A moderation case ID is required." });
+      const { data: caseRow, error: caseError } = await db.from("moderation_actions")
+        .select("id,user_id,type,restriction_id").eq("id", caseId).maybeSingle();
+      if (caseError) throw caseError;
+      if (!caseRow) return reply(404, { error: "Moderation case not found." });
+      const nowIso = new Date().toISOString();
+      const { error: revokeError } = await db.from("moderation_actions").update({ revoked_at: nowIso })
+        .eq("id", caseId).is("revoked_at", null);
+      if (revokeError) throw revokeError;
+      if (caseRow.restriction_id) {
+        const { error: liftError } = await db.from("account_restrictions").update({ status: "lifted", lifted_at: nowIso })
+          .eq("id", caseRow.restriction_id);
+        if (liftError) throw liftError;
+      }
+      const [{ data: restrictions, error: restrictionsError }, { data: actions, error: actionsError }] = await Promise.all([
+        db.from("account_restrictions").select("id").eq("user_id", caseRow.user_id).is("lifted_at", null)
+          .in("status", ["suspended","terminated","scheduled_deletion","deleted"]).lte("starts_at", nowIso)
+          .or("ends_at.is.null,ends_at.gt." + nowIso).limit(1),
+        db.from("moderation_actions").select("id").eq("user_id", caseRow.user_id).is("revoked_at", null)
+          .in("type", ["suspension","ban","termination"]).or("expires_at.is.null,expires_at.gt." + nowIso).limit(1)
+      ]);
+      if (restrictionsError) throw restrictionsError;
+      if (actionsError) throw actionsError;
+      if (!restrictions?.length && !actions?.length) {
+        const { error: unbanError } = await db.auth.admin.updateUserById(caseRow.user_id, { ban_duration: "none" });
+        if (unbanError) throw unbanError;
+        const { error: profileError } = await db.from("profiles").update({
+          is_suspended: false, suspension_reason: null, updated_at: nowIso
+        }).eq("id", caseRow.user_id);
+        if (profileError) throw profileError;
+        await notifyAccountRecovered(db, caseRow.user_id, caseId);
+      }
+      await audit(db, user.id, "lift_moderation_case", caseRow.user_id, "Moderation case lifted", { case_id: caseId });
+      return reply(200, { ok: true });
+    }
+
+    if (action === "moderation_cases") {
+      const { data: cases, error } = await db.from("moderation_actions")
+        .select("id,user_id,type,reason,expires_at,appealable,issued_by,created_at,revoked_at,restriction_id")
+        .order("created_at", { ascending: false }).limit(300);
+      if (error) throw error;
+      const ids = Array.from(new Set((cases || []).map((row: any) => row.user_id)));
+      const { data: profiles, error: profileError } = ids.length
+        ? await db.from("profiles").select("id,username,display_name").in("id", ids)
+        : { data: [], error: null };
+      if (profileError) throw profileError;
+      const byId = new Map((profiles || []).map((profile: any) => [profile.id, profile]));
+      return reply(200, { cases: (cases || []).map((row: any) => ({ ...row, profile: byId.get(row.user_id) || null })) });
+    }
+
+    if (action === "review_moderation_appeal") {
+      const appealId = typeof body.appeal_id === "string" ? body.appeal_id : "";
+      const status = typeof body.status === "string" ? body.status : "";
+      const note = typeof body.reviewer_note === "string" ? body.reviewer_note.trim().slice(0, 2000) : "";
+      if (!appealId || !["approved","denied"].includes(status)) return reply(400, { error: "Choose a valid appeal decision." });
+      const { data: appeal, error: appealError } = await db.from("appeals")
+        .select("id,action_id,user_id,status").eq("id", appealId).maybeSingle();
+      if (appealError) throw appealError;
+      if (!appeal || appeal.status !== "pending") return reply(409, { error: "Appeal not found or already reviewed." });
+      const nowIso = new Date().toISOString();
+      const { data: updated, error: updateError } = await db.from("appeals").update({
+        status, reviewer_note: note || null, reviewed_by: user.id, reviewed_at: nowIso
+      }).eq("id", appealId).eq("status", "pending").select("id,status").maybeSingle();
+      if (updateError) throw updateError;
+      if (!updated) return reply(409, { error: "This appeal was already reviewed." });
+      if (status === "approved") {
+        const { data: actionRow, error: actionError } = await db.from("moderation_actions")
+          .update({ revoked_at: nowIso }).eq("id", appeal.action_id)
+          .select("id,user_id,restriction_id,type").single();
+        if (actionError) throw actionError;
+        if (actionRow.restriction_id) {
+          const { error: liftError } = await db.from("account_restrictions")
+            .update({ status: "lifted", lifted_at: nowIso }).eq("id", actionRow.restriction_id);
+          if (liftError) throw liftError;
+        }
+        const [{ data: stillRestricted, error: restrictionCheckError }, { data: stillBanned, error: actionCheckError }] = await Promise.all([
+          db.from("account_restrictions").select("id").eq("user_id", appeal.user_id).is("lifted_at", null)
+            .in("status", ["suspended","terminated","scheduled_deletion","deleted"]).lte("starts_at", nowIso)
+            .or("ends_at.is.null,ends_at.gt." + nowIso).limit(1),
+          db.from("moderation_actions").select("id").eq("user_id", appeal.user_id).is("revoked_at", null)
+            .in("type", ["suspension","ban","termination"]).or("expires_at.is.null,expires_at.gt." + nowIso).limit(1)
+        ]);
+        if (restrictionCheckError) throw restrictionCheckError;
+        if (actionCheckError) throw actionCheckError;
+        if (!(stillRestricted?.length) && !(stillBanned?.length)) {
+          const { error: authUnbanError } = await db.auth.admin.updateUserById(appeal.user_id, { ban_duration: "none" });
+          if (authUnbanError) throw authUnbanError;
+          const { error: profileError } = await db.from("profiles").update({
+            is_suspended: false, suspension_reason: null, updated_at: nowIso
+          }).eq("id", appeal.user_id);
+          if (profileError) throw profileError;
+        }
+      }
+      await audit(db, user.id, "review_moderation_appeal", appeal.user_id, note, { appeal_id: appealId, status });
+      return reply(200, { ok: true, appeal: updated });
+    }
+
+    if (action === "appeals") {
+      const [{ data, error }, { data: moderationAppeals, error: moderationAppealError }] = await Promise.all([
+        db.from("account_appeals").select("id,user_id,restriction_id,message,status,admin_response,created_at,reviewed_at").order("created_at", { ascending: false }).limit(200),
+        db.from("appeals").select("id,user_id,action_id,message,status,reviewer_note,created_at,reviewed_at").order("created_at", { ascending: false }).limit(200)
+      ]);
+      if (error) throw error;
+      if (moderationAppealError) throw moderationAppealError;
+      return reply(200, { appeals: data || [], moderation_appeals: moderationAppeals || [] });
     }
     if (action === "update_appeal") {
       const appealId = typeof body.appeal_id === "string" ? body.appeal_id : "";
@@ -248,6 +706,31 @@ Deno.serve(async (req: Request) => {
       if (!data) return reply(404, { error: "Appeal not found." });
       await audit(db, user.id, "review_appeal", null, response, { appeal_id: appealId, status });
       return reply(200, { ok: true, appeal: data });
+    }
+
+    if (action === "notifications") {
+      const { data, error } = await db.from("notifications")
+        .select("id,recipient_id,actor_id,kind,entity_id,content,read_at,created_at")
+        .order("created_at", { ascending: false }).limit(200);
+      if (error) throw error;
+      const ids = Array.from(new Set((data || []).map((item: any) => item.recipient_id).filter(Boolean)));
+      const { data: profiles, error: profilesError } = ids.length
+        ? await db.from("profiles").select("id,username,display_name").in("id", ids)
+        : { data: [], error: null };
+      if (profilesError) throw profilesError;
+      const byId = new Map((profiles || []).map((profile: any) => [profile.id, profile]));
+      return reply(200, { notifications: (data || []).map((item: any) => ({
+        ...item, recipient: byId.get(item.recipient_id) || null,
+      })) });
+    }
+    if (action === "delete_notification") {
+      const id = typeof body.notification_id === "string" ? body.notification_id : "";
+      if (!id) return reply(400, { error: "A notification ID is required." });
+      const { data, error } = await db.from("notifications").delete().eq("id", id).select("id,recipient_id").maybeSingle();
+      if (error) throw error;
+      if (!data) return reply(404, { error: "Notification not found." });
+      await audit(db, user.id, "delete_notification", data.recipient_id, "Deleted a user notification", { notification_id: id });
+      return reply(200, { ok: true });
     }
 
     if (action === "announcements") {
