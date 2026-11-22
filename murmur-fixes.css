@@ -1271,3 +1271,13 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
 .composer-chat .chat-send-status:empty{display:none}
 .composer-chat #sendBtn{min-width:44px;min-height:44px;touch-action:manipulation}
 .composer-chat #sendBtn[disabled]{opacity:.55;cursor:wait}
+
+
+/* Chat loading and live typing feedback */
+#messages[aria-busy="true"] { opacity: .82; }
+.murmur-typing-label { display:inline-flex; align-items:center; gap:4px; color:var(--muted,#718096); }
+.murmur-typing-dots { display:inline-flex; align-items:center; gap:3px; height:1em; }
+.murmur-typing-dots i { width:4px; height:4px; border-radius:50%; background:currentColor; animation:murmurTypingPulse 1s infinite ease-in-out; }
+.murmur-typing-dots i:nth-child(2) { animation-delay:.15s; }
+.murmur-typing-dots i:nth-child(3) { animation-delay:.3s; }
+@keyframes murmurTypingPulse { 0%,60%,100% { opacity:.3; transform:translateY(0); } 30% { opacity:1; transform:translateY(-3px); } }
