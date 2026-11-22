@@ -2,7 +2,7 @@
  * Keep this list in sync with index.html and the Supabase app entry points.
  * Cache version must change whenever this file's shell contents change.
  */
-const CACHE_NAME = "murmur-shell-v60";
+const CACHE_NAME = "murmur-shell-v61";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
@@ -28,6 +28,40 @@ const APP_SHELL = [
   "/murmur-icon.svg",
   "/offline.html"
 ];
+
+self.addEventListener("push", event => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (_) {
+    payload = { body: event.data?.text?.() || "You have a new update on Murmur." };
+  }
+  const title = payload.title || "Murmur";
+  const options = {
+    body: payload.body || "You have a new notification.",
+    icon: payload.icon || "/murmur-icon.svg",
+    badge: payload.badge || "/murmur-icon.svg",
+    tag: payload.tag || "murmur-notification",
+    data: payload.data || { url: "/" },
+    renotify: false
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || "/", self.location.origin).href;
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of windows) {
+      if (client.url.startsWith(self.location.origin) && "focus" in client) {
+        await client.focus();
+        return;
+      }
+    }
+    await self.clients.openWindow(targetUrl);
+  })());
+});
 
 self.addEventListener("message", event => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
