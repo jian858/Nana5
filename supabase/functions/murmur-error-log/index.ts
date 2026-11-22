@@ -105,8 +105,8 @@ Deno.serve(async (req: Request) => {
     const id = new URL(req.url).searchParams.get("id");
     let deletion = db.from("murmur_error_logs").delete();
     deletion = id ? deletion.eq("id", id) : deletion.gte("created_at", "1970-01-01T00:00:00.000Z");
-    const { error } = await deletion;
-    if (error) throw error;
+    const { error: deletionError } = await deletion;
+    if (deletionError) throw deletionError;
     return reply(200, { ok: true });
   } catch (error) {
     console.error("murmur-error-log backend failure", error instanceof Error ? error.message : error);
