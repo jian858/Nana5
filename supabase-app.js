@@ -1393,7 +1393,14 @@ async function boot() {
 
   let session = null;
   try {
-    const { data, error } = await supabase.auth.getSession();
+    // Bound the initial auth read so a stalled refresh/session request cannot
+    // hold the splash screen indefinitely. The independent HTML watchdog also
+    // reveals the login form if this module or its imports fail to execute.
+    const { data, error } = await withAuthTimeout(
+      supabase.auth.getSession(),
+      "Murmur startup",
+      8000
+    );
     if (error) throw error;
     session = data.session;
   } catch (error) {
