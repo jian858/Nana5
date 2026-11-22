@@ -563,20 +563,31 @@ async function sendChatMessage() {
   const id = root?.dataset.conversationId;
   const input = el("messageInput");
   const button = el("sendBtn");
+  const status = el("chatSendStatus");
   const content = input?.value.trim();
-  if (!id || !content) return;
+  if (!id) {
+    if (status) status.textContent = "Open a conversation before sending a message.";
+    return;
+  }
+  if (!content) {
+    input?.focus();
+    return;
+  }
   sendingMessage = true;
   if (button) {
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
   }
+  if (status) status.textContent = "Sending message…";
   try {
     await messages.send({ conversationId: id, content });
     input.value = "";
+    if (status) status.textContent = "Message sent.";
     await renderConversationMessages(id);
-    await renderChats();
+    void renderChats();
   } catch (error) {
-    alert(error.message || "Your message could not be sent. Please try again.");
+    console.error("[Murmur message send]", error);
+    if (status) status.textContent = error.message || "Your message could not be sent. Please try again.";
   } finally {
     sendingMessage = false;
     if (button) {
@@ -623,7 +634,10 @@ export function initSupabaseSocial() {
   el("friendSearch")?.addEventListener("keydown", event => {
     if (event.key === "Enter") { event.preventDefault(); searchPeople(); }
   });
-  el("sendBtn")?.addEventListener("click", sendChatMessage);
+  el("chatComposer")?.addEventListener("submit", event => {
+    event.preventDefault();
+    void sendChatMessage();
+  });
   el("chatSettingsBtn")?.addEventListener("click", () => {
     const menu=document.createElement("div"); menu.className="chat-settings-popover";
     menu.innerHTML='<strong>Message settings</strong><p>Manage blocked people in Settings.</p><button type="button" class="btn secondary" data-chat-settings-close>Close</button>';
@@ -662,12 +676,7 @@ export function initSupabaseSocial() {
       button.disabled = false;
     }
   });
-  el("messageInput")?.addEventListener("keydown", event => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      void sendChatMessage();
-    }
-  });
+
   el("reelCreateBtn")?.addEventListener("click", () => {
     const picker = document.createElement("input");
     picker.type = "file"; picker.accept = "video/mp4,video/webm"; picker.hidden = true;
