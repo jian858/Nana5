@@ -1264,3 +1264,10 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
 #app .murmur-presence.is-online i{background:#19b981;box-shadow:0 0 0 3px rgba(25,185,129,.13)}
 #app .chat-list-copy{min-width:0;flex:1}
 @media(max-width:420px){#app .murmur-presence{font-size:.65rem;gap:4px}}
+
+/* Message composer feedback and touch-safe submit control. */
+.composer-chat{position:relative}
+.composer-chat .chat-send-status{grid-column:1/-1;min-height:0;margin:0;padding:0 2px;color:var(--muted);font-size:.75rem;line-height:1.35}
+.composer-chat .chat-send-status:empty{display:none}
+.composer-chat #sendBtn{min-width:44px;min-height:44px;touch-action:manipulation}
+.composer-chat #sendBtn[disabled]{opacity:.55;cursor:wait}
