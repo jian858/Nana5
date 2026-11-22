@@ -19,6 +19,18 @@ let sendingMessage = false;
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fail = (container, error) => { if (container) container.innerHTML = '<p class="empty-state">' + esc(error.message || "Could not load this section.") + '</p>'; };
 
+// Chat list rendering uses this helper locally; avatarMarkup in supabase-app.js
+// is scoped to that module and cannot be accessed from this file.
+const avatarMarkup = (person = {}, label = "Profile picture") => {
+  const name = person.display_name || person.username || "Murmur user";
+  const initial = esc(String(name).trim().charAt(0).toUpperCase() || "?");
+  const fallback = '<span class="avatar chat-list-avatar-fallback" aria-hidden="true">' + initial + '</span>';
+  const image = person.avatar_url
+    ? '<img class="avatar chat-list-avatar-image" src="' + esc(person.avatar_url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">'
+    : "";
+  return '<span class="chat-list-avatar" role="img" aria-label="' + esc(label) + '">' + fallback + image + '</span>';
+};
+
 export async function openDirectChat(targetUserId) {
   const targetId = String(targetUserId || "").trim();
   if (!targetId) throw new Error("Choose an account before opening a conversation.");
