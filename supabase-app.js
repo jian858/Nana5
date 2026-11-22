@@ -467,10 +467,9 @@ function watchFeed() {
       }
       void renderFeed();
     })
-    .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => {
-      // Comment updates should refresh counts without flashing a full-page loader.
-      void renderFeed();
-    })
+    // Comment changes are reflected in the open post locally. Avoid rebuilding
+    // the entire feed for every comment event: that destroys scroll position
+    // and forces all post cards/media to be recreated.
     .subscribe();
 }
 
@@ -999,9 +998,15 @@ async function createPost() {
   finally { if (button) button.disabled = false; }
 }
 
+let murmurFeedScrollY = 0;
+let murmurLastView = "home";
+
 function switchView(view, sourceButton = null) {
   const target = Array.from(document.querySelectorAll("[data-pane]")).find(pane => pane.dataset.pane === view);
   if (!target) return false;
+  const leavingHome = murmurLastView === "home" && view !== "home";
+  const returningHome = murmurLastView !== "home" && view === "home";
+  if (leavingHome) murmurFeedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
   if (view !== "post") {
     const composer = $("postComposer");
     if ($("postMediaButton")) $("postMediaButton").hidden = true;
@@ -1023,8 +1028,20 @@ function switchView(view, sourceButton = null) {
     pane.hidden = !active;
   });
   window.dispatchEvent(new CustomEvent("murmur:view-changed", { detail: { view } }));
-  if (view === "home") renderFeed();
-  if (sourceButton?.closest(".fb-nav")) window.scrollTo({ top: 0, behavior: "smooth" });
+  if (view === "home") {
+    const feedRoot = $("posts");
+    // Keep the existing feed DOM mounted when returning from another tab.
+    // This preserves loaded media, expanded comments, and the exact scroll point.
+    if (!feedRoot?.querySelector("[data-post-id]")) void renderFeed();
+    if (returningHome) {
+      requestAnimationFrame(() => window.scrollTo({ top: murmurFeedScrollY, behavior: "instant" }));
+    } else if (sourceButton?.closest(".fb-nav") && !feedRoot?.querySelector("[data-post-id]")) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  } else if (sourceButton?.closest(".fb-nav") && !returningHome) {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  murmurLastView = view;
   return true;
 }
 
