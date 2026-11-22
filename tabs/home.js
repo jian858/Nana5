@@ -111,12 +111,18 @@ export async function renderFeed() {
       const person = byId.get(post.author_id) || {};
       const author = safeText(person.display_name || "Murmur user");
       const handle = person.username ? "@" + safeText(person.username) : "";
+      const initial = safeText(author.slice(0, 1).toUpperCase());
+      // The profile query already returns avatar_url; render it on every post
+      // so another signed-in account sees the author's actual profile picture.
+      const avatar = person.avatar_url
+        ? '<span class="avatar" role="img" aria-label="' + author + ' profile picture" data-fallback="' + initial + '"><img src="' + safeText(person.avatar_url) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.textContent=this.parentElement.dataset.fallback"></span>'
+        : '<span class="avatar" role="img" aria-label="' + author + ' profile picture">' + initial + '</span>';
       const media = post.signedMediaUrl ? (post.media_type === "video" ? '<video class="post-media" controls playsinline preload="metadata" src="' + safeText(post.signedMediaUrl) + '"></video>' : '<img class="post-media" loading="lazy" src="' + safeText(post.signedMediaUrl) + '" alt="Post attachment">') : "";
       const likes = likeCounts.get(post.id) || 0;
       const commentCount = commentCounts.get(post.id) || 0;
       const liked = likedByMe.has(post.id);
       return '<article class="post-card" data-post-id="' + safeText(post.id) + '">' +
-        '<header class="post-head" data-open-profile="' + safeText(post.author_id) + '"><span class="avatar">' + safeText(author.slice(0,1).toUpperCase()) + '</span><div><strong>' + author + '</strong><small>' + handle + ' · ' + safeText(new Date(post.created_at).toLocaleString()) + '</small></div></header>' +
+        '<header class="post-head" data-open-profile="' + safeText(post.author_id) + '">' + avatar + '<div><strong>' + author + '</strong><small>' + handle + ' · ' + safeText(new Date(post.created_at).toLocaleString()) + '</small></div></header>' +
         (post.content ? '<p class="post-content">' + safeText(post.content) + '</p>' : '') + media +
         '<div class="murmur-post-stats"><span><strong data-like-count>' + likes + '</strong> likes</span><span><strong data-comment-count>' + commentCount + '</strong> comments</span></div>' +
         '<div class="murmur-post-actions"><button type="button" data-like-post="' + safeText(post.id) + '" aria-pressed="' + liked + '" class="' + (liked ? "is-liked" : "") + '">' + (liked ? "Liked" : "Like") + '</button><button type="button" data-open-comments="' + safeText(post.id) + '">Comment</button><button type="button" data-share-post="' + safeText(post.id) + '">Share</button></div>' +
