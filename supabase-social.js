@@ -75,6 +75,7 @@ export async function openDirectChat(targetUserId) {
   });
   window.dispatchEvent(new CustomEvent("murmur:view-changed", { detail: { view: "chats" } }));
 
+  document.body.classList.add("chat-open");
   const layout = document.querySelector(".chat-layout");
   layout?.classList.add("open");
   const root = el("messages");
@@ -489,6 +490,7 @@ async function openConversation(id) {
     }
   }
   root.innerHTML = '<p class="empty-state">Loading conversation…</p>';
+  document.body.classList.add("chat-open");
   document.querySelector(".chat-layout")?.classList.add("open");
   el("chatName") && (el("chatName").textContent = "Loading chat…");
   el("chatStatus") && (el("chatStatus").textContent = "Connecting…");
@@ -686,7 +688,15 @@ export function initSupabaseSocial() {
     menu.querySelector("[data-chat-settings-close]")?.addEventListener("click",()=>menu.remove());
   });
 
+  window.addEventListener("murmur:view-changed", event => {
+    if (event.detail?.view !== "chats") {
+      document.body.classList.remove("chat-open");
+      document.querySelector(".chat-layout")?.classList.remove("open");
+    }
+  });
+
   el("chatBack")?.addEventListener("click", () => {
+    document.body.classList.remove("chat-open");
     document.querySelector(".chat-layout")?.classList.remove("open");
     void renderChats();
   });
