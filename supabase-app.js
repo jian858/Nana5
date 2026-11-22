@@ -42,7 +42,7 @@ function stopRestrictionWatch() {
   restrictionCheckInFlight = false;
 }
 
-async function enforceCurrentRestriction(user, showPopup = true) {
+async async function enforceCurrentRestriction(user, showPopup = true) {
   if (!user?.id || restrictionHandling || currentUser?.id !== user.id) return false;
   restrictionCheckInFlight = true;
   try {
