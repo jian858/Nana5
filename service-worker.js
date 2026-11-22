@@ -2,7 +2,7 @@
  * Keep this list in sync with index.html and the Supabase app entry points.
  * Cache version must change whenever this file's shell contents change.
  */
-const CACHE_NAME = "murmur-shell-v69";
+const CACHE_NAME = "murmur-shell-v70";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
@@ -21,7 +21,7 @@ const APP_SHELL = [
   "/supabase-client.js?v=20261122-1",
   "/supabase-runtime.js?v=20261121-1",
   "/supabase-data.js?v=20261122-4",
-  "/supabase-app.js?v=20261122-34",
+  "/supabase-app.js?v=20261122-35",
   "/supabase-social.js?v=20261122-33",
   "/pwa.js?v=20261122-2",
   "/manifest.json?v=20261102-2",
