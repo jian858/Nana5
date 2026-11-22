@@ -1,7 +1,7 @@
 /* MURMUR VISITOR TRACKING
- * One persistent random first-party ID per browser profile.
+ * One persistent first-party visitor ID per browser profile.
  * A device is counted once in the unique-device table; page opens are events.
- * Storage is best-effort: blocked sessionStorage must never stop a visit request.
+ * Storage is best-effort: blocked browser storage must never stop tracking.
  */
 (function initMurmurVisitorTracking() {
   "use strict";
@@ -9,6 +9,7 @@
   const throttleKey = "murmur_visit_throttle_v2";
   let memoryVisitorId = null;
   let lastMemoryVisit = { path: "", at: 0 };
+  let trackingStarted = false;
 
   function makeId() {
     try {
@@ -27,9 +28,7 @@
         memoryVisitorId = saved;
         return saved;
       }
-    } catch (_) {
-      // Private browsing / embedded browser may block localStorage.
-    }
+    } catch (_) {}
     if (!memoryVisitorId) memoryVisitorId = makeId();
     try { window.localStorage.setItem(storageKey, memoryVisitorId); } catch (_) {}
     return memoryVisitorId;
@@ -45,9 +44,7 @@
     try {
       const saved = JSON.parse(window.sessionStorage.getItem(throttleKey) || "null");
       if (saved && typeof saved.path === "string") previous = saved;
-    } catch (_) {
-      // Continue without sessionStorage.
-    }
+    } catch (_) {}
     return previous.path === path && now - Number(previous.at || 0) < 15000;
   }
 
@@ -65,13 +62,17 @@
     let lastError = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const client = window.murmurSupabase;
+        // The runtime exposes the shared client as MurmurSupabase.client and
+        // announces readiness with murmur:supabase-ready.
+        const client = window.MurmurSupabase?.client;
         if (!client?.functions) throw new Error("Supabase client is not ready.");
         const { data, error } = await client.functions.invoke("murmur-visitor-track", {
           body: { visitor_id: visitorId, page_path: cleanPath }
         });
         if (error) throw error;
-        if (!data || typeof data.recorded !== "boolean") throw new Error("Visitor tracking returned an invalid response.");
+        if (!data || typeof data.recorded !== "boolean") {
+          throw new Error("Visitor tracking returned an invalid response.");
+        }
         markRecorded(cleanPath, Date.now());
         window.dispatchEvent(new CustomEvent("murmur:visitor-recorded", { detail: { path: cleanPath } }));
         return true;
@@ -84,34 +85,45 @@
     return false;
   }
 
-  window.MurmurVisitorTracking = { record: (path, force) => record(path || window.location.pathname, !!force) };
+  window.MurmurVisitorTracking = {
+    record: (path, force) => record(path || window.location.pathname, !!force)
+  };
 
-  // Wait for the shared Supabase module client before recording the first visit.
-  function startTracking() { record(window.location.pathname, true); }
-  if (window.murmurSupabase?.functions) startTracking();
-  else window.addEventListener("murmur:supabase-client-ready", startTracking, { once: true });
+  function startTracking() {
+    if (trackingStarted || !window.MurmurSupabase?.client?.functions) return;
+    trackingStarted = true;
+    void record(window.location.pathname, true);
+  }
 
-  // App navigation calls this event even when a view is changed programmatically.
-  window.addEventListener("murmur:viewchange", event => {
-    const view = String(event.detail && event.detail.view || "").toLowerCase();
-    if (/^(home|reels|friends|chats|alerts|menu|profile)$/.test(view)) record("/" + view, false);
+  // Module scripts execute after this classic script; handle both load orders.
+  if (window.MurmurSupabase?.client?.functions) startTracking();
+  else window.addEventListener("murmur:supabase-ready", startTracking, { once: true });
+
+  // Match the application's actual programmatic navigation event.
+  window.addEventListener("murmur:view-changed", event => {
+    const view = String(event.detail?.view || "").toLowerCase();
+    if (/^(home|reels|friends|chats|alerts|menu|profile)$/.test(view)) {
+      void record("/" + view, false);
+    }
   });
 
-  // Also support ordinary same-origin links and legacy navigation buttons.
-  document.addEventListener("click", function (event) {
+  // Also support legacy navigation buttons and ordinary same-origin links.
+  document.addEventListener("click", event => {
     const target = event.target && (event.target.closest ? event.target : event.target.parentElement);
-    if (!target || !target.closest) return;
+    if (!target?.closest) return;
     const viewButton = target.closest("[data-view]");
     if (viewButton) {
       const view = String(viewButton.getAttribute("data-view") || "").toLowerCase();
-      if (/^(home|reels|friends|chats|alerts|menu|profile)$/.test(view)) record("/" + view, false);
+      if (/^(home|reels|friends|chats|alerts|menu|profile)$/.test(view)) {
+        void record("/" + view, false);
+      }
       return;
     }
     const link = target.closest("a[href]");
     if (!link) return;
     try {
       const destination = new URL(link.href, window.location.href);
-      if (destination.origin === window.location.origin) record(destination.pathname, false);
+      if (destination.origin === window.location.origin) void record(destination.pathname, false);
     } catch (_) {}
   }, true);
 })();
