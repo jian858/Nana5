@@ -1181,7 +1181,7 @@ async function openAppPermissions() {
   const filePicker = overlay.querySelector("[data-permission-file-picker]");
 
   const definitions = [
-    { key: "notifications", label: "Notifications", detail: "Receive supported Murmur alerts", action: "Enable" },
+    { key: "notifications", label: "Notifications", detail: "Get new message alerts when Murmur is closed", action: "Enable" },
     { key: "camera", label: "Camera", detail: "Take profile pictures and photos", action: "Allow camera" },
     { key: "microphone", label: "Microphone", detail: "Record voice messages and use supported calls", action: "Allow microphone" },
     { key: "geolocation", label: "Location", detail: "Share your location only when you choose", action: "Allow location" },
@@ -1243,7 +1243,7 @@ async function openAppPermissions() {
 
   function showPermissionNotice(kind) {
     const copy = {
-      notifications: ["Notifications", "Murmur wants to send notifications about messages, friend requests and important account activity. Your device may show an official permission prompt after you continue."],
+      notifications: ["Notifications", "Murmur wants to show you new message alerts when Murmur is closed. Your device will ask before allowing push notifications."],
       camera: ["Camera", "Murmur wants to use your camera when you take a profile picture or photo. The camera is only requested for this feature."],
       microphone: ["Microphone", "Murmur wants to use your microphone for voice messages and supported calls."],
       geolocation: ["Location", "Murmur wants to access your location when you choose to share it. This permission check does not save or share your coordinates."],
