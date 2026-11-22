@@ -90,7 +90,7 @@ async function openPublicProfile(userId) {
   pane.querySelector(".murmur-profile-back").addEventListener("click", close);
   try {
     const [{ data: person, error: profileError }, { data: rows, error: postsError }] = await Promise.all([
-      supabase.from("murmur_public_profiles").select("id,username,display_name,bio,avatar_url,created_at").eq("id", userId).maybeSingle(),
+      supabase.from("murmur_public_profiles").select("id,username,display_name,bio,avatar_url,created_at,is_verified").eq("id", userId).maybeSingle(),
       supabase.from("posts").select("id,author_id,content,media_url,media_path,media_type,created_at").eq("author_id", userId).order("created_at", { ascending: false }).limit(30)
     ]);
     if (profileError) throw profileError;
@@ -122,7 +122,7 @@ async function openPublicProfile(userId) {
       mediaUrl: post.media_path ? await storage.url("murmur-posts", post.media_path).catch(() => post.media_url || null) : (post.media_url || null)
     })));
     const avatar = person.avatar_url ? '<button type="button" class="murmur-profile-avatar murmur-profile-avatar-open" aria-label="View profile picture"><img class="murmur-profile-avatar-image" src="' + safeText(person.avatar_url) + '" alt=""></button>' : '<div class="murmur-profile-avatar"><span class="murmur-profile-avatar-fallback">' + safeText((person.display_name || person.username || "?").slice(0,1).toUpperCase()) + '</span></div>';
-    content.innerHTML = '<div class="murmur-profile-cover"></div><div class="murmur-profile-summary">' + avatar + '<div class="murmur-profile-title"><h2 id="profile-view-title">' + safeText(person.display_name || "Murmur user") + '</h2><p>@' + safeText(person.username || "") + '</p></div>' +
+    content.innerHTML = '<div class="murmur-profile-cover"></div><div class="murmur-profile-summary">' + avatar + '<div class="murmur-profile-title"><h2 id="profile-view-title">' + safeText(person.display_name || "Murmur user") + (person.is_verified ? ' <span class="murmur-verified-badge" title="Verified by Murmur" aria-label="Verified by Murmur"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.5 12.2 3l2.7-.1 1.1 2.5 2.3 1.4-.6 2.7.6 2.7-2.3 1.4-1.1 2.5-2.7-.1L10 17.5 7.8 16l-2.7.1L4 13.6l-2.3-1.4.6-2.7-.6-2.7L4 5.4l1.1-2.5 2.7.1z"/><path d="m6.6 10 2.2 2.2 4.7-4.7"/></svg></span>' : '') + '</h2><p>@' + safeText(person.username || "") + '</p></div>' +
       (isMe ? '<button type="button" class="btn secondary murmur-profile-edit">Edit profile</button>' : '<button type="button" class="btn primary murmur-profile-message" data-profile-message="' + safeText(userId) + '">Message</button>') +
       '</div>' +
       (latestNote ? '<section class="murmur-profile-note" aria-label="Your note"><div class="murmur-profile-note-heading">Your note</div><button type="button" class="murmur-profile-note-content" data-edit-profile-note>' + safeText(latestNote.content) + '</button><small>Tap your note to edit or delete it</small></section>' : (isMe ? '<button type="button" class="murmur-profile-note-empty" data-edit-profile-note>Add a note</button>' : '')) +
