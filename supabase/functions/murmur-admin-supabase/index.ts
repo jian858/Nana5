@@ -158,6 +158,39 @@ Deno.serve(async (req: Request) => {
       return reply(200, data);
     }
 
+    if (action === "blocked_users") {
+      const { data: blocks, error } = await db.from("blocks")
+        .select("blocker_id,blocked_id,created_at")
+        .order("created_at", { ascending: false }).limit(500);
+      if (error) throw error;
+      const ids = Array.from(new Set((blocks || []).flatMap((row: any) => [row.blocker_id, row.blocked_id])));
+      const { data: profiles, error: profilesError } = ids.length
+        ? await db.from("profiles").select("id,username,display_name").in("id", ids)
+        : { data: [], error: null };
+      if (profilesError) throw profilesError;
+      const byId = new Map((profiles || []).map((profile: any) => [profile.id, profile]));
+      return reply(200, { blocks: (blocks || []).map((row: any) => ({
+        ...row, blocker: byId.get(row.blocker_id) || null, blocked: byId.get(row.blocked_id) || null,
+      })) });
+    }
+
+    if (action === "remove_block") {
+      const blockerId = typeof body.blocker_id === "string" ? body.blocker_id : "";
+      const blockedId = typeof body.blocked_id === "string" ? body.blocked_id : "";
+      if (!blockerId || !blockedId || blockerId === blockedId) {
+        return reply(400, { error: "Choose a valid block record." });
+      }
+      const { data, error } = await db.from("blocks").delete()
+        .eq("blocker_id", blockerId).eq("blocked_id", blockedId)
+        .select("blocker_id,blocked_id").maybeSingle();
+      if (error) throw error;
+      if (!data) return reply(404, { error: "Block record not found." });
+      await audit(db, user.id, "remove_block", blockedId, "Removed user block", {
+        blocker_id: blockerId, blocked_id: blockedId,
+      });
+      return reply(200, { ok: true });
+    }
+
     if (action === "reports") {
       const { data, error } = await db.from("reports")
         .select("id,reporter_id,reported_user_id,post_id,reason,details,status,created_at")
