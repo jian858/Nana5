@@ -1423,7 +1423,7 @@ async function boot() {
     const { data, error } = await withAuthTimeout(
       supabase.auth.getSession(),
       "Murmur startup",
-      8000
+      25000
     );
     if (error) throw error;
     session = data.session;
