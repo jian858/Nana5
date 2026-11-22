@@ -146,7 +146,10 @@ export const conversations = {
     return rows.map(row => ({ ...row, membership: membershipById.get(row.id) }));
   },
   members: async (conversationId) => {
-    await requireUser();
+    // getSession reads the already-persisted client session without an extra Auth network round-trip.
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!sessionData?.session?.user) throw new Error("Please sign in to continue.");
     return throwIfError(await supabase.from("conversation_members")
       .select("conversation_id,user_id,joined_at,last_read_at")
       .eq("conversation_id", conversationId)
@@ -165,6 +168,10 @@ export const conversations = {
 
 export const messages = {
   list: async (conversationId, page = 0) => {
+    // RLS still authorizes every row; avoid a separate auth.getUser request before fetching.
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!sessionData?.session?.user) throw new Error("Please sign in to continue.");
     const [from, to] = pageRange(page);
     return throwIfError(await supabase.from("messages").select("id,conversation_id,sender_id,content,media_url,media_type,created_at,edited_at,deleted_at")
       .eq("conversation_id", conversationId).is("deleted_at", null)
