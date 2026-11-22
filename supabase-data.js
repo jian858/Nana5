@@ -173,7 +173,7 @@ export const messages = {
     if (sessionError) throw sessionError;
     if (!sessionData?.session?.user) throw new Error("Please sign in to continue.");
     const [from, to] = pageRange(page);
-    return throwIfError(await supabase.from("messages").select("id,conversation_id,sender_id,content,media_url,media_type,created_at,edited_at,deleted_at")
+    return throwIfError(await supabase.from("messages").select("id,conversation_id,sender_id,sender_type,sender_label,content,media_url,media_type,created_at,edited_at,deleted_at")
       .eq("conversation_id", conversationId).is("deleted_at", null)
       .order("created_at", { ascending: false }).range(from, to));
   },
