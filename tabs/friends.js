@@ -20,7 +20,8 @@ export async function renderFriends() {
     const rows = await friendships.people("accepted");
     if (list) list.innerHTML = rows.length ? rows.map(row => {
       const p = row.person || {};
-      return '<article class="friend-row">' + avatarMarkup(p, "Friend profile picture") + '<div><strong>' + esc(p.display_name || "Murmur user") + '</strong><small>@' + esc(p.username || "") + '</small></div><button class="btn secondary" type="button" data-chat-user="' + esc(p.id) + '">Message</button></article>';
+      const name = p.display_name || "Murmur user";
+      return '<article class="friend-row"><button type="button" class="friend-request-profile" data-open-profile="' + esc(p.id) + '" aria-label="View ' + esc(name) + ' profile" style="border:0;background:transparent;padding:0;cursor:pointer">' + avatarMarkup(p, "Open friend profile") + '</button><div><button type="button" class="people-profile-name" data-open-profile="' + esc(p.id) + '">' + esc(name) + '</button><small>@' + esc(p.username || "") + '</small></div><button class="btn secondary" type="button" data-chat-user="' + esc(p.id) + '">Message</button></article>';
     }).join("") : '<p class="empty-state">Your friends will appear here.</p>';
 
     if (search) search.innerHTML = "";
