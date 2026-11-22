@@ -414,8 +414,30 @@ async function enterApp(user) {
   let enterStage = "checking account access";
   enterAppTask = (async () => {
     try {
-      setLoginLoading(true, "Checking your account access…");
-      const restriction = await withAuthTimeout(accountRestrictions.current(user.id), 'Account access check');
+      setLoginLoading(true, "Verifying your account access…");
+      // Server-side enforcement is authoritative, including when Auth ban metadata is missing.
+      let accessResult;
+      try {
+        const response = await withAuthTimeout(
+          supabase.functions.invoke("murmur-account-access"),
+          "Secure account access verification",
+          15000
+        );
+        if (response.error) throw response.error;
+        accessResult = response.data;
+      } catch (accessError) {
+        await supabase.auth.signOut().catch(() => {});
+        throw new Error("Murmur could not verify your account restriction status. Sign-in is blocked until the secure check is available. " + (accessError?.message || ""));
+      }
+      if (accessResult?.allowed !== true) {
+        showAccountRestriction(accessResult?.restriction || {
+          status: "suspended",
+          reason: "This account is restricted by Murmur Admin. Sign-in is blocked."
+        });
+        await supabase.auth.signOut();
+        return;
+      }
+      const restriction = await withAuthTimeout(accountRestrictions.current(user.id), "Account access confirmation");
       if (restriction) {
         showAccountRestriction(restriction);
         await supabase.auth.signOut();
