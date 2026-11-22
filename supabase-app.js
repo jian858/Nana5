@@ -59,8 +59,11 @@ function startRestrictionWatch(user) {
   stopRestrictionWatch();
   restrictionHandling = false;
   if (!user?.id) return;
+
+  // Keep enforcement active even while a modal, tab, or app pane is hidden.
+  // Realtime is the fast path; polling and foreground events are the fallback.
   const check = () => {
-    if (!restrictionCheckInFlight && currentUser?.id === user.id && appPanel && !appPanel.hidden) {
+    if (!restrictionCheckInFlight && !restrictionHandling && currentUser?.id === user.id) {
       void enforceCurrentRestriction(user);
     }
   };
@@ -74,8 +77,15 @@ function startRestrictionWatch(user) {
     }, check)
     .subscribe((status) => {
       if (status === "SUBSCRIBED") check();
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+        console.warn("[Murmur restriction realtime]", status);
+      }
     });
-  restrictionWatchTimer = setInterval(check, 1500);
+
+  restrictionWatchTimer = setInterval(check, 1000);
+  document.addEventListener("visibilitychange", check);
+  window.addEventListener("focus", check);
+  window.addEventListener("online", check);
 }
 
 function showError(message) {
