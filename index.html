@@ -440,14 +440,14 @@
       window.setTimeout(function () {
         var splash = document.getElementById("splash");
         if (splash && !splash.hidden) {
-          revealLogin("Murmur could not finish starting within 18 seconds. Check your connection, then try signing in or reload the page.");
+          revealLogin("Murmur is still connecting. You can use the sign-in screen while it finishes, or reload if your connection is unavailable.");
         }
-      }, 18000);
+      }, 35000);
     })();
   </script>
   <script type="module" src="./supabase-runtime.js?v=20261121-1" onerror="window.__murmurStartupFailed && window.__murmurStartupFailed('Murmur could not load its data module. Check your connection and reload.')"></script>
   <script src="./visitor-tracking.js?v=20261121-3"></script>
-  <script type="module" src="./supabase-app.js?v=20261122-47" onerror="window.__murmurStartupFailed && window.__murmurStartupFailed('Murmur could not load its app module. Check your connection and reload.')"></script>
+  <script type="module" src="./supabase-app.js?v=20261122-48" onerror="window.__murmurStartupFailed && window.__murmurStartupFailed('Murmur could not load its app module. Check your connection and reload.')"></script>
   <script src="./pwa.js?v=20261122-2"></script>
 </body>
 </html>
