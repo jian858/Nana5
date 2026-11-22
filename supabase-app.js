@@ -23,6 +23,7 @@ let restrictionWatchTimer = null;
 let restrictionChannel = null;
 let restrictionCheckInFlight = false;
 let restrictionHandling = false;
+let restrictionForegroundCheck = null;
 let pendingPostFile = null;
 
 function stopRestrictionWatch() {
@@ -31,6 +32,12 @@ function stopRestrictionWatch() {
   if (restrictionChannel) {
     supabase.removeChannel(restrictionChannel).catch(() => {});
     restrictionChannel = null;
+  }
+  if (restrictionForegroundCheck) {
+    document.removeEventListener("visibilitychange", restrictionForegroundCheck);
+    window.removeEventListener("focus", restrictionForegroundCheck);
+    window.removeEventListener("online", restrictionForegroundCheck);
+    restrictionForegroundCheck = null;
   }
   restrictionCheckInFlight = false;
 }
@@ -83,9 +90,10 @@ function startRestrictionWatch(user) {
     });
 
   restrictionWatchTimer = setInterval(check, 1000);
-  document.addEventListener("visibilitychange", check);
-  window.addEventListener("focus", check);
-  window.addEventListener("online", check);
+  restrictionForegroundCheck = check;
+  document.addEventListener("visibilitychange", restrictionForegroundCheck);
+  window.addEventListener("focus", restrictionForegroundCheck);
+  window.addEventListener("online", restrictionForegroundCheck);
 }
 
 function showError(message) {
