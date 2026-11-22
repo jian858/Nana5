@@ -1,6 +1,6 @@
 /* Supabase-only social features for Murmur. */
 import { supabase } from "./supabase-client.js?v=20261122-2";
-import { friendships, reels, conversations, messages, storage } from "./supabase-data.js?v=20261122-5";
+import { friendships, reels, conversations, messages, storage } from "./supabase-data.js?v=20261122-6";
 import { renderStories } from "./tabs/stories.js";
 import { renderReels } from "./tabs/reels.js";
 import { renderNotes } from "./tabs/notes.js";
@@ -141,7 +141,7 @@ async function renderChats() {
       getConversationPeople(ids, currentUserId),
       Promise.all(ids.map(async conversationId => {
         const { data, error } = await supabase.from("messages")
-          .select("conversation_id,content,created_at,sender_id,media_type")
+          .select("conversation_id,content,created_at,sender_id,sender_type,sender_label,media_type")
           .eq("conversation_id", conversationId)
           .is("deleted_at", null)
           .order("created_at", { ascending: false })
@@ -170,7 +170,7 @@ async function renderChats() {
     }).map(person => {
       const conversation = conversationByPerson.get(person.id);
       const last = conversation ? latestByConversation.get(conversation.id) : null;
-      const preview = last ? (last.sender_id === currentUserId ? "You: " : "") + (last.content || (last.media_type ? "Attachment" : "Message")) : "Start a conversation";
+      const preview = last ? (last.sender_type === "system" ? (last.sender_label || "Murmur App") + ": " : last.sender_id === currentUserId ? "You: " : "") + (last.content || (last.media_type ? "Attachment" : "Message")) : "Start a conversation";
       const online = onlineUserIds.has(person.id);
       return '<button class="chat-list-item murmur-friend-chat' + (conversation && activeConversationId === conversation.id ? ' active' : '') + '" type="button" ' +
         (conversation ? 'data-conversation="' + esc(conversation.id) + '"' : 'data-chat-user="' + esc(person.id) + '"') +
@@ -186,7 +186,7 @@ async function renderChats() {
       const person = peopleByConversation.get(conversation.id) || {};
       const name = person.display_name || (person.username ? "@" + person.username : "Murmur user");
       const last = latestByConversation.get(conversation.id);
-      const preview = last ? (last.sender_id === currentUserId ? "You: " : "") + (last.content || "Attachment") : "Start a conversation";
+      const preview = last ? (last.sender_type === "system" ? (last.sender_label || "Murmur App") + ": " : last.sender_id === currentUserId ? "You: " : "") + (last.content || "Attachment") : "Start a conversation";
       const online = person.id && onlineUserIds.has(person.id);
       return '<button class="chat-list-item' + (activeConversationId === conversation.id ? ' active' : '') + '" type="button" data-conversation="' + esc(conversation.id) + '" aria-label="Open chat with ' + esc(name) + '">' +
         avatarMarkup(person, "Profile picture") + '<span class="chat-list-copy"><strong>' + esc(name) + (person.is_verified ? ' <span class="murmur-verified-badge" title="Verified by Murmur" aria-label="Verified by Murmur"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.5 12.2 3l2.7-.1 1.1 2.5 2.3 1.4-.6 2.7.6 2.7-2.3 1.4-1.1 2.5-2.7-.1L10 17.5 7.8 16l-2.7.1L4 13.6l-2.3-1.4.6-2.7-.6-2.7L4 5.4l1.1-2.5 2.7.1z"/><path d="m6.6 10 2.2 2.2 4.7-4.7"/></svg></span>' : '') + '</strong><small>' + esc(preview) + '</small></span>' +
@@ -223,8 +223,13 @@ async function renderConversationMessages(conversationId, prefetched = null) {
     if (run !== messageRenderRun || root.dataset.conversationId !== conversationId) return;
     root.removeAttribute("aria-busy");
     root.innerHTML = rows.length ? rows.slice().reverse().map(message => {
-      const mine = message.sender_id === currentUserId;
-      return '<article class="message-row' + (mine ? ' mine' : '') + '" data-message-id="' + esc(message.id) + '">' +
+      const isSystem = message.sender_type === "system";
+      const mine = !isSystem && message.sender_id === currentUserId;
+      const systemHeader = isSystem
+        ? '<strong class="message-sender">' + esc(message.sender_label || "Murmur App") + '</strong>'
+        : "";
+      return '<article class="message-row' + (isSystem ? ' message-system' : mine ? ' mine' : '') + '" data-message-id="' + esc(message.id) + '">' +
+        systemHeader +
         '<p>' + esc(message.content || (message.media_type ? "Attachment" : "")) + '</p>' +
         '<time datetime="' + esc(message.created_at) + '">' + esc(new Date(message.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})) + '</time></article>';
     }).join("") : '<p class="empty-state">No messages yet. Send the first message.</p>';
