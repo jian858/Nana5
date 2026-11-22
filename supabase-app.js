@@ -601,6 +601,16 @@ async function login() {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      // Supabase Auth can reject a banned account before a session exists.
+      // Check this first: Auth may return HTTP 400 for user_banned, so a
+      // generic invalid-credentials branch must not swallow the restriction.
+      if (/user[_ ]?banned|banned until|account.*(suspend|terminat|restrict)|forbidden.*banned/i.test((error.code || "") + " " + (error.message || ""))) {
+        showAccountRestriction({
+          status: "banned",
+          reason: "Murmur Auth confirms that this account has an active ban. Sign-in is blocked. The detailed case notice is available after the account restriction check."
+        });
+        throw new Error("This account is restricted by Murmur Admin. Sign-in is blocked.");
+      }
       if (error.code === "email_not_confirmed" || /email not confirmed/i.test(error.message || "")) {
         const resend = $("resendConfirmationBtn");
         if (resend) resend.hidden = false;
@@ -608,13 +618,6 @@ async function login() {
       }
       if (error.status === 400 || error.code === "invalid_credentials") {
         throw new Error("Email or password is incorrect. Check both fields and try again.");
-      }
-      if (/user[_ ]?banned|banned until|account.*(suspend|terminat|restrict)|forbidden.*banned/i.test((error.code || "") + " " + (error.message || ""))) {
-        showAccountRestriction({
-          status: "suspended",
-          reason: "This account is banned or restricted by Murmur Admin. You cannot sign in while this restriction is active."
-        });
-        throw new Error("This account is restricted by Murmur Admin. Sign-in is blocked.");
       }
       if (/fetch|network|timeout/i.test(error.message || "")) {
         throw new Error("Cannot reach Supabase right now. Check your internet connection and try again.");
