@@ -294,7 +294,7 @@ export const accountRestrictions = {
     return throwIfError(await supabase.from("account_restrictions")
       .select("id,user_id,status,reason_code,reason,starts_at,ends_at,scheduled_delete_at,created_at,lifted_at")
       .eq("user_id", targetUserId)
-      .in("status", ["suspended", "terminated", "scheduled_deletion", "deleted"])
+      .in("status", ["suspended", "banned", "ban", "terminated", "scheduled_deletion", "deleted"])
       .is("lifted_at", null)
       .lte("starts_at", now)
       .or("ends_at.is.null,ends_at.gt." + now)
