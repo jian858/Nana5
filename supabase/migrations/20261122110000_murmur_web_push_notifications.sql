@@ -36,6 +36,14 @@ create policy "Users remove own push subscriptions"
   on public.murmur_push_subscriptions for delete to authenticated
   using ((select auth.uid()) = user_id);
 
+create table if not exists public.murmur_push_delivery_claims (
+  message_id uuid primary key references public.messages(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table public.murmur_push_delivery_claims enable row level security;
+revoke all on public.murmur_push_delivery_claims from public, anon, authenticated;
+grant all on public.murmur_push_delivery_claims to service_role;
+
 create index if not exists murmur_push_subscriptions_user_id_idx
   on public.murmur_push_subscriptions(user_id);
 
