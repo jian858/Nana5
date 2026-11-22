@@ -450,7 +450,7 @@ function showAccountRestriction(restriction) {
   const detailMarkup = details.map(([label, value]) =>
     '<p class="murmur-restriction-detail"><strong>' + safeText(label) + ':</strong> ' + safeText(value) + '</p>'
   ).join("");
-  const canAppeal = restriction.appealable !== false && !!caseId && !deleted;
+  const canAppeal = restriction.appealable !== false && !!caseId;
   const email = String(currentUser?.email || "");
   const appealMarkup = canAppeal
     ? '<div class="murmur-restriction-panel" data-panel="appeal" hidden><h3>Appeal this decision</h3><p>Enter the email registered to this account and explain why this case should be reviewed. The email must match your signed-in Murmur account.</p><form id="murmurAppealForm"><label>Email address<input name="email" type="email" value="' + safeText(email) + '" autocomplete="email" required maxlength="320"></label><label>Appeal message<textarea name="message" minlength="10" maxlength="2000" rows="5" required></textarea></label><button type="submit" class="btn primary">Submit appeal</button><p id="murmurAppealStatus" role="status" aria-live="polite"></p></form></div>'
