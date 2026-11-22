@@ -63,7 +63,7 @@ export async function renderAlerts() {
       const date = card.dataset.alertDate ? new Date(card.dataset.alertDate).toLocaleString() : "Date unavailable";
       const overlay = document.createElement("div");
       overlay.className = "murmur-auth-modal murmur-notification-modal";
-      overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="murmur-notice-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><p class="alerts-eyebrow">MURMUR NOTIFICATION</p><h2 id="murmur-notice-title"></h2><p class="murmur-notification-detail"></p><small class="murmur-notification-date"></small><a class="btn primary murmur-notification-home" href="https://murmur.app" target="_blank" rel="noopener noreferrer">murmur.app</a></section>';
+      overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="murmur-notice-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><p class="alerts-eyebrow">MURMUR NOTIFICATION</p><h2 id="murmur-notice-title"></h2><p class="murmur-notification-detail"></p><small class="murmur-notification-date"></small></section>';
       document.body.appendChild(overlay);
       overlay.querySelector("#murmur-notice-title").textContent = title;
       overlay.querySelector(".murmur-notification-detail").textContent = cleanNoticeText(content);
