@@ -387,16 +387,26 @@ async function renderChats() {
     const currentUserId = authData.user?.id;
     if (!currentUserId) throw new Error("Sign in again to view your chats.");
     const ids = rows.map(row => row.id);
-    const [peopleByConversation, latestResult] = await Promise.all([
+    // Load one latest message per conversation. A single global limit can
+    // accidentally hide previews for older conversations with busy threads.
+    const [peopleByConversation, latestResults] = await Promise.all([
       getConversationPeople(ids, currentUserId),
-      ids.length ? supabase.from("messages").select("conversation_id,content,created_at,sender_id")
-        .in("conversation_id", ids).is("deleted_at", null).order("created_at", { ascending: false }).limit(100)
-        : Promise.resolve({ data: [], error: null })
+      Promise.all(ids.map(async conversationId => {
+        const { data, error } = await supabase.from("messages")
+          .select("conversation_id,content,created_at,sender_id,media_type")
+          .eq("conversation_id", conversationId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (error) throw error;
+        return data?.[0] || null;
+      }))
     ]);
     if (run !== chatListRenderRun) return;
-    if (latestResult.error) throw latestResult.error;
     const latestByConversation = new Map();
-    for (const message of latestResult.data || []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
+    latestResults.forEach(message => {
+      if (message) latestByConversation.set(message.conversation_id, message);
+    });
     const conversationByPerson = new Map();
     for (const conversation of rows) {
       const person = peopleByConversation.get(conversation.id);
@@ -409,7 +419,7 @@ async function renderChats() {
     }).map(person => {
       const conversation = conversationByPerson.get(person.id);
       const last = conversation ? latestByConversation.get(conversation.id) : null;
-      const preview = last ? (last.sender_id === currentUserId ? "You: " : "") + (last.content || "Attachment") : "Start a conversation";
+      const preview = last ? (last.sender_id === currentUserId ? "You: " : "") + (last.content || (last.media_type ? "Attachment" : "Message")) : "Start a conversation";
       const online = onlineUserIds.has(person.id);
       return '<button class="chat-list-item murmur-friend-chat' + (conversation && activeConversationId === conversation.id ? ' active' : '') + '" type="button" ' +
         (conversation ? 'data-conversation="' + esc(conversation.id) + '"' : 'data-chat-user="' + esc(person.id) + '"') +
@@ -770,6 +780,9 @@ export function initSupabaseSocial() {
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, renderAlerts)
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, renderChats)
       .on("postgres_changes", { event: "*", schema: "public", table: "conversation_members" }, renderChats)
+      // Refresh chat-list previews even when the conversation is not open.
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, renderChats)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, renderChats)
       .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, renderStories)
       .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, renderReels)
       .subscribe();
