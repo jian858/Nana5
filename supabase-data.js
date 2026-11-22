@@ -219,7 +219,7 @@ export const friendships = {
     const ids = [...new Set(relations.map(row => row.requester_id === user.id ? row.addressee_id : row.requester_id))];
     if (!ids.length) return [];
     const people = throwIfError(await supabase.from("murmur_public_profiles")
-      .select("id,username,display_name,avatar_url,bio")
+      .select("id,username,display_name,avatar_url,bio,is_verified")
       .in("id", ids));
     const byId = new Map(people.map(person => [person.id, person]));
     return relations.map(relation => ({
