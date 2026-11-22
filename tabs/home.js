@@ -158,7 +158,7 @@ export async function renderFeed() {
 }
 
 let feedChannel = null;
-export export function stopWatchingFeed() {
+export function stopWatchingFeed() {
   if (feedChannel) { supabase.removeChannel(feedChannel); feedChannel = null; }
 }
 
