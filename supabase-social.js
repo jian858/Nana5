@@ -322,7 +322,7 @@ async function renderAlerts() {
     ).join("");
     const notificationHtml = selectedNotifications.map(n =>
       '<article class="alert-row' + (n.read_at ? '' : ' is-unread') + '" data-alert-id="' + esc(n.id) + '">' +
-      '<div class="alert-row-heading"><strong>' + esc((n.kind || "Alert").replace(/[_-]/g, " ")) + '</strong>' +
+      '<div class="alert-row-heading"><strong>' + esc(n.kind === "admin_post_removed" ? "Post removed by Murmur Admin" : (n.kind || "Alert").replace(/[_-]/g, " ")) + '</strong>' +
       (!n.read_at ? '<span class="alert-unread-dot" aria-label="Unread"></span>' : '') + '</div>' +
       '<p>' + esc(n.content) + '</p><small>' + esc(new Date(n.created_at).toLocaleString()) + (n.read_at ? ' · Read' : ' · Unread') + '</small>' +
       (!n.read_at ? '<button class="btn secondary" type="button" data-mark-alert="' + esc(n.id) + '">Mark read</button>' : '') + '</article>'
