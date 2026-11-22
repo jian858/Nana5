@@ -3,7 +3,7 @@ import { supabase } from "../supabase-client.js?v=20261122-2";
 const el = id => document.getElementById(id);
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fail = (container, error) => { if (container) container.innerHTML = '<p class="empty-state">' + esc(error.message || "Could not load this section.") + '</p>'; };
-const cleanNoticeText = value => String(value ?? "").replace(/\\r\\n?/g, "\\n").replace(/[\\t ]+/g, " ").replace(/ *\\n */g, "\\n").replace(/\\n{3,}/g, "\\n\\n").trim();
+const cleanNoticeText = value => String(value ?? "").replace(/\r\n?/g, "\n").replace(/[\t ]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 
 let activeAlertFilter = "all";
 export function setAlertFilter(filter) {
@@ -41,10 +41,11 @@ export async function renderAlerts() {
       if (activeAlertFilter === "unread") return !n.read_at;
       return activeAlertFilter === "all";
     });
-    const announcementHtml = selectedAnnouncements.map(a =>
-      '<article class="alert-row admin-announcement" tabindex="0" data-alert-open data-alert-title="' + esc(a.title || "Murmur announcement") + '" data-alert-content="' + esc(a.body || "") + '" data-alert-date="' + esc(a.published_at || "") + '" data-alert-source="Murmur">' +
-      '<div class="alert-row-heading"><strong>Murmur announcement</strong></div><h3>' + esc(a.title) + '</h3><p>' + esc(a.body) + '</p><small>' + esc(new Date(a.published_at).toLocaleString()) + '</small><button class="btn secondary" type="button" data-open-alert>View notification</button></article>'
-    ).join("");
+    const announcementHtml = selectedAnnouncements.map(a => {
+      const body = cleanNoticeText(a.body);
+      return '<article class="alert-row admin-announcement" tabindex="0" data-alert-open data-alert-title="' + esc(cleanNoticeText(a.title) || "Murmur Admin announcement") + '" data-alert-content="' + esc(body) + '" data-alert-date="' + esc(a.published_at || "") + '" data-alert-source="Murmur Admin">' +
+        '<div class="alert-row-heading"><strong>Murmur Admin</strong></div><h3>' + esc(cleanNoticeText(a.title)) + '</h3><p>' + esc(body) + '</p><small>' + esc(a.published_at ? new Date(a.published_at).toLocaleString() : "Date unavailable") + '</small><div class="alert-row-actions"><button class="btn secondary" type="button" data-open-alert>View notification</button></div></article>';
+    }).join("");
     const notificationHtml = selectedNotifications.map(n => {
       const title = n.kind === "admin_post_removed" ? "Post removed by Murmur Admin" : (n.kind || "Murmur notification").replace(/[_-]/g, " ");\n      const body = cleanNoticeText(n.content);
       return '<article class="alert-row murmur-notification' + (n.read_at ? '' : ' is-unread') + '" tabindex="0" data-alert-open data-alert-id="' + esc(n.id) + '" data-alert-title="' + esc(title) + '" data-alert-content="' + esc(body) + '" data-alert-date="' + esc(n.created_at || "") + '" data-alert-source="Murmur">' +
