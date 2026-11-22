@@ -8,6 +8,7 @@ let messageChannel = null;
 let presenceChannel = null;
 let onlineUserIds = new Set();
 let chatListRenderRun = 0;
+let cachedConversationByPerson = new Map();
 let messageRenderRun = 0;
 let sendingMessage = false;
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
@@ -88,11 +89,15 @@ export async function openDirectChat(targetUserId) {
   if (status) status.textContent = "Opening conversation…";
 
   try {
-    const { data, error } = await supabase.rpc("start_murmur_direct_conversation", {
-      p_target_user_id: targetId
-    });
-    if (error) throw error;
-    const resolvedId = typeof data === "string" ? data : Array.isArray(data) ? data[0] : data?.id;
+    // Reuse a conversation already loaded in the chat list; avoid an extra RPC round-trip.
+    let resolvedId = cachedConversationByPerson.get(targetId) || null;
+    if (!resolvedId) {
+      const { data, error } = await supabase.rpc("start_murmur_direct_conversation", {
+        p_target_user_id: targetId
+      });
+      if (error) throw error;
+      resolvedId = typeof data === "string" ? data : Array.isArray(data) ? data[0] : data?.id;
+    }
     if (!resolvedId || typeof resolvedId !== "string") {
       throw new Error("Murmur could not create or find this conversation. Please try again.");
     }
@@ -413,6 +418,9 @@ async function renderChats() {
       const person = peopleByConversation.get(conversation.id);
       if (person?.id) conversationByPerson.set(person.id, conversation);
     }
+    cachedConversationByPerson = new Map(
+      [...conversationByPerson].map(([personId, conversation]) => [personId, conversation.id])
+    );
     const friendIds = new Set();
     const friendItems = (friendRows || []).map(row => row.person).filter(person => {
       if (!person?.id || person.id === currentUserId || friendIds.has(person.id)) return false;
@@ -454,18 +462,23 @@ async function renderChats() {
   }
 }
 
-async function renderConversationMessages(conversationId) {
+async function renderConversationMessages(conversationId, prefetched = null) {
   const root = el("messages");
   if (!root || root.dataset.conversationId !== conversationId) return;
   const run = ++messageRenderRun;
   try {
-    const [{ data: authData, error: authError }, rows] = await Promise.all([
-      supabase.auth.getUser(),
-      messages.list(conversationId)
-    ]);
+    let rows = prefetched?.rows;
+    let currentUserId = prefetched?.currentUserId;
+    if (!rows || !currentUserId) {
+      const [{ data: sessionData, error: sessionError }, fetchedRows] = await Promise.all([
+        supabase.auth.getSession(),
+        messages.list(conversationId)
+      ]);
+      if (sessionError) throw sessionError;
+      rows = fetchedRows;
+      currentUserId = sessionData?.session?.user?.id;
+    }
     if (run !== messageRenderRun || root.dataset.conversationId !== conversationId) return;
-    if (authError) throw authError;
-    const currentUserId = authData.user?.id;
     root.removeAttribute("aria-busy");
     root.innerHTML = rows.length ? rows.slice().reverse().map(message => {
       const mine = message.sender_id === currentUserId;
@@ -564,23 +577,30 @@ async function openConversation(id) {
   void renderChats();
 
   try {
-    const [{ data: authData, error: authError }, members] = await Promise.all([
-      supabase.auth.getUser(),
-      conversations.members(id)
+    // Fetch identity, participants, and the first message page together.
+    // Previously message loading waited for a separate profile request.
+    const [{ data: sessionData, error: sessionError }, members, firstMessages] = await Promise.all([
+      supabase.auth.getSession(),
+      conversations.members(id),
+      messages.list(id)
     ]);
     if (run !== conversationOpenRun || root.dataset.conversationId !== id) return;
-    if (authError) throw authError;
-    const otherId = (members || []).find(member => member.user_id !== authData.user?.id)?.user_id;
-    if (otherId) {
-      const { data: person, error } = await supabase.from("murmur_public_profiles")
-        .select("id,username,display_name,avatar_url")
-        .eq("id", otherId).maybeSingle();
-      if (error) throw error;
-      if (run !== conversationOpenRun || root.dataset.conversationId !== id) return;
-      activeConversationPerson = person;
-    } else {
-      activeConversationPerson = null;
-    }
+    if (sessionError) throw sessionError;
+    const currentUserId = sessionData?.session?.user?.id;
+    if (!currentUserId) throw new Error("Sign in again to view this conversation.");
+    const otherId = (members || []).find(member => member.user_id !== currentUserId)?.user_id;
+    // Paint messages immediately; profile details can finish loading afterward.
+    await renderConversationMessages(id, { rows: firstMessages, currentUserId });
+    if (run !== conversationOpenRun || root.dataset.conversationId !== id) return;
+    const personPromise = otherId
+      ? supabase.from("murmur_public_profiles")
+          .select("id,username,display_name,avatar_url")
+          .eq("id", otherId).maybeSingle()
+      : Promise.resolve({ data: null, error: null });
+    const { data: person, error: personError } = await personPromise;
+    if (personError) throw personError;
+    if (run !== conversationOpenRun || root.dataset.conversationId !== id) return;
+    activeConversationPerson = person || null;
     const name = activeConversationPerson?.display_name || activeConversationPerson?.username || "Conversation";
     if (el("chatName")) el("chatName").textContent = name;
     if (el("chatStatus")) el("chatStatus").textContent = activeConversationPerson?.username ? "@" + activeConversationPerson.username : "Private chat";
@@ -617,8 +637,7 @@ async function openConversation(id) {
       .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: "conversation_id=eq." + id },
         () => { if (root.dataset.conversationId === id) void renderConversationMessages(id); })
       .subscribe();
-    await renderConversationMessages(id);
-    if (run !== conversationOpenRun || root.dataset.conversationId !== id) return;
+    // The first page is already visible. Mark read without delaying the composer.
     conversations.markRead(id).catch(error => console.warn("[Murmur chat] Could not update read state:", error));
     el("messageInput")?.focus();
   } catch (error) {
