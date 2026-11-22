@@ -2085,3 +2085,73 @@ html[data-theme="dark"] .murmur-menu-pane .menu-add-account:hover{background:#26
   .friend-row{align-items:flex-start;flex-wrap:wrap;}
   .friend-actions{width:100%;margin-left:48px;}
 }
+
+
+/* Murmur notifications: consistent, compact spacing for Admin and app alerts. */
+#alertsList .alert-row{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:8px;
+  min-width:0;
+  margin:0;
+  padding:14px 16px;
+  border:0;
+  border-bottom:1px solid var(--line);
+  border-radius:0;
+  background:transparent;
+  text-align:left;
+  overflow-wrap:anywhere;
+}
+#alertsList .alert-row-heading{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  min-height:20px;
+  margin:0;
+  line-height:1.3;
+}
+#alertsList .alert-row h3{
+  margin:0;
+  font-size:1rem;
+  line-height:1.35;
+  font-weight:700;
+}
+#alertsList .alert-row p{
+  margin:0;
+  font-size:.94rem;
+  line-height:1.5;
+  white-space:pre-line;
+  overflow-wrap:anywhere;
+}
+#alertsList .alert-row small{
+  display:block;
+  margin:0;
+  color:var(--muted);
+  font-size:.78rem;
+  line-height:1.35;
+}
+#alertsList .alert-row-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:0;
+}
+#alertsList .alert-row .btn{
+  width:auto;
+  min-height:36px;
+  margin:0;
+  padding:7px 12px;
+}
+.murmur-notification-modal .murmur-notification-detail{
+  margin:0 0 14px;
+  line-height:1.6;
+  white-space:pre-line;
+  overflow-wrap:anywhere;
+}
+.murmur-notification-modal .murmur-notification-date{display:block;margin:0 0 16px;line-height:1.4}
+@media(max-width:780px){
+  #alertsList .alert-row{gap:7px;padding:12px 13px}
+  #alertsList .alert-row p{font-size:.92rem;line-height:1.48}
+}
