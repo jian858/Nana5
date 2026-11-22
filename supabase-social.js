@@ -485,10 +485,65 @@ async function renderConversationMessages(conversationId) {
 }
 
 let conversationOpenRun = 0;
+let typingChannel = null;
+let typingResetTimer = null;
+let typingPeerIsActive = false;
+
+function showTypingStatus(isTyping) {
+  typingPeerIsActive = Boolean(isTyping);
+  const status = el("chatStatus");
+  if (!status) return;
+  if (typingPeerIsActive) {
+    status.innerHTML = '<span class="murmur-typing-label">Typing<span class="murmur-typing-dots" aria-hidden="true"><i></i><i></i><i></i></span></span>';
+  } else {
+    status.textContent = activeConversationPerson?.username ? "@" + activeConversationPerson.username : "Private chat";
+  }
+}
+
+function stopConversationTyping() {
+  if (typingResetTimer) clearTimeout(typingResetTimer);
+  typingResetTimer = null;
+  if (typingChannel) supabase.removeChannel(typingChannel);
+  typingChannel = null;
+  typingPeerIsActive = false;
+}
+
+async function setConversationTyping(isTyping) {
+  if (!typingChannel) return;
+  try {
+    await typingChannel.track({ typing: Boolean(isTyping), updated_at: new Date().toISOString() });
+  } catch (error) {
+    console.warn("[Murmur typing] Could not update typing status:", error);
+  }
+}
+
+function startConversationTyping(conversationId, currentUserId) {
+  stopConversationTyping();
+  if (!conversationId || !currentUserId) return;
+  const channel = supabase.channel("murmur-typing-" + conversationId, {
+    config: { presence: { key: currentUserId } }
+  });
+  typingChannel = channel;
+  channel.on("presence", { event: "sync" }, () => {
+    if (typingChannel !== channel) return;
+    const state = channel.presenceState() || {};
+    const peerTyping = Object.entries(state).some(([userId, entries]) =>
+      userId !== currentUserId && (entries || []).some(entry => entry.typing === true)
+    );
+    showTypingStatus(peerTyping);
+  });
+  channel.subscribe(async status => {
+    if (typingChannel === channel && status === "SUBSCRIBED") {
+      await channel.track({ typing: false, updated_at: new Date().toISOString() });
+    }
+  });
+}
+
 async function openConversation(id) {
   const root = el("messages");
   if (!root || !id) return;
   const run = ++conversationOpenRun;
+  stopConversationTyping();
   activeConversationId = id;
   root.dataset.conversationId = id;
   for (const id of ["chatProfileBtn", "chatBlockBtn"]) {
@@ -529,6 +584,7 @@ async function openConversation(id) {
     const name = activeConversationPerson?.display_name || activeConversationPerson?.username || "Conversation";
     if (el("chatName")) el("chatName").textContent = name;
     if (el("chatStatus")) el("chatStatus").textContent = activeConversationPerson?.username ? "@" + activeConversationPerson.username : "Private chat";
+    startConversationTyping(id, authData.user?.id);
     const profileButton = el("chatProfileBtn");
     if (profileButton) {
       if (activeConversationPerson?.id) {
@@ -588,7 +644,7 @@ async function sendChatMessage() {
     input?.focus();
     return;
   }
-  sendingMessage = true;
+  await setConversationTyping(false);
   if (button) {
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
@@ -685,6 +741,13 @@ export function initSupabaseSocial() {
     event.preventDefault();
     void sendChatMessage();
   });
+  messageInput?.addEventListener("input", () => {
+    if (typingResetTimer) clearTimeout(typingResetTimer);
+    const isTyping = Boolean(messageInput.value.trim());
+    void setConversationTyping(isTyping);
+    if (isTyping) typingResetTimer = setTimeout(() => { void setConversationTyping(false); }, 1600);
+  });
+  messageInput?.addEventListener("blur", () => { if (typingResetTimer) clearTimeout(typingResetTimer); typingResetTimer = null; void setConversationTyping(false); });
   messageInput?.addEventListener("keydown", event => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
@@ -700,12 +763,14 @@ export function initSupabaseSocial() {
 
   window.addEventListener("murmur:view-changed", event => {
     if (event.detail?.view !== "chats") {
+      stopConversationTyping();
       document.body.classList.remove("chat-open");
       document.querySelector(".chat-layout")?.classList.remove("open");
     }
   });
 
   el("chatBack")?.addEventListener("click", () => {
+    stopConversationTyping();
     document.body.classList.remove("chat-open");
     document.querySelector(".chat-layout")?.classList.remove("open");
     void renderChats();
@@ -791,6 +856,7 @@ export function initSupabaseSocial() {
   window.addEventListener("murmur:supabase-signed-out", () => {
     if (socialChannel) supabase.removeChannel(socialChannel);
     if (messageChannel) supabase.removeChannel(messageChannel);
+    stopConversationTyping();
     if (presenceChannel) supabase.removeChannel(presenceChannel);
     socialChannel = null; messageChannel = null; presenceChannel = null; onlineUserIds = new Set();
   });
