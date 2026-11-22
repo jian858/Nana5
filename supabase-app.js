@@ -426,7 +426,7 @@ function showAccountRestriction(restriction) {
   const ends = formatDate(restriction.endsOn || restriction.ends_at);
   const exportBy = formatDate(restriction.exportBy || restriction.export_by);
   const restoreBy = formatDate(restriction.restoreBy || restriction.restore_by || restriction.scheduled_delete_at);
-  const caseId = restriction.case_id || restriction.id || "";
+  const caseId = String(restriction.case_id || restriction.id || "");
   const reason = restriction.reason || "This account has been restricted by Murmur Admin.";
   const detail = terminated
     ? "This Murmur account has been terminated and cannot be used."
@@ -450,18 +450,40 @@ function showAccountRestriction(restriction) {
   const detailMarkup = details.map(([label, value]) =>
     '<p class="murmur-restriction-detail"><strong>' + safeText(label) + ':</strong> ' + safeText(value) + '</p>'
   ).join("");
-  const appealForm = restriction.appealable !== false && caseId
-    ? '<form id="murmurAppealForm"><p><strong>Appeal this decision</strong></p><p>Explain why this case should be reviewed. Your appeal is linked to your signed-in account.</p><label>Appeal message<textarea name="message" minlength="10" maxlength="2000" rows="4" required></textarea></label><button type="submit" class="btn primary">Submit appeal</button><p id="murmurAppealStatus" role="status" aria-live="polite"></p></form>'
-    : '<p>This decision cannot be appealed through the app.</p>';
-  overlay.innerHTML = '<section role="alertdialog" aria-modal="true" aria-labelledby="murmurRestrictionTitle"><h2 id="murmurRestrictionTitle">' + heading + '</h2><p>' + safeText(reason) + '</p><p>' + safeText(detail) + '</p>' + detailMarkup + appealForm + '<button type="button" class="btn secondary" id="closeRestrictionModal">OK</button></section>';
+  const canAppeal = restriction.appealable !== false && !!caseId && !deleted;
+  const email = String(currentUser?.email || "");
+  const appealMarkup = canAppeal
+    ? '<div class="murmur-restriction-panel" data-panel="appeal" hidden><h3>Appeal this decision</h3><p>Enter the email registered to this account and explain why this case should be reviewed. The email must match your signed-in Murmur account.</p><form id="murmurAppealForm"><label>Email address<input name="email" type="email" value="' + safeText(email) + '" autocomplete="email" required maxlength="320"></label><label>Appeal message<textarea name="message" minlength="10" maxlength="2000" rows="5" required></textarea></label><button type="submit" class="btn primary">Submit appeal</button><p id="murmurAppealStatus" role="status" aria-live="polite"></p></form></div>'
+    : '<div class="murmur-restriction-panel" data-panel="appeal" hidden><h3>Appeal unavailable</h3><p>This decision cannot currently be appealed through the app. Contact Murmur Support if you believe this is a mistake.</p></div>';
+  const helpMarkup = '<div class="murmur-restriction-panel" data-panel="help" hidden><h3>What happens next?</h3><p>Your account remains restricted while Murmur Admin reviews the case. Submitting an appeal does not automatically remove the restriction.</p><p>Include clear, accurate information. Do not share your password or verification codes.</p><p>Keep your Case ID so Support can locate this decision.</p></div>';
+  const detailsPanel = '<div class="murmur-restriction-panel" data-panel="details"><h3>' + heading + '</h3><p class="murmur-restriction-reason">' + safeText(reason) + '</p><p>' + safeText(detail) + '</p>' + detailMarkup + '</div>';
+  overlay.innerHTML = '<section class="murmur-restriction-card" role="alertdialog" aria-modal="true" aria-labelledby="murmurRestrictionTitle"><div class="murmur-restriction-top"><h2 id="murmurRestrictionTitle">Account notice</h2><button type="button" class="murmur-modal-close" id="closeRestrictionModal" aria-label="Close">×</button></div><nav class="murmur-restriction-tabs" role="tablist" aria-label="Account notice sections"><button type="button" role="tab" aria-selected="true" class="active" data-tab="details">Details</button><button type="button" role="tab" aria-selected="false" data-tab="appeal">Appeal</button><button type="button" role="tab" aria-selected="false" data-tab="help">Help</button></nav>' + detailsPanel + appealMarkup + helpMarkup + '<button type="button" class="btn secondary murmur-restriction-close" id="restrictionDone">Close</button></section>';
+  const style = document.createElement("style");
+  style.textContent = '.murmur-account-restriction-modal{z-index:12050}.murmur-restriction-card{width:min(100%,480px)!important;max-height:90dvh;overflow:auto;padding:22px!important}.murmur-restriction-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.murmur-restriction-top h2{margin:0 38px 0 0!important;font-size:1.12rem}.murmur-restriction-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:5px;margin:18px 0 16px;border-radius:13px;background:var(--surface-soft,#edf2f1)}.murmur-restriction-tabs button{min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--muted,#687386);font:inherit;font-weight:750}.murmur-restriction-tabs button.active{background:var(--panel,#fff);color:var(--text,#17202a);box-shadow:0 2px 7px #00000012}.murmur-restriction-panel h3{margin:0 0 10px;font-size:1.12rem}.murmur-restriction-panel p{line-height:1.5;overflow-wrap:anywhere}.murmur-restriction-reason{padding:12px;border:1px solid var(--border,#d5dbe3);border-radius:11px;background:var(--input-bg,#fff)}.murmur-restriction-detail{margin:8px 0;font-size:.88rem}.murmur-restriction-panel label{display:grid;gap:7px;margin:14px 0;font-size:.88rem;font-weight:650}.murmur-restriction-panel input,.murmur-restriction-panel textarea{box-sizing:border-box;width:100%;min-height:44px;padding:11px;border:1px solid var(--border,#d5dbe3);border-radius:10px;background:var(--input-bg,#fff);color:inherit;font:inherit}.murmur-restriction-panel textarea{min-height:115px;resize:vertical}.murmur-restriction-panel [role=status]{min-height:20px;font-size:.84rem}.murmur-restriction-close{width:100%;margin-top:14px}.murmur-restriction-panel[hidden]{display:none}html[data-theme=dark] .murmur-restriction-tabs{background:#263244}html[data-theme=dark] .murmur-restriction-tabs button.active{background:#1c2430;color:#e9eef6}';
+  document.head.appendChild(style);
   document.body.appendChild(overlay);
   let resolveClosed;
   const closed = new Promise(resolve => { resolveClosed = resolve; });
   const closeNotice = () => {
     overlay.remove();
+    style.remove();
     resolveClosed();
   };
   overlay.querySelector("#closeRestrictionModal").addEventListener("click", closeNotice);
+  overlay.querySelector("#restrictionDone").addEventListener("click", closeNotice);
+  overlay.querySelectorAll("[data-tab]").forEach(tab => {
+    tab.addEventListener("click", () => {
+      const selected = tab.dataset.tab;
+      overlay.querySelectorAll(".murmur-restriction-tabs [role=tab]").forEach(button => {
+        const active = button === tab;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-selected", String(active));
+      });
+      overlay.querySelectorAll(".murmur-restriction-panel").forEach(panel => {
+        panel.hidden = panel.dataset.panel !== selected;
+      });
+    });
+  });
   const appeal = overlay.querySelector("#murmurAppealForm");
   if (appeal) {
     appeal.addEventListener("submit", async event => {
@@ -469,25 +491,53 @@ function showAccountRestriction(restriction) {
       const button = appeal.querySelector('button[type="submit"]');
       const statusNode = overlay.querySelector("#murmurAppealStatus");
       const message = String(appeal.elements.message.value || "").trim();
+      const submittedEmail = String(appeal.elements.email.value || "").trim().toLowerCase();
       const userId = currentUser?.id;
-      if (!userId) {
-        statusNode.textContent = "Your secure sign-in session is no longer available. Please sign in again before submitting an appeal.";
+      const registeredEmail = String(currentUser?.email || "").trim().toLowerCase();
+      if (!userId || !registeredEmail) {
+        statusNode.textContent = "Your secure sign-in session is unavailable. Please contact Murmur Support to appeal.";
+        return;
+      }
+      if (submittedEmail !== registeredEmail) {
+        statusNode.textContent = "Enter the email address registered to this Murmur account.";
+        appeal.elements.email.focus();
+        return;
+      }
+      if (message.length < 10 || message.length > 2000) {
+        statusNode.textContent = "Your appeal message must contain 10 to 2,000 characters.";
         return;
       }
       button.disabled = true;
       statusNode.textContent = "Submitting appeal…";
       try {
-        const { error } = await supabase.from("account_appeals").insert({
-          user_id: userId,
-          restriction_id: restriction.restriction_id || null,
-          message
-        });
-        if (error) throw error;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(caseId);
+        const linkedRestrictionId = restriction.restriction_id || null;
+        let result;
+        if (isUuid && (!linkedRestrictionId || caseId !== linkedRestrictionId)) {
+          result = await supabase.from("appeals").insert({
+            action_id: caseId,
+            user_id: userId,
+            message,
+            status: "pending"
+          });
+        } else {
+          result = await supabase.from("account_appeals").insert({
+            user_id: userId,
+            restriction_id: linkedRestrictionId || (isUuid ? caseId : null),
+            message,
+            status: "pending"
+          });
+        }
+        if (result.error) throw result.error;
         statusNode.textContent = "Your appeal has been submitted. Murmur Admin will review this case.";
         button.textContent = "Appeal submitted";
+        appeal.elements.email.disabled = true;
         appeal.elements.message.disabled = true;
       } catch (error) {
-        statusNode.textContent = error.message || "Could not submit your appeal. Please try again.";
+        console.error("[Murmur appeal submission]", error);
+        statusNode.textContent = error?.code === "23505"
+          ? "An appeal has already been submitted for this case."
+          : (error.message || "Could not submit your appeal. Please try again.");
         button.disabled = false;
       }
     });
