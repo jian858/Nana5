@@ -3,7 +3,7 @@
  * No external identity bridge or fallback is loaded.
  */
 import { supabase } from "./supabase-client.js";
-import { posts, profiles, storage, friendships, stories, reels, userNotes, messages, conversations, comments, postLikes, accountRestrictions } from "./supabase-data.js?v=20261122-2";
+import { posts, profiles, storage, friendships, stories, reels, userNotes, messages, conversations, comments, postLikes, accountRestrictions } from "./supabase-data.js?v=20261122-3";
 import { initSupabaseSocial, openDirectChat } from "./supabase-social.js?v=20261122-39";
 import { renderFeed, watchFeed, stopWatchingFeed } from "./tabs/home.js?v=20261122-2";
 
@@ -340,7 +340,7 @@ async function enterApp(user) {
   enterAppTask = (async () => {
     try {
       setLoginLoading(true, "Checking your account access…");
-      const restriction = await withAuthTimeout(accountRestrictions.current(), 'Account access check');
+      const restriction = await withAuthTimeout(accountRestrictions.current(user.id), 'Account access check');
       if (restriction) {
         showAccountRestriction(restriction);
         await supabase.auth.signOut();
@@ -416,17 +416,10 @@ async function login() {
     if (!data?.user || !data?.session?.access_token || !data?.session?.refresh_token) {
       throw new Error("Supabase did not return a complete sign-in session. Please try again.");
     }
-    setLoginLoading(true, "Account found. Securing your sign-in session…");
-    // Explicitly persist the session returned by password sign-in before any
-    // database/RLS request. This prevents the account check racing session storage.
-    const { data: savedSession, error: sessionError } = await supabase.auth.setSession({
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token
-    });
-    if (sessionError) throw sessionError;
-    if (!savedSession?.session?.user?.id) throw new Error("Your sign-in session could not be saved. Please try again.");
+    // signInWithPassword already persists the session. Avoid setSession here:
+    // resetting the same refresh token creates an unnecessary auth event/race.
     setLoginLoading(true, "Account found. Checking your account and loading your profile…");
-    await enterApp(savedSession.session.user);
+    await enterApp(data.user);
   } catch (error) {
     console.error("[Murmur login]", error);
     // Supabase can establish the session even if a later client-side step
