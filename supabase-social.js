@@ -477,6 +477,14 @@ async function openConversation(id) {
   const run = ++conversationOpenRun;
   activeConversationId = id;
   root.dataset.conversationId = id;
+  for (const id of ["chatProfileBtn", "chatBlockBtn"]) {
+    const button = el(id);
+    if (button) {
+      button.hidden = true;
+      delete button.dataset.openProfile;
+      delete button.dataset.blockUserId;
+    }
+  }
   root.innerHTML = '<p class="empty-state">Loading conversation…</p>';
   document.querySelector(".chat-layout")?.classList.add("open");
   el("chatName") && (el("chatName").textContent = "Loading chat…");
@@ -580,6 +588,8 @@ async function sendChatMessage() {
 }
 
 export function initSupabaseSocial() {
+  if (el("chatProfileBtn")) el("chatProfileBtn").hidden = true;
+  if (el("chatBlockBtn")) el("chatBlockBtn").hidden = true;
   // Friend tabs are real controls: switch the visible panel and refresh its data.
   const friendTabs = [...document.querySelectorAll("[data-frtab]")];
   const friendPanels = [...document.querySelectorAll("[data-frpanel]")];
