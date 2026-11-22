@@ -806,7 +806,7 @@ export function initSupabaseSocial() {
     const targetId = button.dataset.blockUserId;
     if (!targetId || button.disabled) return;
     const name = el("chatName")?.textContent || "this account";
-    if (!window.confirm("Block " + name + "? They will no longer be able to message you.")) return;
+    if (!window.confirm("Block " + name + "? This will remove them from your Friends list and stop messages between you.")) return;
     button.disabled = true;
     try {
       const { data: authData, error: authError } = await supabase.auth.getUser();
@@ -827,6 +827,35 @@ export function initSupabaseSocial() {
     } finally {
       button.disabled = false;
     }
+  });
+
+  // The More menu keeps secondary chat actions available without crowding the header.
+  el("chatMoreBtn")?.addEventListener("click", event => {
+    event.stopPropagation();
+    document.querySelector(".murmur-chat-more-menu")?.remove();
+    const profileButton = el("chatProfileBtn");
+    const blockButton = el("chatBlockBtn");
+    const menu = document.createElement("div");
+    menu.className = "murmur-chat-more-menu";
+    menu.setAttribute("role", "menu");
+    menu.innerHTML = '<button type="button" role="menuitem" data-chat-more-profile>View profile</button><button type="button" role="menuitem" data-chat-more-block>Block friend</button>';
+    const anchor = el("chatMoreBtn");
+    anchor?.insertAdjacentElement("afterend", menu);
+    menu.querySelector("[data-chat-more-profile]")?.addEventListener("click", () => {
+      menu.remove();
+      if (profileButton && !profileButton.hidden) profileButton.click();
+    });
+    menu.querySelector("[data-chat-more-block]")?.addEventListener("click", () => {
+      menu.remove();
+      if (blockButton && !blockButton.hidden) blockButton.click();
+    });
+    const closeMenu = e => {
+      if (!menu.contains(e.target) && e.target !== anchor) {
+        menu.remove();
+        document.removeEventListener("click", closeMenu);
+      }
+    };
+    document.addEventListener("click", closeMenu);
   });
 
   el("reelCreateBtn")?.addEventListener("click", () => {
