@@ -318,17 +318,51 @@ async function renderAlerts() {
       return activeAlertFilter === "all";
     });
     const announcementHtml = selectedAnnouncements.map(a =>
-      '<article class="alert-row admin-announcement"><strong>From Admin of Murmur</strong><h3>' + esc(a.title) + '</h3><p>' + esc(a.body) + '</p><small>' + esc(new Date(a.published_at).toLocaleString()) + '</small></article>'
+      '<article class="alert-row admin-announcement" tabindex="0" data-alert-open data-alert-title="' + esc(a.title || "Murmur announcement") + '" data-alert-content="' + esc(a.body || "") + '" data-alert-date="' + esc(a.published_at || "") + '" data-alert-source="Murmur">' +
+      '<div class="alert-row-heading"><strong>Murmur announcement</strong></div><h3>' + esc(a.title) + '</h3><p>' + esc(a.body) + '</p><small>' + esc(new Date(a.published_at).toLocaleString()) + '</small><button class="btn secondary" type="button" data-open-alert>View notification</button></article>'
     ).join("");
-    const notificationHtml = selectedNotifications.map(n =>
-      '<article class="alert-row' + (n.read_at ? '' : ' is-unread') + '" data-alert-id="' + esc(n.id) + '">' +
-      '<div class="alert-row-heading"><strong>' + esc(n.kind === "admin_post_removed" ? "Post removed by Murmur Admin" : (n.kind || "Alert").replace(/[_-]/g, " ")) + '</strong>' +
-      (!n.read_at ? '<span class="alert-unread-dot" aria-label="Unread"></span>' : '') + '</div>' +
-      '<p>' + esc(n.content) + '</p><small>' + esc(new Date(n.created_at).toLocaleString()) + (n.read_at ? ' · Read' : ' · Unread') + '</small>' +
-      (!n.read_at ? '<button class="btn secondary" type="button" data-mark-alert="' + esc(n.id) + '">Mark read</button>' : '') + '</article>'
-    ).join("");
+    const notificationHtml = selectedNotifications.map(n => {
+      const title = n.kind === "admin_post_removed" ? "Post removed by Murmur Admin" : (n.kind || "Murmur notification").replace(/[_-]/g, " ");
+      return '<article class="alert-row murmur-notification' + (n.read_at ? '' : ' is-unread') + '" tabindex="0" data-alert-open data-alert-id="' + esc(n.id) + '" data-alert-title="' + esc(title) + '" data-alert-content="' + esc(n.content || "") + '" data-alert-date="' + esc(n.created_at || "") + '" data-alert-source="Murmur">' +
+        '<div class="alert-row-heading"><strong>Murmur · ' + esc(title) + '</strong>' +
+        (!n.read_at ? '<span class="alert-unread-dot" aria-label="Unread"></span>' : '') + '</div>' +
+        '<p>' + esc(n.content) + '</p><small>' + esc(new Date(n.created_at).toLocaleString()) + (n.read_at ? ' · Read' : ' · Unread') + '</small>' +
+        '<button class="btn secondary" type="button" data-open-alert>View notification</button>' +
+        (!n.read_at ? '<button class="btn secondary" type="button" data-mark-alert="' + esc(n.id) + '">Mark read</button>' : '') + '</article>';
+    }).join("");
     root.innerHTML = announcementHtml + notificationHtml || '<p class="empty-state">No notifications in this filter.</p>';
-    root.querySelectorAll("[data-mark-alert]").forEach(button => button.addEventListener("click", async () => {
+    const openAlertDetails = card => {
+      const title = card.dataset.alertTitle || "Murmur notification";
+      const content = card.dataset.alertContent || "No additional details are available.";
+      const date = card.dataset.alertDate ? new Date(card.dataset.alertDate).toLocaleString() : "Date unavailable";
+      const overlay = document.createElement("div");
+      overlay.className = "murmur-auth-modal murmur-notification-modal";
+      overlay.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="murmur-notice-title"><button type="button" class="murmur-modal-close" aria-label="Close">×</button><p class="alerts-eyebrow">MURMUR NOTIFICATION</p><h2 id="murmur-notice-title"></h2><p class="murmur-notification-detail"></p><small class="murmur-notification-date"></small><a class="btn primary murmur-notification-home" href="https://murmur.chat" target="_blank" rel="noopener noreferrer">murmur.chat</a></section>';
+      document.body.appendChild(overlay);
+      overlay.querySelector("#murmur-notice-title").textContent = title;
+      overlay.querySelector(".murmur-notification-detail").textContent = content;
+      overlay.querySelector(".murmur-notification-date").textContent = "Received " + date;
+      const close = () => overlay.remove();
+      overlay.querySelector(".murmur-modal-close")?.addEventListener("click", close);
+      overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+    };
+    root.querySelectorAll("[data-alert-open]").forEach(card => {
+      card.addEventListener("click", event => {
+        if (event.target.closest("[data-mark-alert]")) return;
+        openAlertDetails(card);
+      });
+      card.addEventListener("keydown", event => {
+        if (event.target !== card || (event.key !== "Enter" && event.key !== " ")) return;
+        event.preventDefault();
+        openAlertDetails(card);
+      });
+    });
+    root.querySelectorAll("[data-open-alert]").forEach(button => button.addEventListener("click", event => {
+      event.stopPropagation();
+      openAlertDetails(button.closest("[data-alert-open]"));
+    }));
+    root.querySelectorAll("[data-mark-alert]").forEach(button => button.addEventListener("click", async event => {
+      event.stopPropagation();
       button.disabled = true;
       try {
         const { error: updateError } = await supabase.from("notifications")
