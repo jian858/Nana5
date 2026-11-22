@@ -399,7 +399,20 @@ async function sendChatMessage() {
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
   }
-  if (status) status.textContent = "Sending message…";
+  if (status) status.textContent = "Sending…";
+  const optimisticId = "pending-" + Date.now();
+  const optimistic = document.createElement("article");
+  optimistic.className = "message-row mine is-pending";
+  optimistic.dataset.messageId = optimisticId;
+  const body = document.createElement("p");
+  body.textContent = content;
+  const time = document.createElement("time");
+  time.textContent = "Sending…";
+  optimistic.append(body, time);
+  root.querySelector(".empty-state")?.remove();
+  root.append(optimistic);
+  root.scrollTop = root.scrollHeight;
+  input.value = "";
   try {
     await messages.send({ conversationId: id, content });
     // Push delivery runs independently so a slow/offline recipient never delays sending.
@@ -408,13 +421,15 @@ async function sendChatMessage() {
     }).then(({ error }) => {
       if (error) console.warn("[Murmur push] Message notification was not delivered:", error.message);
     }).catch(error => console.warn("[Murmur push] Message notification failed:", error));
-    input.value = "";
-    if (status) status.textContent = "Message sent.";
+    if (status) status.textContent = "Sent";
     await renderConversationMessages(id);
     void renderChats();
   } catch (error) {
     console.error("[Murmur message send]", error);
-    if (status) status.textContent = error.message || "Your message could not be sent. Please try again.";
+    optimistic.remove();
+    input.value = content;
+    input.focus();
+    if (status) status.textContent = error.message || "Message failed to send. Your text was restored.";
   } finally {
     sendingMessage = false;
     if (button) {
