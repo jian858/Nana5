@@ -359,9 +359,9 @@ async function renderFeed() {
     const postIds = rows.map(row => row.id);
     const [{ data: people, error: peopleError }, { data: userData, error: userError }, likeRows, commentRows] = await Promise.all([
       supabase.from("murmur_public_profiles").select("id,display_name,username,avatar_url").in("id", ids),
-      supabase.auth.getUser(),
+      supabase.auth.getSession(),
       postLikes.listForPosts(postIds),
-      supabase.from("comments").select("id,post_id").in("post_id", postIds)
+      supabase.from("comments").select("post_id", { count: "exact", head: true }).in("post_id", postIds)
     ]);
     if (peopleError) throw peopleError;
     if (userError) throw userError;
@@ -371,26 +371,40 @@ async function renderFeed() {
     const likedByMe = new Set();
     for (const like of likeRows) {
       likeCounts.set(like.post_id, (likeCounts.get(like.post_id) || 0) + 1);
-      if (like.user_id === userData.user?.id) likedByMe.add(like.post_id);
+      if (like.user_id === userData.session?.user?.id) likedByMe.add(like.post_id);
     }
+    // Ask Postgres for the aggregate instead of transferring every comment row.
+    // Batch-sign all post media in one Storage request instead of one request per post.
+    const commentCount = Number(commentRows.count || 0);
     const commentCounts = new Map();
-    for (const comment of commentRows.data || []) commentCounts.set(comment.post_id, (commentCounts.get(comment.post_id) || 0) + 1);
-    const displayRows = await Promise.all(rows.map(async post => ({
+    if (postIds.length) {
+      const { data: groupedComments, error: groupedError } = await supabase.rpc("murmur_post_comment_counts", { p_post_ids: postIds }).then(result => result);
+      if (!groupedError && Array.isArray(groupedComments)) {
+        for (const item of groupedComments) commentCounts.set(item.post_id, Number(item.comment_count || 0));
+      }
+    }
+    let signedByPath = new Map();
+    const mediaPaths = rows.map(post => post.media_path).filter(Boolean);
+    if (mediaPaths.length) {
+      const { data: signedRows, error: signedError } = await supabase.storage.from("murmur-posts").createSignedUrls([...new Set(mediaPaths)], 3600);
+      if (!signedError) signedByPath = new Map((signedRows || []).map(item => [item.path, item.signedUrl]));
+    }
+    const displayRows = rows.map(post => ({
       ...post,
-      signedMediaUrl: post.media_path ? await storage.url("murmur-posts", post.media_path) : null
-    })));
+      signedMediaUrl: post.media_path ? (signedByPath.get(post.media_path) || null) : null
+    }));
     root.innerHTML = displayRows.map(post => {
       const person = byId.get(post.author_id) || {};
       const author = safeText(person.display_name || "Murmur user");
       const handle = person.username ? "@" + safeText(person.username) : "";
       const media = post.signedMediaUrl ? (post.media_type === "video" ? '<video class="post-media" controls playsinline preload="metadata" src="' + safeText(post.signedMediaUrl) + '"></video>' : '<img class="post-media" loading="lazy" src="' + safeText(post.signedMediaUrl) + '" alt="Post attachment">') : "";
       const likes = likeCounts.get(post.id) || 0;
-      const commentCount = commentCounts.get(post.id) || 0;
+      const postCommentCount = commentCounts.get(post.id) || 0;
       const liked = likedByMe.has(post.id);
       return '<article class="post-card" data-post-id="' + safeText(post.id) + '">' +
         '<header class="post-head" data-open-profile="' + safeText(post.author_id) + '"><span class="avatar">' + safeText(author.slice(0,1).toUpperCase()) + '</span><div><strong>' + author + '</strong><small>' + handle + ' · ' + safeText(new Date(post.created_at).toLocaleString()) + '</small></div></header>' +
         (post.content ? '<p class="post-content">' + safeText(post.content) + '</p>' : '') + media +
-        '<div class="murmur-post-stats"><span><strong data-like-count>' + likes + '</strong> likes</span><span><strong data-comment-count>' + commentCount + '</strong> comments</span></div>' +
+        '<div class="murmur-post-stats"><span><strong data-like-count>' + likes + '</strong> likes</span><span><strong data-comment-count>' + postCommentCount + '</strong> comments</span></div>' +
         '<div class="murmur-post-actions"><button type="button" data-like-post="' + safeText(post.id) + '" aria-pressed="' + liked + '" class="' + (liked ? "is-liked" : "") + '">' + (liked ? "Liked" : "Like") + '</button><button type="button" data-open-comments="' + safeText(post.id) + '">Comment</button><button type="button" data-share-post="' + safeText(post.id) + '">Share</button></div>' +
         '<div class="murmur-post-comments" data-comments hidden></div></article>';
     }).join("");
