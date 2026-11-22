@@ -1,6 +1,24 @@
 /* Murmur Supabase client — public browser configuration only.
    Never put a service-role key in this file. */
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Load the Supabase SDK from two independent CDNs in parallel. A stalled CDN
+// must not prevent the login screen from starting on slower mobile connections.
+async function importWithTimeout(url, label) {
+  return Promise.race([
+    import(url),
+    new Promise((_, reject) => setTimeout(() => reject(new Error(label + " did not respond in time")), 7000))
+  ]);
+}
+let supabaseSdk;
+try {
+  supabaseSdk = await Promise.any([
+    importWithTimeout("https://esm.sh/@supabase/supabase-js@2.117.3", "Primary Supabase CDN"),
+    importWithTimeout("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/+esm", "Backup Supabase CDN")
+  ]);
+} catch (error) {
+  console.error("[Murmur SDK load]", error);
+  throw new Error("Murmur could not load its secure connection library. Check your internet connection, then reload.");
+}
+const { createClient } = supabaseSdk;
 
 const SUPABASE_URL = "https://pkadftvqslkykehcqedj.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_etoHiUGbJ96MUPzJABL12A_UiTWVxok";
