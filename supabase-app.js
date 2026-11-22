@@ -1150,8 +1150,8 @@ async function disableMurmurPush() {
   const { error } = await supabase.functions.invoke("murmur-push", {
     body: { action: "unsubscribe", endpoint: subscription.endpoint }
   });
-  if (error) throw error;
   await subscription.unsubscribe();
+  if (error) throw error;
 }
 
 async function syncMurmurPushForSignedInUser() {
