@@ -416,7 +416,9 @@ function showAccountRestriction(restriction) {
       ? "This Murmur account is banned and cannot sign in " + until + "."
       : scheduled
         ? "This Murmur account is scheduled for permanent deletion."
-        : "This Murmur account is restricted " + until + ".";
+        : status === "suspended"
+          ? (restriction.ends_at ? "This Murmur account is suspended until " + until + "." : "This Murmur account is suspended until Murmur Admin lifts the restriction.")
+          : "This Murmur account is restricted " + until + ".";
   const caseId = restriction.case_id || restriction.id || "";
   const appealForm = restriction.appealable !== false && caseId
     ? '<form id="murmurAppealForm"><p><strong>Appeal this decision</strong></p><p>Enter the email address registered to this account and explain why this case should be reviewed.</p><label>Email address<input name="email" type="email" maxlength="254" autocomplete="email" required></label><label>Appeal message<textarea name="message" minlength="10" maxlength="2000" rows="4" required></textarea></label><button type="submit" class="btn primary">Submit appeal</button><p id="murmurAppealStatus" role="status" aria-live="polite"></p></form>'
