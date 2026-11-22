@@ -1174,7 +1174,8 @@ async function openAppPermissions() {
   ];
 
   const statusText = value => ({
-    granted: "Allowed",
+    granted: "Permission allowed",
+    enabled: "Enabled",
     denied: "Blocked",
     prompt: "Not asked",
     default: "Not asked",
@@ -1294,19 +1295,26 @@ async function openAppPermissions() {
       if (kind === "notifications") {
         if (!("Notification" in window)) throw new Error("Notifications are not supported by this browser.");
         if (!window.isSecureContext) throw new Error("Notifications require HTTPS.");
-        if (Notification.permission === "granted") {
+        if (Notification.permission === "denied") {
+          throw new Error("Notifications are blocked. Change this in your browser's site settings.");
+        }
+        if (Notification.permission !== "granted") {
+          const permission = await Notification.requestPermission();
+          if (permission !== "granted") {
+            message.textContent = permission === "denied"
+              ? "Notifications were blocked. Change this in your browser's site settings."
+              : "No permission was granted. You can decide later.";
+            return;
+          }
+        }
+        const registration = await navigator.serviceWorker.ready;
+        const existingSubscription = await registration.pushManager.getSubscription();
+        if (existingSubscription) {
           await disableMurmurPush();
           message.textContent = "Push notifications are disabled on this device.";
         } else {
-          const permission = await Notification.requestPermission();
-          if (permission === "granted") {
-            await enableMurmurPush();
-            message.textContent = "Push notifications are enabled on this device.";
-          } else if (permission === "denied") {
-            message.textContent = "Notifications were blocked. Change this in your browser's site settings.";
-          } else {
-            message.textContent = "No permission was granted. You can decide later.";
-          }
+          await enableMurmurPush();
+          message.textContent = "Push notifications are enabled on this device.";
         }
       } else if (kind === "camera" || kind === "microphone") {
         await requestDevicePermission(kind);
