@@ -95,8 +95,8 @@ Deno.serve(async (req: Request) => {
       const recipientIds = memberIds.filter((id: string) => id !== user.id);
       if (!recipientIds.length) return json({ ok: true, sent: 0 });
 
-      const [{ data: config, error: configError }, { data: subscriptions, error: subscriptionError }, { data: sender, error: senderError }] = await Promise.all([
-        admin.rpc("get_murmur_push_config").maybeSingle(),
+      const [{ data: configRows, error: configError }, { data: subscriptions, error: subscriptionError }, { data: sender, error: senderError }] = await Promise.all([
+        admin.rpc("get_murmur_push_config"),
         admin.from("murmur_push_subscriptions")
           .select("id,user_id,endpoint,subscription")
           .in("user_id", recipientIds),
@@ -104,6 +104,7 @@ Deno.serve(async (req: Request) => {
           .select("display_name,username").eq("id", user.id).maybeSingle()
       ]);
       if (configError) throw configError;
+      const config = Array.isArray(configRows) ? configRows[0] : configRows;
       if (subscriptionError) throw subscriptionError;
       if (senderError) throw senderError;
       if (!config?.vapid_public_key || !config?.vapid_private_key) {
