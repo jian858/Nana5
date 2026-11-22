@@ -526,6 +526,7 @@ async function enterApp(user) {
       setLoginLoading(false);
       showApp();
       enteredUserId = user.id;
+      void syncMurmurPushForSignedInUser();
       try {
         paintIdentity();
       } catch (uiError) {
@@ -1153,6 +1154,21 @@ async function disableMurmurPush() {
   await subscription.unsubscribe();
 }
 
+async function syncMurmurPushForSignedInUser() {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) return;
+    const { error } = await supabase.functions.invoke("murmur-push", {
+      body: { action: "subscribe", subscription: subscription.toJSON(), device_label: navigator.userAgent.slice(0, 180) }
+    });
+    if (error) throw error;
+  } catch (error) {
+    console.warn("[Murmur push] Could not sync this device:", error);
+  }
+}
+
 async function openAppPermissions() {
   const overlay = openMenuDialog("App permissions",
     '<p>Control what Murmur can access. Your browser or device will ask before granting access. Murmur only requests a permission when you choose its action.</p>' +
@@ -1438,6 +1454,7 @@ function wireNavigation() {
   $("deleteAccountBtn")?.addEventListener("click", openDeleteAccountInfo);
 
   $("logoutBtn")?.addEventListener("click", async () => {
+    try { await disableMurmurPush(); } catch (pushError) { console.warn("[Murmur push] Could not disable this device before sign-out:", pushError); }
     const { error } = await supabase.auth.signOut();
     if (error) showError(error.message);
   });
