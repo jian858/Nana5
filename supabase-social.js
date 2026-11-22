@@ -655,6 +655,12 @@ async function sendChatMessage() {
   if (status) status.textContent = "Sending message…";
   try {
     await messages.send({ conversationId: id, content });
+    // Push delivery runs independently so a slow/offline recipient never delays sending.
+    void supabase.functions.invoke("murmur-push", {
+      body: { action: "notify", conversation_id: id }
+    }).then(({ error }) => {
+      if (error) console.warn("[Murmur push] Message notification was not delivered:", error.message);
+    }).catch(error => console.warn("[Murmur push] Message notification failed:", error));
     input.value = "";
     if (status) status.textContent = "Message sent.";
     await renderConversationMessages(id);
