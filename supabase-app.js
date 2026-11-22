@@ -4,7 +4,7 @@
  */
 import { supabase } from "./supabase-client.js?v=20261122-2";
 import { posts, profiles, storage, friendships, stories, reels, userNotes, messages, conversations, comments, postLikes, accountRestrictions } from "./supabase-data.js?v=20261122-4";
-import { initSupabaseSocial, openDirectChat } from "./supabase-social.js?v=20261122-41";
+import { initSupabaseSocial, openDirectChat } from "./supabase-social.js?v=20261122-42";
 import { renderFeed, watchFeed, stopWatchingFeed } from "./tabs/home.js?v=20261122-5";
 
 const authModalStyles = document.createElement("style");
