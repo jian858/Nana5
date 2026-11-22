@@ -46,16 +46,44 @@ async function enforceCurrentRestriction(user, showPopup = true) {
   if (!user?.id || restrictionHandling || currentUser?.id !== user.id) return false;
   restrictionCheckInFlight = true;
   try {
-    const restriction = await accountRestrictions.current(user.id);
-    if (!restriction || currentUser?.id !== user.id) return false;
+    // The service-role access gate is authoritative; browser RLS must not hide restrictions.
+    const response = await withAuthTimeout(
+      supabase.functions.invoke("murmur-account-access"),
+      "Secure account restriction check",
+      12000
+    );
+    if (response.error || !response.data || typeof response.data.allowed !== "boolean") {
+      throw response.error || new Error("The secure access service returned an invalid response.");
+    }
+    if (currentUser?.id !== user.id) return false;
+    if (response.data.allowed === true) return false;
+
     restrictionHandling = true;
     stopRestrictionWatch();
-    if (showPopup) showAccountRestriction(restriction);
-    await supabase.auth.signOut();
+    if (showPopup) showAccountRestriction(response.data.restriction || {
+      status: "suspended",
+      reason: "This account is restricted by Murmur Admin. Access has been blocked."
+    });
+    await supabase.auth.signOut({ scope: "local" });
+    currentUser = null;
+    currentProfile = null;
+    enteredUserId = null;
+    showAuth();
     return true;
   } catch (error) {
-    console.warn("[Murmur account restriction check]", error);
-    return false;
+    console.error("[Murmur secure restriction check]", error);
+    // Fail closed if the trusted server cannot verify this session.
+    if (currentUser?.id === user.id) {
+      restrictionHandling = true;
+      stopRestrictionWatch();
+      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+      currentUser = null;
+      currentProfile = null;
+      enteredUserId = null;
+      showAuth();
+      showError("Murmur could not verify your account status. You have been signed out for your security. Please try again.");
+    }
+    return true;
   } finally {
     restrictionCheckInFlight = false;
     if (!currentUser?.id) restrictionHandling = false;
@@ -89,7 +117,7 @@ function startRestrictionWatch(user) {
       }
     });
 
-  restrictionWatchTimer = setInterval(check, 1000);
+  restrictionWatchTimer = setInterval(check, 5000);
   restrictionForegroundCheck = check;
   document.addEventListener("visibilitychange", restrictionForegroundCheck);
   window.addEventListener("focus", restrictionForegroundCheck);
