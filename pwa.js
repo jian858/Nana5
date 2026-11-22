@@ -12,6 +12,7 @@
     @keyframes murmur-pop-in{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
     #murmur-install-button{position:fixed;z-index:1200;right:16px;bottom:calc(18px + env(safe-area-inset-bottom));display:none;align-items:center;gap:8px;border:0;border-radius:999px;padding:13px 18px;background:#14c8a0;color:#073c32;font:700 14px system-ui,sans-serif;box-shadow:0 5px 20px #0003}
     #murmur-install-button.show{display:flex}
+    body.chat-open #murmur-install-button{display:none!important}
     @media(prefers-reduced-motion:reduce){#murmur-connection-card{animation:none}}
   `;
   document.head.appendChild(style);
