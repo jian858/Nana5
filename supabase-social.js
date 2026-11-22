@@ -572,10 +572,6 @@ async function openConversation(id) {
   document.querySelector(".chat-layout")?.classList.add("open");
   el("chatName") && (el("chatName").textContent = "Loading chat…");
   el("chatStatus") && (el("chatStatus").textContent = "Connecting…");
-  // Refresh the sidebar in the background. It must never delay showing the
-  // selected conversation on slower mobile connections.
-  void renderChats();
-
   try {
     // Fetch identity, participants, and the first message page together.
     // Previously message loading waited for a separate profile request.
@@ -592,6 +588,17 @@ async function openConversation(id) {
     // Paint messages immediately; profile details can finish loading afterward.
     await renderConversationMessages(id, { rows: firstMessages, currentUserId });
     if (run !== conversationOpenRun || root.dataset.conversationId !== id) return;
+
+    // Make the composer and live updates available as soon as messages are visible.
+    startConversationTyping(id);
+    if (messageChannel) supabase.removeChannel(messageChannel);
+    messageChannel = supabase.channel("murmur-chat-" + id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: "conversation_id=eq." + id },
+        () => { if (root.dataset.conversationId === id) void renderConversationMessages(id); })
+      .subscribe();
+    conversations.markRead(id).catch(error => console.warn("[Murmur chat] Could not update read state:", error));
+    el("messageInput")?.focus();
+
     const personPromise = otherId
       ? supabase.from("murmur_public_profiles")
           .select("id,username,display_name,avatar_url")
@@ -604,7 +611,6 @@ async function openConversation(id) {
     const name = activeConversationPerson?.display_name || activeConversationPerson?.username || "Conversation";
     if (el("chatName")) el("chatName").textContent = name;
     if (el("chatStatus")) el("chatStatus").textContent = activeConversationPerson?.username ? "@" + activeConversationPerson.username : "Private chat";
-    startConversationTyping(id);
     const profileButton = el("chatProfileBtn");
     if (profileButton) {
       if (activeConversationPerson?.id) {
@@ -632,14 +638,6 @@ async function openConversation(id) {
         : esc(name.slice(0,1).toUpperCase());
     }
 
-    if (messageChannel) supabase.removeChannel(messageChannel);
-    messageChannel = supabase.channel("murmur-chat-" + id)
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: "conversation_id=eq." + id },
-        () => { if (root.dataset.conversationId === id) void renderConversationMessages(id); })
-      .subscribe();
-    // The first page is already visible. Mark read without delaying the composer.
-    conversations.markRead(id).catch(error => console.warn("[Murmur chat] Could not update read state:", error));
-    el("messageInput")?.focus();
   } catch (error) {
     if (run !== conversationOpenRun || root.dataset.conversationId !== id) return;
     root.innerHTML = '<div class="empty-state" role="alert"><p>This conversation could not be opened.</p><small>' + esc(error.message || "Please check your connection and try again.") + '</small><button type="button" class="btn secondary" data-retry-conversation>Try again</button></div>';
