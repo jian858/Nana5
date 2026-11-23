@@ -124,6 +124,38 @@ function startRestrictionWatch(user) {
   window.addEventListener("online", restrictionForegroundCheck);
 }
 
+async function startGoogleOAuth(button, errorTarget, label = "Continue with Google") {
+  if (!button || button.disabled) return;
+  const setMessage = message => {
+    if (errorTarget === authError) showError(message);
+    else if (errorTarget) errorTarget.textContent = message;
+  };
+  setMessage("");
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  button.textContent = "Connecting to Google…";
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin + "/",
+        queryParams: { prompt: "select_account" }
+      }
+    });
+    if (error) throw error;
+  } catch (error) {
+    console.error("[Murmur Google OAuth]", error);
+    const raw = String(error?.message || "");
+    const message = /missing OAuth secret/i.test(raw)
+      ? "Google sign-in is not fully configured in Murmur yet. The administrator must add the Google OAuth client ID and client secret in Supabase Authentication → Providers → Google."
+      : (raw || "Google sign-in could not start. Please try again.");
+    setMessage(message);
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+    button.textContent = label;
+  }
+}
+
 function showError(message) {
   if (!authError) return;
   const text = String(message ?? "").trim();
@@ -783,6 +815,8 @@ function openSignup() {
       <form class="murmur-signup-form" novalidate>
         <section class="murmur-signup-panel" data-signup-panel="account">
           <h2>Account details</h2><p class="murmur-signup-help">These details are used to create and secure your Murmur account.</p>
+          <button type="button" class="btn secondary murmur-google-signup"><span class="google-g" aria-hidden="true">G</span> Continue with Google</button>
+          <p class="murmur-signup-help">Or create an account with your email address</p>
           <label>Full name<input name="name" maxlength="80" autocomplete="name" placeholder="Your full name" required></label>
           <label>Username<input name="username" maxlength="24" minlength="3" pattern="[A-Za-z0-9_.]{3,24}" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Choose a username" required><small>3–24 letters, numbers, dots or underscores</small></label>
           <label>Email address<input name="email" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com" required></label>
@@ -805,6 +839,9 @@ function openSignup() {
   document.body.appendChild(overlay);
   const form = overlay.querySelector("form");
   const errorBox = overlay.querySelector(".murmur-modal-error");
+  overlay.querySelector(".murmur-google-signup")?.addEventListener("click", event => {
+    void startGoogleOAuth(event.currentTarget, errorBox, "Continue with Google");
+  });
   const showTab = tab => {
     overlay.querySelectorAll("[data-signup-panel]").forEach(panel => panel.hidden = panel.dataset.signupPanel !== tab);
     overlay.querySelectorAll("[data-signup-tab]").forEach(button => {
@@ -1745,36 +1782,11 @@ function wireAuth() {
   $("resendConfirmationBtn")?.addEventListener("click", resendSignupConfirmation);
   const googleButton = $("googleCreateBtn");
   if (googleButton) {
-    // Keep the existing Google sign-in action wired. Supabase must have the
-    // Google provider enabled and its OAuth credentials configured in the
-    // project dashboard for this redirect to succeed.
     googleButton.disabled = false;
     googleButton.removeAttribute("aria-disabled");
     googleButton.title = "Continue with Google";
-    const googleLabel = googleButton.querySelector("span:last-child");
-    if (googleLabel) googleLabel.textContent = "Continue with Google";
-    googleButton.addEventListener("click", async () => {
-      if (googleButton.disabled) return;
-      showError("");
-      googleButton.disabled = true;
-      googleButton.setAttribute("aria-busy", "true");
-      if (googleLabel) googleLabel.textContent = "Connecting to Google…";
-      try {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo: window.location.origin + "/",
-            queryParams: { prompt: "select_account" }
-          }
-        });
-        if (error) throw error;
-      } catch (error) {
-        console.error("[Murmur Google sign-in]", error);
-        showError(error.message || "Google sign-in could not start. Check the Google provider settings in Supabase.");
-        googleButton.disabled = false;
-        googleButton.removeAttribute("aria-busy");
-        if (googleLabel) googleLabel.textContent = "Continue with Google";
-      }
+    googleButton.addEventListener("click", () => {
+      void startGoogleOAuth(googleButton, authError, "Continue with Google");
     });
   }
   try {
