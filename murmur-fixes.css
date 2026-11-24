@@ -1308,3 +1308,15 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
   visibility: hidden !important;
   pointer-events: none !important;
 }
+
+
+/* Reels feed: remove the floating add/plus control from every reel card. */
+.reels-pane .reels-feed button,
+.reels-pane .reels-feed [data-action="add"],
+.reels-pane .reels-feed [data-action="follow"],
+.reels-pane .reels-feed [aria-label*="plus" i],
+.reels-pane .reels-feed [title*="plus" i] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
