@@ -3,7 +3,7 @@
  * No external identity bridge or fallback is loaded.
  */
 import { supabase } from "./supabase-client.js?v=20261124-2";
-import { posts, profiles, storage, friendships, stories, reels, userNotes, messages, conversations, comments, postLikes, accountRestrictions } from "./supabase-data.js?v=20261124-3";
+import { posts, profiles, storage, friendships, stories, reels, userNotes, messages, conversations, comments, postLikes, accountRestrictions } from "./supabase-data.js?v=20261124-4";
 import { initSupabaseSocial, openDirectChat } from "./supabase-social.js?v=20261124-2";
 import { renderFeed, watchFeed, stopWatchingFeed } from "./tabs/home.js?v=20261124-2";
 import { renderReels } from "./tabs/reels.js?v=20261124-4";
