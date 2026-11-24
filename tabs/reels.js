@@ -1,5 +1,5 @@
 /* Murmur Reels tab. Owns reel rendering. */
-import { reels, storage } from "../supabase-data.js?v=20261122-4";
+import { reels, storage } from "../supabase-data.js?v=20261124-2";
 const el = id => document.getElementById(id);
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fail = (container, error) => { if (container) container.innerHTML = '<p class="empty-state">' + esc(error.message || "Could not load this section.") + '</p>'; };
