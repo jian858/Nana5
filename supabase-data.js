@@ -1,5 +1,5 @@
 /* Murmur data access — explicit Supabase Postgres operations. */
-import { supabase, requireUser } from "./supabase-client.js?v=20261122-2";
+import { supabase, requireUser } from "./supabase-client.js?v=20261124-2";
 
 const PAGE_SIZE = 20;
 
