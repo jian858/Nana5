@@ -1281,3 +1281,14 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
 .murmur-typing-dots i:nth-child(2) { animation-delay:.15s; }
 .murmur-typing-dots i:nth-child(3) { animation-delay:.3s; }
 @keyframes murmurTypingPulse { 0%,60%,100% { opacity:.3; transform:translateY(0); } 30% { opacity:1; transform:translateY(-3px); } }
+
+
+/* Remove the floating plus/follow control from inside each Reel video. */
+.reel .reel-side button:has(svg use[href*="plus"]),
+.reel .reel-side button:has(svg use[xlink\\:href*="plus"]),
+.reel .reel-side button.reel-follow,
+.reel .reel-side [data-rfollow],
+.reel .reel-side [data-reel-follow],
+.reel [data-reel-plus]{
+  display:none!important;
+}
