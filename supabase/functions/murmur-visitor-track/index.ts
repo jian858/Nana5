@@ -9,6 +9,34 @@ const cors = {
 const reply = (status: number, body: Record<string, unknown>) =>
   new Response(JSON.stringify(body), { status, headers: cors });
 
+function classifyVisitor(req: Request) {
+  const userAgent = (req.headers.get("user-agent") || "").slice(0, 500).trim();
+  const clientHints = [
+    req.headers.get("sec-ch-ua") || "",
+    req.headers.get("sec-ch-ua-platform") || "",
+  ].join(" ");
+  const combined = userAgent + " " + clientHints;
+
+  if (!userAgent) {
+    return { visitorType: "unknown", reason: "Browser identity header was missing" };
+  }
+
+  const automation = /headless|phantomjs|selenium|webdriver|playwright|puppeteer|httpclient|python-requests|scrapy|curl\/|wget\/|java\/|go-http-client/i;
+  const crawlers = /\b(bot|crawler|spider|slurp|bingpreview|facebookexternalhit|preview|fetcher|monitoring)\b/i;
+  if (automation.test(combined)) {
+    return { visitorType: "suspected_bot", reason: "User-agent indicates automation or headless browsing" };
+  }
+  if (crawlers.test(userAgent)) {
+    return { visitorType: "suspected_bot", reason: "User-agent identifies a crawler or automated fetcher" };
+  }
+
+  const knownBrowser = /Mozilla\/5\.0|Chrome\/|CriOS\/|Firefox\/|FxiOS\/|Safari\/|Edg\/|OPR\/|SamsungBrowser\/|Android|iPhone|iPad/i;
+  if (knownBrowser.test(userAgent)) {
+    return { visitorType: "likely_human", reason: "Recognized consumer browser; human identity is not verified" };
+  }
+  return { visitorType: "unknown", reason: "User-agent did not match a known browser or bot signature" };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return reply(405, { error: "Method not allowed." });
@@ -28,6 +56,7 @@ Deno.serve(async (req: Request) => {
     const rawPath = String(body.page_path || body.p_page_path || "/").split("?")[0].split("#")[0];
     const pagePath = rawPath.startsWith("/") && rawPath.length <= 120 && /^\/[a-zA-Z0-9/_-]*$/.test(rawPath)
       ? rawPath : "/";
+    const classification = classifyVisitor(req);
 
     const forwarded = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "";
     const ip = forwarded.split(",")[0].trim().slice(0, 80);
@@ -44,6 +73,8 @@ Deno.serve(async (req: Request) => {
     const { data, error } = await db.rpc("record_murmur_visit", {
       p_visitor_id: visitorId,
       p_page_path: pagePath,
+      p_visitor_type: classification.visitorType,
+      p_detection_reason: classification.reason,
     });
     if (error) throw error;
     if (data === true) {
@@ -52,14 +83,23 @@ Deno.serve(async (req: Request) => {
         await channel.send({
           type: "broadcast",
           event: "visitor-change",
-          payload: { visitor_id: visitorId, page_path: pagePath, at: new Date().toISOString() },
+          payload: {
+            visitor_id: visitorId,
+            page_path: pagePath,
+            visitor_type: classification.visitorType,
+            at: new Date().toISOString(),
+          },
         });
         await db.removeChannel(channel);
       } catch (_) {
         // Visitor recording succeeds even if the optional admin live notification fails.
       }
     }
-    return reply(200, { recorded: data === true, throttled: data === false });
+    return reply(200, {
+      recorded: data === true,
+      throttled: data === false,
+      visitor_type: classification.visitorType,
+    });
   } catch (error) {
     console.error("murmur-visitor-track failure", error instanceof Error ? error.message : error);
     return reply(503, { error: "Visitor tracking is temporarily unavailable." });
