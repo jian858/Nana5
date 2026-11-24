@@ -466,7 +466,13 @@ export const storage = {
     const extensions = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/avif": ".avif", "video/mp4": ".mp4", "video/webm": ".webm" };
     const path = user.id + "/" + safeFolder + "/" + crypto.randomUUID() + extensions[file.type];
     const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
-      cacheControl: "3600", upsert: false, contentType: file.type
+      cacheControl: "3600", upsert: false, contentType: file.type,
+      metadata: ["posts", "stories", "reels"].includes(safeFolder) ? {
+        murmur_watermark: "MURMUR",
+        murmur_watermark_version: "1",
+        murmur_watermark_type: "invisible-provenance",
+        murmur_media_source: safeFolder
+      } : undefined
     });
     if (error) throw error;
     const isPublic = bucket === "murmur-avatars";
