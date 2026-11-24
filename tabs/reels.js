@@ -16,6 +16,16 @@ function openReelComposer(root) {
   form.className = "reel-composer";
   form.innerHTML = '<label>Choose video<input name="video" type="file" accept="video/mp4,video/webm" required></label><label>Title<input name="title" type="text" maxlength="120" placeholder="Give your reel a title"></label><label>Caption<textarea name="caption" maxlength="2000" rows="3" placeholder="Write a caption"></textarea></label><label>Audience<select name="audience"><option value="public">Public</option><option value="friends">Friends</option><option value="private">Only me</option></select></label><p class="reel-upload-status" role="status"></p><button class="btn primary" type="submit">Publish reel</button><button class="btn secondary" type="button" data-reel-cancel>Cancel</button>';
   root.prepend(form);
+  const videoPicker = form.elements.video;
+  videoPicker.addEventListener("change", () => {
+    const selected = videoPicker.files?.[0];
+    if (!selected) return;
+    const caption = form.elements.caption;
+    const status = form.querySelector(".reel-upload-status");
+    status.textContent = "Video selected. Add your caption.";
+    caption.focus({ preventScroll: true });
+    caption.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
   form.querySelector("[data-reel-cancel]").addEventListener("click", () => form.remove());
   form.addEventListener("submit", async event => {
     event.preventDefault();
