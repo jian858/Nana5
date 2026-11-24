@@ -1,11 +1,11 @@
 /* Supabase-only social features for Murmur. */
-import { supabase } from "./supabase-client.js?v=20261122-2";
-import { friendships, reels, conversations, messages, storage } from "./supabase-data.js?v=20261122-6";
+import { supabase } from "./supabase-client.js?v=20261124-2";
+import { friendships, reels, conversations, messages, storage } from "./supabase-data.js?v=20261124-2";
 import { renderStories } from "./tabs/stories.js";
 import { renderReels } from "./tabs/reels.js";
 import { renderNotes } from "./tabs/notes.js";
-import { renderAlerts, setAlertFilter } from "./tabs/notifications.js?v=20261122-3";
-import { renderFriends, searchPeople } from "./tabs/friends.js?v=20261122-4";
+import { renderAlerts, setAlertFilter } from "./tabs/notifications.js?v=20261124-2";
+import { renderFriends, searchPeople } from "./tabs/friends.js?v=20261124-2";
 
 const el = id => document.getElementById(id);
 let socialChannel = null;
