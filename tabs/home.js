@@ -1,6 +1,6 @@
 /* Murmur Home tab: feed, comments, likes, sharing and live post updates. */
-import { supabase } from "../supabase-client.js?v=20261122-2";
-import { posts, comments, postLikes } from "../supabase-data.js?v=20261122-4";
+import { supabase } from "../supabase-client.js?v=20261124-2";
+import { posts, comments, postLikes } from "../supabase-data.js?v=20261124-2";
 const $ = id => document.getElementById(id);
 const safeText = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 export async function renderPostComments(postId, panel) {
