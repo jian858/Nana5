@@ -105,14 +105,6 @@ async function murmurSupabaseSignIn(email, password) {
   return data;
 }
 
-async function murmurSupabaseGoogleSignIn() {
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: { redirectTo: window.location.origin + "/", queryParams: { prompt: "select_account" } }
-  });
-  if (error) throw error;
-  return data;
-}
 
 async function murmurSupabaseSaveProfile(user, profile = {}) {
   if (!user?.id) throw new Error("A signed-in Murmur account is required.");
@@ -126,7 +118,6 @@ async function murmurSupabaseSaveProfile(user, profile = {}) {
     location: String(profile.location || "").slice(0, 100),
     work: String(profile.work || "").slice(0, 100),
     hometown: String(profile.hometown || "").slice(0, 100),
-    phone: String(profile.phone || "").slice(0, 30),
     birthday: profile.birthday || null,
     gender: String(profile.gender || "").slice(0, 40),
     role: String(profile.role || "").slice(0, 80),
@@ -164,7 +155,6 @@ window.MurmurSupabaseAuth = Object.freeze({
   client: supabase,
   signUp: murmurSupabaseSignUp,
   signIn: murmurSupabaseSignIn,
-  signInWithGoogle: murmurSupabaseGoogleSignIn,
   saveProfile: murmurSupabaseSaveProfile,
   getProfile: murmurSupabaseGetProfile,
   resetPassword: murmurSupabaseResetPassword,
