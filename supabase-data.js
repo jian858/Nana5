@@ -447,6 +447,115 @@ export const userNotes = {
   }
 };
 
+async function watermarkImage(file) {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d", { alpha: file.type === "image/png" });
+  if (!ctx) { bitmap.close?.(); throw new Error("This browser cannot prepare a watermarked image."); }
+  ctx.drawImage(bitmap, 0, 0);
+  const fontSize = Math.max(18, Math.round(Math.min(canvas.width, canvas.height) * 0.035));
+  const pad = Math.max(10, Math.round(fontSize * 0.55));
+  const text = "MURMUR";
+  ctx.font = "700 " + fontSize + "px Arial, sans-serif";
+  const width = ctx.measureText(text).width;
+  const x = canvas.width - width - pad * 2 - Math.round(canvas.width * 0.025);
+  const y = canvas.height - fontSize - pad * 2 - Math.round(canvas.height * 0.025);
+  const radius = Math.round(fontSize * 0.3);
+  ctx.fillStyle = "rgba(0,0,0,.58)";
+  ctx.beginPath();
+  ctx.roundRect(x, y, width + pad * 2, fontSize + pad * 2, radius);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.textBaseline = "top";
+  ctx.fillText(text, x + pad, y + pad);
+  bitmap.close?.();
+  const type = ["image/jpeg", "image/png", "image/webp"].includes(file.type) ? file.type : "image/jpeg";
+  const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error("Could not create the watermarked image.")), type, 0.92));
+  return new File([blob], file.name.replace(/\.[^.]+$/, "") + "-murmur." + (type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg"), { type, lastModified: Date.now() });
+}
+
+async function watermarkVideo(file) {
+  if (typeof MediaRecorder === "undefined" || !HTMLCanvasElement.prototype.captureStream) {
+    throw new Error("This browser cannot embed the Murmur video watermark. Please use an updated Chrome browser.");
+  }
+  const sourceUrl = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.playsInline = true;
+  video.preload = "auto";
+  video.src = sourceUrl;
+  try {
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = resolve;
+      video.onerror = () => reject(new Error("The selected video could not be opened for watermarking."));
+    });
+    if (!video.videoWidth || !video.videoHeight) throw new Error("The selected video has no readable video frames.");
+    const scale = Math.min(1, 1280 / video.videoWidth, 1280 / video.videoHeight);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(2, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(2, Math.round(video.videoHeight * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("This browser cannot prepare the watermarked video.");
+    const fontSize = Math.max(18, Math.round(Math.min(canvas.width, canvas.height) * 0.04));
+    const pad = Math.max(10, Math.round(fontSize * 0.55));
+    ctx.font = "700 " + fontSize + "px Arial, sans-serif";
+    const labelWidth = ctx.measureText("MURMUR").width;
+    const drawFrame = () => {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const x = canvas.width - labelWidth - pad * 2 - Math.round(canvas.width * 0.025);
+      const y = canvas.height - fontSize - pad * 2 - Math.round(canvas.height * 0.025);
+      ctx.fillStyle = "rgba(0,0,0,.58)";
+      ctx.beginPath();
+      ctx.roundRect(x, y, labelWidth + pad * 2, fontSize + pad * 2, Math.round(fontSize * 0.3));
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.textBaseline = "top";
+      ctx.fillText("MURMUR", x + pad, y + pad);
+    };
+    const stream = canvas.captureStream(30);
+    const sourceStream = video.captureStream?.() || video.mozCaptureStream?.();
+    if (sourceStream) sourceStream.getAudioTracks().forEach(track => stream.addTrack(track));
+    const mimeType = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find(type => MediaRecorder.isTypeSupported(type));
+    if (!mimeType) throw new Error("This browser cannot encode a watermarked video. Please use an updated Chrome browser.");
+    const chunks = [];
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2200000, audioBitsPerSecond: 128000 });
+    const finished = new Promise((resolve, reject) => {
+      recorder.ondataavailable = event => { if (event.data?.size) chunks.push(event.data); };
+      recorder.onerror = () => reject(new Error("Video watermark processing failed. Please try a shorter video."));
+      recorder.onstop = () => resolve(new Blob(chunks, { type: "video/webm" }));
+    });
+    let frameId;
+    const paint = () => { if (!video.paused && !video.ended) { drawFrame(); frameId = requestAnimationFrame(paint); } };
+    drawFrame();
+    recorder.start(1000);
+    await video.play();
+    paint();
+    await new Promise((resolve, reject) => {
+      video.onended = resolve;
+      video.onerror = () => reject(new Error("Video processing stopped unexpectedly."));
+    });
+    if (frameId) cancelAnimationFrame(frameId);
+    drawFrame();
+    recorder.stop();
+    const blob = await finished;
+    stream.getTracks().forEach(track => track.stop());
+    sourceStream?.getTracks().forEach(track => track.stop());
+    if (!blob.size) throw new Error("The watermarked video was empty.");
+    const name = file.name.replace(/\.[^.]+$/, "") + "-murmur.webm";
+    return new File([blob], name, { type: "video/webm", lastModified: Date.now() });
+  } finally {
+    video.pause();
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
+
+async function watermarkMedia(file) {
+  if (file.type.startsWith("image/")) return watermarkImage(file);
+  if (file.type.startsWith("video/")) return watermarkVideo(file);
+  throw new Error("Only supported image and video files can be uploaded.");
+}
+
 export const storage = {
   upload: async (file, { bucket, folder = "uploads" }) => {
     const user = await requireUser();
@@ -470,7 +579,7 @@ export const storage = {
       metadata: ["posts", "stories", "reels"].includes(safeFolder) ? {
         murmur_watermark: "MURMUR",
         murmur_watermark_version: "1",
-        murmur_watermark_type: "invisible-provenance",
+        murmur_watermark_type: "visible-burned-in",
         murmur_media_source: safeFolder
       } : undefined
     });
@@ -482,7 +591,7 @@ export const storage = {
   uploadAvatar: async (file) => storage.upload(file, { bucket: "murmur-avatars", folder: "profiles" }),
   uploadMedia: async (file, folder = "posts") => {
     const bucket = ["posts", "stories", "reels"].includes(folder) ? "murmur-" + folder : "murmur-posts";
-    return storage.upload(file, { bucket, folder });
+    const watermarkedFile = await watermarkMedia(file);\n    return storage.upload(watermarkedFile, { bucket, folder });
   },
   url: async (bucket, path, expiresIn = 3600) => {
     const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
