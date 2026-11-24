@@ -1292,3 +1292,19 @@ html[data-theme="dark"] .murmur-recovery-card input{background:#0d191b;border-co
 .reel [data-reel-plus]{
   display:none!important;
 }
+
+
+/* Keep the floating follow/add (+) action out of every Reel, including legacy markup. */
+.reel .reel-side .reel-follow,
+.reel .reel-side [data-rfollow],
+.reel .reel-side [data-reel-follow],
+.reel [data-reel-plus],
+.reel .reel-side button[aria-label*="follow" i],
+.reel .reel-side button[title*="follow" i],
+.reel .reel-side button[data-action*="follow" i],
+.reel .reel-side button:has(svg use[href*="plus"]),
+.reel .reel-side button:has(svg use[xlink\\:href*="plus"]) {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
