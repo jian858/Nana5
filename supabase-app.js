@@ -11,6 +11,37 @@ import { renderReels } from "./tabs/reels.js?v=20261124-4";
 const authModalStyles = document.createElement("style");
 authModalStyles.textContent = ".murmur-auth-modal{position:fixed;inset:0;z-index:9999;background:#101828a8;display:grid;place-items:center;padding:18px}.murmur-auth-modal section{position:relative;width:min(100%,440px);max-height:90dvh;overflow:auto;background:var(--panel,#fff);color:var(--text,#17202a);border-radius:20px;padding:26px;box-shadow:0 20px 70px #0004}.murmur-auth-modal h2{margin:0 36px 20px 0}.murmur-auth-modal label{display:grid;gap:6px;margin:12px 0;font-size:14px;font-weight:600}.murmur-auth-modal input{width:100%;min-height:44px;border:1px solid var(--border,#d5dbe3);border-radius:10px;padding:10px;background:var(--input-bg,#fff);color:inherit}.murmur-modal-close{position:absolute;right:14px;top:12px;border:0;background:transparent;font-size:26px}.murmur-modal-error{color:#c62828;font-size:13px;min-height:18px}.murmur-signup-submit{width:100%;min-height:46px}.murmur-auth-modal textarea,.murmur-auth-modal select{width:100%;min-height:44px;border:1px solid var(--border,#d5dbe3);border-radius:10px;padding:10px;background:var(--input-bg,#fff);color:inherit;font:inherit}.murmur-menu-dialog .btn{margin:8px 0;min-height:44px}.murmur-menu-dialog p{line-height:1.55}.murmur-menu-dialog-body{overflow-wrap:anywhere}";
 document.head.appendChild(authModalStyles);
+
+// Refresh stale Supabase JWTs before Murmur's server-side restriction check.
+// Retry once on 401 only; restriction checks remain mandatory and fail closed.
+async function invokeMurmurAccountAccess() {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  let session = sessionData?.session || null;
+  if (!session?.access_token || !session?.refresh_token) {
+    throw new Error("Your Murmur session is missing. Please sign in again.");
+  }
+
+  if (!session.expires_at || session.expires_at * 1000 <= Date.now() + 60_000) {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error || !data?.session?.access_token) {
+      throw error || new Error("Murmur could not refresh your sign-in session. Please sign in again.");
+    }
+    session = data.session;
+  }
+
+  const invoke = (accessToken) => supabase.functions.invoke("murmur-account-access", {
+    headers: { Authorization: "Bearer " + accessToken }
+  });
+  let response = await invoke(session.access_token);
+  const status = response.error?.context?.status || response.error?.status || 0;
+  if (status === 401) {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error || !data?.session?.access_token) throw response.error;
+    response = await invoke(data.session.access_token);
+  }
+  return response;
+}
 const signupScreenStyles=document.createElement('style');signupScreenStyles.textContent="\n/* Full-screen, two-section account creation flow. */\n.murmur-signup-screen{position:fixed;inset:0;z-index:10020;display:flex;flex-direction:column;background:var(--bg,#f5f8f7);color:var(--ink,#17202a);overflow:hidden}\n.murmur-signup-top{height:62px;flex:0 0 62px;display:flex;align-items:center;gap:14px;padding:0 max(18px,calc((100vw - 760px)/2));border-bottom:1px solid var(--line,#e3e9e7);background:var(--surface,#fff)}\n.murmur-signup-back{width:38px;height:38px;border:1px solid var(--line,#e3e9e7);border-radius:12px;background:transparent;color:inherit;font-size:22px}\n.murmur-signup-brand{font-weight:850;letter-spacing:-.04em;font-size:1.12rem}\n.murmur-signup-step-label{margin-left:auto;color:var(--muted,#73817e);font-size:.8rem}\n.murmur-signup-main{width:min(100%,680px);margin:0 auto;padding:30px 22px 40px;overflow-y:auto;overscroll-behavior:contain;flex:1}\n.murmur-signup-intro{margin-bottom:24px}\n.murmur-signup-kicker{font-size:.68rem;letter-spacing:.15em;font-weight:850;color:#0a9878}\n.murmur-signup-intro h1{font-size:clamp(1.8rem,5vw,2.35rem);letter-spacing:-.055em;margin:8px 0}\n.murmur-signup-intro p,.murmur-signup-help{color:var(--muted,#73817e);line-height:1.55;margin:0}\n.murmur-signup-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:5px;background:var(--surface-soft,#eaf0ee);border-radius:14px;margin-bottom:22px}\n.murmur-signup-tabs button{min-height:43px;border:0;border-radius:10px;background:transparent;color:var(--muted,#73817e);font-weight:750}\n.murmur-signup-tabs button.active{background:var(--surface,#fff);color:var(--ink,#17202a);box-shadow:0 2px 8px #0000000d}\n.murmur-signup-panel{padding:24px;border:1px solid var(--line,#e3e9e7);border-radius:20px;background:var(--surface,#fff);box-shadow:0 12px 35px #12251d0a}\n.murmur-signup-panel[hidden]{display:none}\n.murmur-signup-panel h2{margin:0 0 6px;font-size:1.2rem}\n.murmur-signup-panel>label,.murmur-signup-two-col label{display:grid;gap:7px;margin-top:17px;font-size:.85rem;font-weight:720}\n.murmur-signup-panel input,.murmur-signup-panel textarea{width:100%;min-height:46px;padding:11px 13px;border:1px solid var(--line,#dce4e1);border-radius:12px;background:var(--bg,#fff);color:var(--ink,#17202a);font:inherit;outline:none}\n.murmur-signup-panel input:focus,.murmur-signup-panel textarea:focus{border-color:#0a9878;box-shadow:0 0 0 3px #0a98781c}\n.murmur-signup-panel textarea{min-height:92px;resize:vertical}\n.murmur-signup-panel small{font-size:.72rem;color:var(--muted,#73817e);font-weight:400}\n.murmur-signup-two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}\n.murmur-signup-password-note{margin:12px 0 20px;color:var(--muted,#73817e);font-size:.76rem}\n.murmur-signup-optional{display:inline;color:var(--muted,#73817e);font-weight:450;font-size:.75rem}\n.murmur-signup-next,.murmur-signup-actions button{width:100%;min-height:48px}\n.murmur-signup-actions{display:flex;gap:10px;margin-top:22px}\n.murmur-signup-actions .btn{flex:1}\n.murmur-signup-screen .murmur-modal-error{width:min(100%,680px);margin:12px auto 0;padding:0 22px;color:#c33b45;line-height:1.5}\n.murmur-signup-footnote{text-align:center;color:var(--muted,#73817e);font-size:.83rem;margin:20px 0 0}\n.murmur-signup-login{border:0;background:transparent;color:#0a9878;font-weight:800}\nhtml[data-theme=\"dark\"] .murmur-signup-screen{background:var(--bg);color:var(--ink)}\nhtml[data-theme=\"dark\"] .murmur-signup-top,html[data-theme=\"dark\"] .murmur-signup-panel{background:var(--surface);border-color:var(--line)}\nhtml[data-theme=\"dark\"] .murmur-signup-panel input,html[data-theme=\"dark\"] .murmur-signup-panel textarea{background:#101b1e;border-color:var(--line);color:var(--ink)}\n@media(max-width:560px){.murmur-signup-main{padding:22px 14px 30px}.murmur-signup-panel{padding:18px 15px}.murmur-signup-two-col{grid-template-columns:1fr;gap:0}.murmur-signup-top{padding:0 14px}}\n";document.head.appendChild(signupScreenStyles);
 const $ = (id) => document.getElementById(id);
 const authPanel = $("auth");
@@ -49,7 +80,7 @@ async function enforceCurrentRestriction(user, showPopup = true) {
   try {
     // The service-role access gate is authoritative; browser RLS must not hide restrictions.
     const response = await withAuthTimeout(
-      supabase.functions.invoke("murmur-account-access"),
+      invokeMurmurAccountAccess(),
       "Secure account restriction check",
       12000
     );
@@ -496,7 +527,7 @@ function showAccountRestriction(restriction) {
     liftCheckInFlight = true;
     try {
       const response = await withAuthTimeout(
-        supabase.functions.invoke("murmur-account-access"),
+        invokeMurmurAccountAccess(),
         "Refresh account notice status",
         12000
       );
@@ -623,7 +654,7 @@ async function enterApp(user) {
       let accessResult;
       try {
         const response = await withAuthTimeout(
-          supabase.functions.invoke("murmur-account-access"),
+          invokeMurmurAccountAccess(),
           "Secure account access verification",
           15000
         );
