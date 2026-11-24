@@ -10,49 +10,6 @@ if (!document.getElementById("murmur-reels-runtime-style")) {
   document.head.append(style);
 }
 
-function openReelComposer(root) {
-  if (root.querySelector(".reel-composer")) return;
-  const form = document.createElement("form");
-  form.className = "reel-composer";
-  form.innerHTML = '<label>Choose video<input name="video" type="file" accept="video/mp4,video/webm" required></label><label>Title<input name="title" type="text" maxlength="120" placeholder="Give your reel a title"></label><label>Caption<textarea name="caption" maxlength="2000" rows="3" placeholder="Write a caption"></textarea></label><label>Audience<select name="audience"><option value="public">Public</option><option value="friends">Friends</option><option value="private">Only me</option></select></label><p class="reel-upload-status" role="status"></p><button class="btn primary" type="submit">Publish reel</button><button class="btn secondary" type="button" data-reel-cancel>Cancel</button>';
-  root.prepend(form);
-  form.querySelector("[data-reel-cancel]").addEventListener("click", () => form.remove());
-  form.addEventListener("submit", async event => {
-    event.preventDefault();
-    const button = form.querySelector('button[type="submit"]');
-    const status = form.querySelector(".reel-upload-status");
-    const file = form.elements.video.files?.[0];
-    if (!file) { status.textContent = "Choose an MP4 or WebM video."; return; }
-    button.disabled = true;
-    status.textContent = "Uploading video…";
-    let uploaded = null;
-    try {
-      const video = document.createElement("video");
-      const duration = await new Promise(resolve => {
-        video.preload = "metadata";
-        video.onloadedmetadata = () => { const d = Number.isFinite(video.duration) ? Math.floor(video.duration) : null; URL.revokeObjectURL(video.src); resolve(d); };
-        video.onerror = () => resolve(null);
-        video.src = URL.createObjectURL(file);
-      });
-      uploaded = await storage.uploadMedia(file, "reels");
-      status.textContent = "Publishing reel…";
-      await reels.create({
-        storagePath: uploaded.path,
-        title: form.elements.title.value,
-        caption: form.elements.caption.value,
-        audience: form.elements.audience.value,
-        durationSeconds: duration
-      });
-      form.remove();
-      await renderReels();
-    } catch (error) {
-      if (uploaded?.path) await storage.remove("murmur-reels", uploaded.path).catch(() => null);
-      status.textContent = error?.message || "Could not publish this reel.";
-      button.disabled = false;
-    }
-  });
-}
-
 export async function renderReels() {
   const root = el("reelsFeed");
   if (!root) return;
