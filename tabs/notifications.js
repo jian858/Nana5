@@ -1,5 +1,5 @@
 /* Murmur Notifications tab. Owns notification data, filters, read state and details. */
-import { supabase } from "../supabase-client.js?v=20261122-2";
+import { supabase } from "../supabase-client.js?v=20261124-2";
 const el = id => document.getElementById(id);
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fail = (container, error) => { if (container) container.innerHTML = '<p class="empty-state">' + esc(error.message || "Could not load this section.") + '</p>'; };
