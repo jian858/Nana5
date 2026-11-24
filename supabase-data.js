@@ -591,7 +591,8 @@ export const storage = {
   uploadAvatar: async (file) => storage.upload(file, { bucket: "murmur-avatars", folder: "profiles" }),
   uploadMedia: async (file, folder = "posts") => {
     const bucket = ["posts", "stories", "reels"].includes(folder) ? "murmur-" + folder : "murmur-posts";
-    const watermarkedFile = await watermarkMedia(file);\n    return storage.upload(watermarkedFile, { bucket, folder });
+    const watermarkedFile = await watermarkMedia(file);
+    return storage.upload(watermarkedFile, { bucket, folder });
   },
   url: async (bucket, path, expiresIn = 3600) => {
     const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
