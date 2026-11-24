@@ -73,10 +73,8 @@ export async function renderReels() {
       ...reel,
       signedMediaUrl: reel.storage_path ? await storage.url("murmur-reels", reel.storage_path) : reel.video_url
     })));
-    root.innerHTML = '<div class="reels-actions"><button class="btn primary" type="button" data-create-reel aria-label="Create reel" title="Create reel"></button></div>' +
-      (displayRows.map(r => '<article class="reel" data-reel-id="' + esc(r.id) + '">' +
+    root.innerHTML = (displayRows.map(r => '<article class="reel" data-reel-id="' + esc(r.id) + '">' +
         (r.signedMediaUrl ? '<video controls playsinline preload="metadata" src="' + esc(r.signedMediaUrl) + '"></video>' : '<p class="empty-state">This reel has no playable video.</p>') +
         '<div class="reel-info"><strong>' + esc(r.title || "Reel") + '</strong><p class="reel-cap">' + esc(r.caption || "") + '</p></div></article>').join("") || '<p class="empty-state">No reels yet. Create the first one.</p>');
-    root.querySelector("[data-create-reel]")?.addEventListener("click", () => openReelComposer(root));
   } catch (error) { fail(root, error); }
 }
