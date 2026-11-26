@@ -998,7 +998,7 @@ function openForgotPasswordPage() {
       }
       searchState.hidden = true;
       status.textContent = data?.message || "Murmur could not read the account check result. Please try again.";
-      if (data?.status === "sent") {
+      if (data?.status === "sent" || data?.status === "accepted") {
         button.dataset.cooldown = "60";
         button.textContent = "Send another link";
       } else if (data?.status === "rate_limited") {
