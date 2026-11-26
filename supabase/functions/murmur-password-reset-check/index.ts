@@ -1,14 +1,27 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json",
-};
-
-function reply(status: number, body: Record<string, unknown>) {
-  return new Response(JSON.stringify(body), { status, headers: cors });
+const allowedOrigins = new Set([
+  "https://murmur-app-7jm.pages.dev",
+  "https://murmurrr.vercel.app",
+  "https://mumur-eta.vercel.app",
+  "http://localhost:3000",
+  "http://127.0.0.1:5500",
+]);
+function corsFor(req: Request) {
+  const origin = req.headers.get("origin") || "";
+  return {
+    ...(allowedOrigins.has(origin) ? { "Access-Control-Allow-Origin": origin, "Vary": "Origin" } : {}),
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json",
+  };
+}
+function reply(req: Request, status: number, body: Record<string, unknown>) {
+  const privateStatuses = new Set(["sent", "not_found", "permanently_deleted", "terminated", "suspended", "scheduled_deletion"]);
+  if (status === 200 && privateStatuses.has(String(body.status || ""))) {
+    body = { status: "accepted", message: "If this email is associated with an eligible Murmur account, a password reset link has been requested. Check your inbox and spam folder. If no email arrives, contact Murmur support." };
+  }
+  return new Response(JSON.stringify(body), { status, headers: corsFor(req) });
 }
 
 function makeDb() {
@@ -34,23 +47,15 @@ async function digest(value: string) {
   return Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-const allowedOrigins = new Set([
-  "https://murmur-app-7jm.pages.dev",
-  "https://murmurrr.vercel.app",
-  "https://mumur-eta.vercel.app",
-  "http://localhost:3000",
-  "http://127.0.0.1:5500",
-]);
-
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  if (req.method !== "POST") return reply(405, { error: "Method not allowed." });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsFor(req) });
+  if (req.method !== "POST") return reply(req, 405, { error: "Method not allowed." });
 
   try {
     const body = await req.json().catch(() => ({}));
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return reply(400, { status: "invalid_email", message: "Enter a valid email address." });
+      return reply(req, 400, { status: "invalid_email", message: "Enter a valid email address." });
     }
 
     const db = makeDb();
@@ -61,7 +66,7 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({
         status: "rate_limited",
         message: "Too many recovery attempts. Please wait five minutes before trying again."
-      }), { status: 429, headers: { ...cors, "Retry-After": "300" } });
+      }), { status: 429, headers: { ...corsFor(req), "Retry-After": "300" } });
     }
 
     // Admin lookup stays on the server. Never return user IDs or profile data.
@@ -78,12 +83,12 @@ Deno.serve(async (req: Request) => {
       const { data: deleted, error } = await db.rpc("murmur_is_permanently_deleted_email", { p_email: email });
       if (error) throw error;
       if (deleted === true) {
-        return reply(200, {
+        return reply(req, 200, {
           status: "permanently_deleted",
           message: "This Murmur account was permanently deleted. It cannot be recovered and no password reset link was sent."
         });
       }
-      return reply(200, {
+      return reply(req, 200, {
         status: "not_found",
         message: "We couldn't find a Murmur account with this email address. No password reset link was sent."
       });
@@ -109,14 +114,14 @@ Deno.serve(async (req: Request) => {
     });
 
     if (active?.status === "terminated") {
-      return reply(200, {
+      return reply(req, 200, {
         status: "terminated",
         message: "This Murmur account has been terminated and permanently disabled. Password reset is unavailable. Contact Murmur support if you believe this is a mistake."
       });
     }
     if (active?.status === "suspended" || (profile?.is_suspended && !active)) {
       const until = active?.ends_at ? new Date(active.ends_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" }) : null;
-      return reply(200, {
+      return reply(req, 200, {
         status: "suspended",
         message: until
           ? "This Murmur account is suspended until " + until + ". Password reset is unavailable while the suspension is active."
@@ -125,7 +130,7 @@ Deno.serve(async (req: Request) => {
     }
     if (active?.status === "scheduled_deletion") {
       const when = active.scheduled_delete_at ? new Date(active.scheduled_delete_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" }) : null;
-      return reply(200, {
+      return reply(req, 200, {
         status: "scheduled_deletion",
         message: when
           ? "This Murmur account is scheduled for permanent deletion on " + when + ". A password reset link cannot be sent."
@@ -133,7 +138,7 @@ Deno.serve(async (req: Request) => {
       });
     }
     if (active?.status === "deleted") {
-      return reply(200, {
+      return reply(req, 200, {
         status: "permanently_deleted",
         message: "This Murmur account was permanently deleted. It cannot be recovered and no password reset link was sent."
       });
@@ -150,17 +155,17 @@ Deno.serve(async (req: Request) => {
         return new Response(JSON.stringify({
           status: "rate_limited",
           message: "Murmur is protecting your inbox. Wait before requesting another reset email."
-        }), { status: 429, headers: { ...cors, "Retry-After": "60" } });
+        }), { status: 429, headers: { ...corsFor(req), "Retry-After": "60" } });
       }
       throw resetError;
     }
 
-    return reply(200, {
+    return reply(req, 200, {
       status: "sent",
       message: "Your account was found and is eligible for recovery. A password reset link has been requested. Check your inbox and spam folder."
     });
   } catch (error) {
     console.error("murmur-password-reset-check:", error);
-    return reply(500, { status: "error", message: "Murmur could not finish checking this account. Please try again later." });
+    return reply(req, 500, { status: "error", message: "Murmur could not finish checking this account. Please try again later." });
   }
 });
