@@ -77,6 +77,35 @@ async function recordModerationCase(
   return data;
 }
 
+
+const ROOT_ADMIN_ID = "18580e2c-ea27-48e7-9169-9696488f92b7";
+const ROLE_STAGE: Record<string, number> = {
+  super_god_admin: 1, super_admin: 2, head_admin: 3, senior_admin: 4, junior_admin: 5,
+};
+const ROLE_LABEL: Record<string, string> = {
+  super_god_admin: "Super God Admin", super_admin: "Super Admin",
+  head_admin: "Head Admin", senior_admin: "Senior Admin", junior_admin: "Junior Admin",
+};
+const ROLE_TABS: Record<string, string[]> = {
+  super_god_admin: ["overview","users","blocks","moderation","identities","reports","posts","appeals","verified_requests","notifications","announcements","errors","system","visitors","activity","admins"],
+  super_admin: ["overview","users","blocks","moderation","reports","posts","appeals","verified_requests","notifications","announcements","visitors","activity"],
+  head_admin: ["overview","users","moderation","reports","posts","appeals","verified_requests"],
+  senior_admin: ["overview","blocks","moderation","reports"],
+  junior_admin: ["overview","reports"],
+};
+const ACTION_STAGE: Record<string, number> = {
+  overview: 5, reports: 5, update_report: 5,
+  blocked_users: 4, remove_block: 4, moderation_cases: 4, moderate_user: 4,
+  lift_moderation_case: 4, review_moderation_appeal: 4,
+  users: 3, set_user_verified: 3, ban_user: 3, unban_user: 3, delete_user: 3,
+  set_user_status: 3, schedule_delete: 3, posts: 3, delete_post: 3,
+  verified_requests: 3, review_verified_request: 3, appeals: 3, update_appeal: 3,
+  notifications: 3, delete_notification: 3, announcements: 3,
+  create_announcement: 3, delete_announcement: 3,
+  visitor_analytics: 2, refresh: 2, identities: 1, errors: 1, system: 1, activity: 1,
+  session: 5, admins: 1, set_admin_role: 1,
+};
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return reply(405, { error: "Method not allowed." });
@@ -103,13 +132,102 @@ Deno.serve(async (req: Request) => {
     if (!admin || admin.email?.toLowerCase() !== user.email?.toLowerCase()) {
       return reply(403, { error: "This Supabase account is not authorized as a Murmur administrator." });
     }
-    // Full dashboard control is reserved for the explicitly enabled super_admin role.
-    if (admin.role !== "super_admin") {
-      return reply(403, { error: "Super Admin permission is required for this control panel." });
+    const stage = ROLE_STAGE[admin.role];
+    if (!stage || (user.id === ROOT_ADMIN_ID && admin.role !== "super_god_admin") ||
+        (user.id !== ROOT_ADMIN_ID && admin.role === "super_god_admin")) {
+      return reply(403, { error: "Administrator role is invalid or not permitted for this account." });
     }
 
     const body = await req.json().catch(() => ({}));
     const action = typeof body.action === "string" ? body.action : "overview";
+    const requiredStage = ACTION_STAGE[action];
+    if (requiredStage === undefined || stage > requiredStage) {
+      return reply(403, { error: "This control is not included in your current administrator stage." });
+    }
+
+    if (action === "session") {
+      return reply(200, {
+        admin: { id: user.id, email: user.email, role: admin.role, role_label: ROLE_LABEL[admin.role] },
+        stage, is_root: user.id === ROOT_ADMIN_ID,
+        allowed_tabs: ROLE_TABS[admin.role] || [],
+      });
+    }
+
+    if (action === "admins") {
+      if (user.id !== ROOT_ADMIN_ID) return reply(403, { error: "Only the Super God Admin can manage administrators." });
+      const { data, error } = await db.from("murmur_admin_allowlist")
+        .select("user_id,email,role,enabled,created_at").order("created_at", { ascending: true });
+      if (error) throw error;
+      return reply(200, { admins: data || [], roles: Object.keys(ROLE_STAGE).filter((role) => role !== "super_god_admin").map((role) => ({ role, label: ROLE_LABEL[role], stage: ROLE_STAGE[role] })) });
+    }
+
+    if (action === "create_admin") {
+      if (user.id !== ROOT_ADMIN_ID || admin.role !== "super_god_admin") {
+        return reply(403, { error: "Only the Super God Admin can create administrator accounts." });
+      }
+      const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      const password = typeof body.password === "string" ? body.password : "";
+      const role = typeof body.role === "string" ? body.role : "";
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+          !["super_admin","head_admin","senior_admin","junior_admin"].includes(role)) {
+        return reply(400, { error: "Enter a valid email and an assignable admin role." });
+      }
+      if (password.length < 12 || password.length > 128) {
+        return reply(400, { error: "Use a new password with at least 12 characters." });
+      }
+      const { data: created, error: createError } = await db.auth.admin.createUser({
+        email, password, email_confirm: false,
+      });
+      if (createError || !created.user) return reply(400, { error: createError?.message || "Supabase could not create the account." });
+      const { data: saved, error: saveError } = await db.from("murmur_admin_allowlist").insert({
+        user_id: created.user.id, email: created.user.email, role, enabled: true,
+      }).select("user_id,email,role,enabled").single();
+      if (saveError) {
+        await db.auth.admin.deleteUser(created.user.id);
+        throw saveError;
+      }
+      try {
+        await audit(db, user.id, "create_admin_account", created.user.id,
+          "Created " + ROLE_LABEL[role] + " account",
+          { role, email, email_confirmed: false });
+      } catch (auditError) {
+        await db.from("murmur_admin_allowlist").delete().eq("user_id", created.user.id);
+        await db.auth.admin.deleteUser(created.user.id);
+        throw auditError;
+      }
+      return reply(201, { ok: true, admin: saved, requires_email_confirmation: true });
+    }
+
+    if (action === "set_admin_role") {
+      if (user.id !== ROOT_ADMIN_ID) return reply(403, { error: "Only the Super God Admin can promote or demote administrators." });
+      const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      const role = typeof body.role === "string" ? body.role : "";
+      const enabled = body.enabled !== false;
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+          !["super_admin","head_admin","senior_admin","junior_admin"].includes(role)) {
+        return reply(400, { error: "Enter a valid registered email and one of the four assignable admin stages." });
+      }
+      let targetUser: any = null;
+      for (let page = 1; page <= 10 && !targetUser; page++) {
+        const { data: pageData, error: pageError } = await db.auth.admin.listUsers({ page, perPage: 1000 });
+        if (pageError) throw pageError;
+        targetUser = (pageData.users || []).find((candidate: any) => (candidate.email || "").toLowerCase() === email) || null;
+        if (!pageData.users || pageData.users.length < 1000) break;
+      }
+      if (!targetUser) return reply(404, { error: "No registered Supabase account was found for that email." });
+      if (targetUser.id === ROOT_ADMIN_ID) return reply(400, { error: "The Super God Admin account is permanently protected." });
+      const { data: prior, error: priorError } = await db.from("murmur_admin_allowlist")
+        .select("user_id,role").eq("user_id", targetUser.id).maybeSingle();
+      if (priorError) throw priorError;
+      const { data: saved, error: saveError } = await db.from("murmur_admin_allowlist").upsert({
+        user_id: targetUser.id, email: targetUser.email, role, enabled,
+      }, { onConflict: "user_id" }).select("user_id,email,role,enabled").single();
+      if (saveError) throw saveError;
+      await audit(db, user.id, prior ? "change_admin_role" : "appoint_admin", targetUser.id,
+        "Set " + ROLE_LABEL[role] + (enabled ? "" : " (disabled)"),
+        { previous_role: prior?.role || null, role, enabled });
+      return reply(200, { ok: true, admin: saved });
+    }
 
     if (action === "refresh") {
       const { data, error } = await db.rpc("consume_murmur_manual_refresh_for_user", {
@@ -120,7 +238,9 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "overview") {
-      const tables = ["profiles", "posts", "messages", "reports", "comments", "stories", "reels", "account_appeals"];
+      const allTables = ["profiles", "posts", "messages", "reports", "comments", "stories", "reels", "account_appeals"];
+      const visibleTables = stage <= 2 ? allTables : (stage === 3 ? ["profiles","posts","reports","account_appeals"] : ["reports"]);
+      const tables = visibleTables;
       const counts = await Promise.all(tables.map(async (table) => {
         const { count, error } = await db.from(table).select("*", { count: "exact", head: true });
         if (error) throw error;
@@ -769,6 +889,9 @@ Deno.serve(async (req: Request) => {
         { count: totalVisits, error: visitsError },
         { count: uniqueToday, error: todayDevicesError },
         { count: visitsToday, error: todayVisitsError },
+        { count: likelyHumanDevices, error: likelyHumanError },
+        { count: suspectedBotDevices, error: suspectedBotError },
+        { count: unknownDevices, error: unknownError },
         { data: eventRows, error: eventRowsError },
         { data: phoneDevices, error: phoneDevicesError },
       ] = await Promise.all([
@@ -778,12 +901,18 @@ Deno.serve(async (req: Request) => {
           .gte("first_seen_at", todayStart.toISOString()),
         db.from("admin_murmur_visitor_events").select("id", { count: "exact", head: true })
           .gte("visited_at", todayStart.toISOString()),
-        db.from("admin_murmur_visitor_events").select("id,visitor_id,page_path,visited_at")
+        db.from("admin_murmur_visitor_devices").select("visitor_id", { count: "exact", head: true })
+          .eq("visitor_type", "likely_human"),
+        db.from("admin_murmur_visitor_devices").select("visitor_id", { count: "exact", head: true })
+          .eq("visitor_type", "suspected_bot"),
+        db.from("admin_murmur_visitor_devices").select("visitor_id", { count: "exact", head: true })
+          .eq("visitor_type", "unknown"),
+        db.from("admin_murmur_visitor_events").select("id,visitor_id,page_path,visited_at,visitor_type,detection_reason")
           .order("visited_at", { ascending: false }).limit(5000),
         db.from("admin_murmur_phone_accounts").select("*")
           .order("last_seen_at", { ascending: false }).limit(100),
       ]);
-      for (const error of [devicesError, visitsError, todayDevicesError, todayVisitsError, eventRowsError, phoneDevicesError]) {
+      for (const error of [devicesError, visitsError, todayDevicesError, todayVisitsError, likelyHumanError, suspectedBotError, unknownError, eventRowsError, phoneDevicesError]) {
         if (error) throw error;
       }
 
@@ -808,6 +937,12 @@ Deno.serve(async (req: Request) => {
         total_visits: totalVisits || 0,
         unique_visitors_today: uniqueToday || 0,
         visits_today_sample: visitsToday || 0,
+        visitor_classification: {
+          likely_human: likelyHumanDevices || 0,
+          suspected_bot: suspectedBotDevices || 0,
+          unknown: unknownDevices || 0,
+          note: "Likely human is based on browser signatures only; it is not identity verification."
+        },
         sample_limited: (totalVisits || 0) > (eventRows || []).length,
         daily,
         pages,
